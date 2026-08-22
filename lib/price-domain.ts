@@ -1,17 +1,22 @@
+import { EVERYDAY_USES } from "./appliances";
+import {
+  formatIntervalLabel,
+  getHelsinkiDateBounds,
+  getHelsinkiDateKey,
+  getNextHelsinkiDateKey,
+} from "./time";
 import type {
   CostEstimate,
+  ExplorerData,
+  HorizonPoints,
   PriceLevel,
   PricePoint,
   QuarterPrice,
 } from "./price-types";
+import type { EverydayUseId } from "./appliances";
 
 const QUARTER_MILLISECONDS = 15 * 60 * 1000;
-const HELSINKI_TIME_FORMATTER = new Intl.DateTimeFormat("fi-FI", {
-  timeZone: "Europe/Helsinki",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
-});
+const HOUR_MILLISECONDS = 60 * 60 * 1000;
 
 type ParsePricePayloadSuccess = {
   ok: true;
@@ -91,17 +96,6 @@ function canonicalTimestamp(milliseconds: number): string {
   return new Date(milliseconds).toISOString();
 }
 
-function formatHelsinkiTime(milliseconds: number): string {
-  const parts = HELSINKI_TIME_FORMATTER.formatToParts(new Date(milliseconds));
-  const hour = parts.find((part) => part.type === "hour")?.value;
-  const minute = parts.find((part) => part.type === "minute")?.value;
-  return `${hour}:${minute}`;
-}
-
-function formatHelsinkiIntervalLabel(startMilliseconds: number, endMilliseconds: number): string {
-  return `${formatHelsinkiTime(startMilliseconds)}–${formatHelsinkiTime(endMilliseconds)}`;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -176,7 +170,7 @@ function unavailableHourlyPoint(hourStartMilliseconds: number): PricePoint {
     id: String(hourStartMilliseconds),
     startAt,
     endAt: canonicalTimestamp(endMilliseconds),
-    label: formatHelsinkiIntervalLabel(hourStartMilliseconds, endMilliseconds),
+    label: formatIntervalLabel(startAt, canonicalTimestamp(endMilliseconds)),
     priceCentsPerKwh: null,
     available: false,
     unavailableReason: "missing-quarter",
@@ -235,7 +229,7 @@ export function deriveHourlyPoint(
     id: String(hourStartMilliseconds),
     startAt,
     endAt: canonicalTimestamp(endMilliseconds),
-    label: formatHelsinkiIntervalLabel(hourStartMilliseconds, endMilliseconds),
+    label: formatIntervalLabel(startAt, canonicalTimestamp(endMilliseconds)),
     priceCentsPerKwh: prices.reduce((sum, price) => sum + price, 0) / prices.length,
     available: true,
   };
@@ -317,4 +311,167 @@ export function findCheapestPoint(points: PricePoint[]): PricePoint | undefined 
   }
 
   return cheapest;
+}
+
+type BuildExplorerDataInput = {
+  quarterPrices: QuarterPrice[];
+  now: Date;
+  fetchedAt: string | null;
+};
+
+const SOURCE = {
+  name: "Pörssisähkö.net",
+  pricesUrl: "https://porssisahko.net/",
+  apiUrl: "https://api.porssisahko.net/v2/latest-prices.json",
+} as const;
+
+function validQuarterStartMilliseconds(quarter: QuarterPrice): number | undefined {
+  const startMilliseconds = parseIsoTimestamp(quarter.startAt);
+  const endMilliseconds = parseIsoTimestamp(quarter.endAt);
+  if (
+    startMilliseconds === undefined ||
+    endMilliseconds === undefined ||
+    startMilliseconds % QUARTER_MILLISECONDS !== 0 ||
+    endMilliseconds - startMilliseconds !== QUARTER_MILLISECONDS ||
+    !Number.isFinite(quarter.priceCentsPerKwh)
+  ) {
+    return undefined;
+  }
+  return startMilliseconds;
+}
+
+function indexQuarterPrices(quarterPrices: QuarterPrice[]): Map<number, QuarterPrice> {
+  const byStart = new Map<number, QuarterPrice>();
+  for (const quarter of quarterPrices) {
+    const startMilliseconds = validQuarterStartMilliseconds(quarter);
+    if (startMilliseconds !== undefined && !byStart.has(startMilliseconds)) {
+      byStart.set(startMilliseconds, quarter);
+    }
+  }
+  return byStart;
+}
+
+function estimatePoint(point: PricePoint): PricePoint {
+  if (!point.available || point.priceCentsPerKwh === null) return point;
+
+  const estimates = Object.fromEntries(
+    EVERYDAY_USES.map((use) => [
+      use.id,
+      calculateUseCost(use.consumptionKwh, point.priceCentsPerKwh!),
+    ]),
+  ) as Record<EverydayUseId, CostEstimate>;
+  return { ...point, estimates };
+}
+
+function createQuarterPoint(
+  startMilliseconds: number,
+  quarterByStart: Map<number, QuarterPrice>,
+): PricePoint {
+  const startAt = canonicalTimestamp(startMilliseconds);
+  const endAt = canonicalTimestamp(startMilliseconds + QUARTER_MILLISECONDS);
+  const source = quarterByStart.get(startMilliseconds);
+  if (source === undefined) {
+    return {
+      id: String(startMilliseconds),
+      startAt,
+      endAt,
+      label: formatIntervalLabel(startAt, endAt),
+      priceCentsPerKwh: null,
+      available: false,
+      unavailableReason: "source-gap",
+    };
+  }
+
+  return {
+    id: String(startMilliseconds),
+    startAt,
+    endAt,
+    label: formatIntervalLabel(startAt, endAt),
+    priceCentsPerKwh: source.priceCentsPerKwh,
+    available: true,
+  };
+}
+
+function buildHorizon(
+  sourcePrices: QuarterPrice[],
+  quarterByStart: Map<number, QuarterPrice>,
+  startMilliseconds: number,
+  endMilliseconds: number,
+): HorizonPoints {
+  const quarterHour = [] as PricePoint[];
+  for (
+    let slotStart = startMilliseconds;
+    slotStart < endMilliseconds;
+    slotStart += QUARTER_MILLISECONDS
+  ) {
+    quarterHour.push(estimatePoint(createQuarterPoint(slotStart, quarterByStart)));
+  }
+
+  const hourly = [] as PricePoint[];
+  const firstHourStart = Math.floor(startMilliseconds / HOUR_MILLISECONDS) * HOUR_MILLISECONDS;
+  for (
+    let hourStart = firstHourStart;
+    hourStart < endMilliseconds;
+    hourStart += HOUR_MILLISECONDS
+  ) {
+    hourly.push(
+      estimatePoint(deriveHourlyPoint(sourcePrices, canonicalTimestamp(hourStart))),
+    );
+  }
+
+  return {
+    hourly: classifyPriceLevels(hourly),
+    quarterHour: classifyPriceLevels(quarterHour),
+  };
+}
+
+export function buildExplorerData({
+  quarterPrices,
+  now,
+  fetchedAt,
+}: BuildExplorerDataInput): ExplorerData {
+  const nowMilliseconds = now.getTime();
+  if (!Number.isFinite(nowMilliseconds)) throw new RangeError("Invalid now instant.");
+
+  const currentQuarterStart =
+    Math.floor(nowMilliseconds / QUARTER_MILLISECONDS) * QUARTER_MILLISECONDS;
+  const next24End = currentQuarterStart + 96 * QUARTER_MILLISECONDS;
+  const tomorrowDateKey = getNextHelsinkiDateKey(getHelsinkiDateKey(now));
+  const tomorrowBounds = getHelsinkiDateBounds(tomorrowDateKey);
+  const tomorrowStart = Date.parse(tomorrowBounds.startAt);
+  const tomorrowEnd = Date.parse(tomorrowBounds.endAt);
+  const sourcePrices = quarterPrices.filter(
+    (quarter) => validQuarterStartMilliseconds(quarter) !== undefined,
+  );
+  const quarterByStart = indexQuarterPrices(sourcePrices);
+
+  const next24Hours = buildHorizon(
+    sourcePrices,
+    quarterByStart,
+    currentQuarterStart,
+    next24End,
+  );
+  const tomorrow = buildHorizon(
+    sourcePrices,
+    quarterByStart,
+    tomorrowStart,
+    tomorrowEnd,
+  );
+  const currentQuarterPoint = next24Hours.quarterHour.find(
+    (point) => point.id === String(currentQuarterStart),
+  );
+  const currentHourPoint = next24Hours.hourly.find(
+    (point) => point.id === String(Math.floor(nowMilliseconds / HOUR_MILLISECONDS) * HOUR_MILLISECONDS),
+  );
+
+  return {
+    fetchedAt,
+    source: SOURCE,
+    currentQuarterId: currentQuarterPoint?.available ? currentQuarterPoint.id : null,
+    currentHourId: currentHourPoint?.available ? currentHourPoint.id : null,
+    next24Hours,
+    tomorrow,
+    uses: EVERYDAY_USES,
+    status: "ready",
+  };
 }
