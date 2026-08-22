@@ -146,7 +146,8 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const [openDialog, setOpenDialog] = useState<DialogName>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
-  const previousDialogRef = useRef<DialogName>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dialogWasOpenRef = useRef(false);
 
   const activeHorizon: HorizonPoints = data[horizon];
   const activePoints = useMemo(
@@ -179,12 +180,16 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
   useEffect(() => {
     if (!openDialog) {
-      if (previousDialogRef.current !== null) openerRef.current?.focus();
-      previousDialogRef.current = openDialog;
+      if (dialogWasOpenRef.current) {
+        openerRef.current?.focus();
+        dialogWasOpenRef.current = false;
+      }
       return;
     }
 
-    dialogRef.current?.focus();
+    dialogWasOpenRef.current = true;
+    closeButtonRef.current?.focus();
+    if (!closeButtonRef.current) dialogRef.current?.focus();
 
     const handleDialogKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -203,6 +208,11 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
+      if (!dialogRef.current.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+        return;
+      }
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
@@ -266,7 +276,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               onClick={(event) => openExplanation("formula", event)}
             >
               <Icon name="info" className="h-4 w-4" />
-              <span className="hidden sm:inline">Miten laskemme?</span>
+              <span aria-hidden="true" className="hidden sm:inline">Miten laskemme?</span>
               <span className="sr-only sm:hidden">Miten laskemme?</span>
             </button>
             <button
@@ -275,7 +285,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               onClick={(event) => openExplanation("source", event)}
             >
               <Icon name="source" className="h-4 w-4" />
-              <span className="hidden sm:inline">Tietolähde</span>
+              <span aria-hidden="true" className="hidden sm:inline">Tietolähde</span>
               <span className="sr-only sm:hidden">Tietolähde</span>
             </button>
           </nav>
@@ -313,6 +323,25 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 <span className="text-slate-400">{horizonLabels[horizon]}</span>
               </div>
               {level ? <p className="mt-3 text-sm leading-6 text-slate-400">{level.description}</p> : null}
+              {cheapestPoint ? (
+                <button
+                  type="button"
+                  className="mt-5 flex w-full items-center justify-between gap-4 rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-left transition hover:border-emerald-200/60 hover:bg-emerald-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                  aria-label={`Halvin saatavilla oleva jakso ${cheapestPoint.label}`}
+                  aria-pressed={selectedPoint?.id === cheapestPoint.id}
+                  onClick={() => setSelectedId(cheapestPoint.id)}
+                >
+                  <span>
+                    <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-emerald-200">
+                      Halvin saatavilla oleva jakso
+                    </span>
+                    <span className="mt-1 block text-sm font-medium text-white">{cheapestPoint.label}</span>
+                  </span>
+                  <span className="shrink-0 font-mono text-sm text-emerald-100">
+                    {formatPrice(cheapestPoint.priceCentsPerKwh!)} snt
+                  </span>
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -398,7 +427,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               {data.uses.map((use) => {
                 const estimate = selectedPoint.estimates?.[use.id];
                 return estimate ? (
-                  <ApplianceCard key={use.id} use={use} estimate={estimate} cheapestPoint={cheapestPoint} />
+                  <ApplianceCard key={use.id} use={use} estimate={estimate} />
                 ) : null;
               })}
             </div>
@@ -417,7 +446,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 {data.source.name}
                 <Icon name="arrow-up-right" className="h-4 w-4" />
               </a>
-              <a className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300" href={data.source.apiUrl} target="_blank" rel="noreferrer">
+              <a className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300" href={data.source.documentationUrl} target="_blank" rel="noreferrer">
                 API-dokumentaatio
                 <Icon name="arrow-up-right" className="h-4 w-4" />
               </a>
@@ -432,6 +461,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         open={openDialog === "formula"}
         onClose={closeDialog}
         dialogRef={dialogRef}
+        closeButtonRef={closeButtonRef}
       >
         <p>
           Arvio käyttää yhtä valittua spot-hintaa koko ennalta määritellylle käytölle. Hinta sisältää lähteen ilmoittaman arvonlisäveron.
@@ -453,6 +483,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         open={openDialog === "source"}
         onClose={closeDialog}
         dialogRef={dialogRef}
+        closeButtonRef={closeButtonRef}
       >
         <p>
           Sahkohetki käyttää Pörssisähkö.netin viimeisimpiä Suomen 15 minuutin spot-hintoja. Palvelin validoi lähteen ja rakentaa tästä näkymään tuntikeskiarvot sekä neljännestuntien tarkat arvot.
@@ -465,8 +496,12 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             Pörssisähkö.net
             <Icon name="arrow-up-right" className="h-4 w-4" />
           </a>
+          <a className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300" href={data.source.documentationUrl} target="_blank" rel="noreferrer">
+            API-dokumentaatio
+            <Icon name="arrow-up-right" className="h-4 w-4" />
+          </a>
           <a className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300" href={data.source.apiUrl} target="_blank" rel="noreferrer">
-            Rajapinta
+            Raakadata (JSON)
             <Icon name="arrow-up-right" className="h-4 w-4" />
           </a>
         </div>

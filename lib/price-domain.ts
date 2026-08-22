@@ -6,6 +6,7 @@ import {
   getNextHelsinkiDateKey,
 } from "./time";
 import type {
+  CostComparison,
   CostEstimate,
   ExplorerData,
   HorizonPoints,
@@ -313,6 +314,52 @@ export function findCheapestPoint(points: PricePoint[]): PricePoint | undefined 
   return cheapest;
 }
 
+const comparisonFormatter = new Intl.NumberFormat("fi-FI", {
+  maximumFractionDigits: 2,
+  minimumFractionDigits: 2,
+});
+
+function getCostComparison(
+  point: PricePoint,
+  cheapestPoint: PricePoint,
+  useId: EverydayUseId,
+): CostComparison {
+  const estimate = point.estimates?.[useId];
+  const cheapestEstimate = cheapestPoint.estimates?.[useId];
+  const savingCents =
+    estimate && cheapestEstimate ? estimate.cents - cheapestEstimate.cents : 0;
+
+  if (!estimate || !cheapestEstimate || savingCents <= 0.005) {
+    return {
+      title: "Paras ajankohta",
+      detail: "Tämä on aktiivisen näkymän edullisin saatavilla oleva jakso.",
+    };
+  }
+
+  return {
+    title: `Säästät ${comparisonFormatter.format(savingCents)} senttiä`,
+    detail: `edullisimmalla jaksolla ${cheapestPoint.label}`,
+  };
+}
+
+function attachComparisons(points: PricePoint[]): PricePoint[] {
+  const cheapestPoint = findCheapestPoint(points);
+  if (!cheapestPoint) return points;
+
+  return points.map((point) => {
+    if (!point.available || !point.estimates) return point;
+
+    const estimates = { ...point.estimates };
+    for (const use of EVERYDAY_USES) {
+      estimates[use.id] = {
+        ...estimates[use.id],
+        comparison: getCostComparison(point, cheapestPoint, use.id),
+      };
+    }
+    return { ...point, estimates };
+  });
+}
+
 type BuildExplorerDataInput = {
   quarterPrices: QuarterPrice[];
   now: Date;
@@ -323,6 +370,7 @@ const SOURCE = {
   name: "Pörssisähkö.net",
   pricesUrl: "https://porssisahko.net/",
   apiUrl: "https://api.porssisahko.net/v2/latest-prices.json",
+  documentationUrl: "https://porssisahko.net/api",
 } as const;
 
 function validQuarterStartMilliseconds(quarter: QuarterPrice): number | undefined {
@@ -420,8 +468,8 @@ function buildHorizon(
   }
 
   return {
-    hourly: classifyPriceLevels(hourly),
-    quarterHour: classifyPriceLevels(quarterHour),
+    hourly: attachComparisons(classifyPriceLevels(hourly)),
+    quarterHour: attachComparisons(classifyPriceLevels(quarterHour)),
   };
 }
 

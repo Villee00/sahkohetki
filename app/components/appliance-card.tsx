@@ -1,10 +1,9 @@
 import type { EverydayUse } from "@/lib/appliances";
-import type { CostEstimate, PricePoint } from "@/lib/price-types";
+import type { CostEstimate } from "@/lib/price-types";
 
 type ApplianceCardProps = {
   use: EverydayUse;
   estimate: CostEstimate;
-  cheapestPoint?: PricePoint;
 };
 
 const numberFormatter = new Intl.NumberFormat("fi-FI", {
@@ -12,30 +11,7 @@ const numberFormatter = new Intl.NumberFormat("fi-FI", {
   minimumFractionDigits: 2,
 });
 
-function getComparison(
-  use: EverydayUse,
-  estimate: CostEstimate,
-  cheapestPoint: PricePoint | undefined,
-): { title: string; detail: string } {
-  const cheapestEstimate = cheapestPoint?.estimates?.[use.id];
-  if (!cheapestPoint || !cheapestEstimate) {
-    return { title: "Paras ajankohta", detail: "Vertailuhinta ei ole saatavilla." };
-  }
-
-  const savingCents = estimate.cents - cheapestEstimate.cents;
-  if (savingCents <= 0.005) {
-    return { title: "Paras ajankohta", detail: "Tämä on aktiivisen näkymän edullisin saatavilla oleva jakso." };
-  }
-
-  return {
-    title: `Säästät ${numberFormatter.format(savingCents)} senttiä`,
-    detail: `edullisimmalla jaksolla ${cheapestPoint.label}`,
-  };
-}
-
-export function ApplianceCard({ use, estimate, cheapestPoint }: ApplianceCardProps) {
-  const comparison = getComparison(use, estimate, cheapestPoint);
-
+export function ApplianceCard({ use, estimate }: ApplianceCardProps) {
   return (
     <article className="appliance-card flex h-full flex-col rounded-2xl border border-slate-700/70 bg-slate-900/70 p-5">
       <div className="flex items-start justify-between gap-4">
@@ -58,10 +34,12 @@ export function ApplianceCard({ use, estimate, cheapestPoint }: ApplianceCardPro
         <p className="font-mono text-sm text-slate-400">{estimate.eurosLabel} €</p>
       </div>
 
-      <div className="mt-5 border-t border-slate-800 pt-4 text-sm">
-        <p className="font-medium text-emerald-300">{comparison.title}</p>
-        <p className="mt-1 leading-5 text-slate-400">{comparison.detail}</p>
-      </div>
+      {estimate.comparison ? (
+        <div className="mt-5 border-t border-slate-800 pt-4 text-sm">
+          <p className="font-medium text-emerald-300">{estimate.comparison.title}</p>
+          <p className="mt-1 leading-5 text-slate-400">{estimate.comparison.detail}</p>
+        </div>
+      ) : null}
 
       <details className="mt-auto pt-5 text-xs text-slate-500">
         <summary className="cursor-pointer font-medium text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300">

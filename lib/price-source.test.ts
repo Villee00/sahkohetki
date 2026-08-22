@@ -70,6 +70,7 @@ describe("Pörssisähkö.net source adapter", () => {
         name: "Pörssisähkö.net",
         pricesUrl: "https://porssisahko.net/",
         apiUrl: "https://api.porssisahko.net/v2/latest-prices.json",
+        documentationUrl: "https://porssisahko.net/api",
       },
       currentQuarterId: null,
       currentHourId: null,

@@ -78,4 +78,23 @@ describe("ExplorerData horizons", () => {
     expect(spring.tomorrow.quarterHour).toHaveLength(92);
     expect(autumn.tomorrow.quarterHour).toHaveLength(100);
   });
+
+  it("serializes the appliance comparison beside each server-owned estimate", () => {
+    const data = buildExplorerData({
+      quarterPrices: sourceFrom("2026-08-22T12:00:00.000Z", 96),
+      now: new Date("2026-08-22T12:00:00.000Z"),
+      fetchedAt: "2026-08-22T12:00:00.000Z",
+    });
+    const cheapestEstimate = data.next24Hours.hourly[0].estimates?.coffee;
+    const laterEstimate = data.next24Hours.hourly[1].estimates?.coffee;
+
+    expect(cheapestEstimate?.comparison).toEqual({
+      title: "Paras ajankohta",
+      detail: "Tämä on aktiivisen näkymän edullisin saatavilla oleva jakso.",
+    });
+    expect(laterEstimate?.comparison).toEqual({
+      title: "Säästät 0,03 senttiä",
+      detail: "edullisimmalla jaksolla 15:00–16:00",
+    });
+  });
 });

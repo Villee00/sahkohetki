@@ -9,6 +9,7 @@ const SOURCE = {
   name: "Pörssisähkö.net",
   pricesUrl: "https://porssisahko.net/",
   apiUrl: API_URL,
+  documentationUrl: "https://porssisahko.net/api",
 } as const;
 
 const REQUEST_UNAVAILABLE_MESSAGE =

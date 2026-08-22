@@ -9,11 +9,17 @@ export type QuarterPrice = {
   priceCentsPerKwh: number;
 };
 
+export type CostComparison = {
+  title: string;
+  detail: string;
+};
+
 export type CostEstimate = {
   cents: number;
   euros: number;
   centsLabel: string;
   eurosLabel: string;
+  comparison?: CostComparison;
 };
 
 export type PricePoint = {
@@ -33,9 +39,16 @@ export type HorizonPoints = {
   quarterHour: PricePoint[];
 };
 
+export type ExplorerSource = {
+  name: string;
+  pricesUrl: string;
+  apiUrl: string;
+  documentationUrl: string;
+};
+
 export type ExplorerData = {
   fetchedAt: string | null;
-  source: { name: string; pricesUrl: string; apiUrl: string };
+  source: ExplorerSource;
   currentQuarterId: string | null;
   currentHourId: string | null;
   next24Hours: HorizonPoints;
