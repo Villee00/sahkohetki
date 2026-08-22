@@ -51,7 +51,7 @@ export type ExplorerData = {
   source: ExplorerSource;
   currentQuarterId: string | null;
   currentHourId: string | null;
-  next24Hours: HorizonPoints;
+  today: HorizonPoints;
   tomorrow: HorizonPoints;
   uses: readonly EverydayUse[];
   status: "ready" | "unavailable";

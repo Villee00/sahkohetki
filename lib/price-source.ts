@@ -72,7 +72,7 @@ function unavailableExplorerData(message: string): ExplorerData {
     source: { ...SOURCE },
     currentQuarterId: null,
     currentHourId: null,
-    next24Hours: { hourly: [], quarterHour: [] },
+    today: { hourly: [], quarterHour: [] },
     tomorrow: { hourly: [], quarterHour: [] },
     uses: EVERYDAY_USES,
     status: "unavailable",

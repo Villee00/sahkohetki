@@ -493,8 +493,11 @@ export function buildExplorerData({
 
   const currentQuarterStart =
     Math.floor(nowMilliseconds / QUARTER_MILLISECONDS) * QUARTER_MILLISECONDS;
-  const next24End = currentQuarterStart + 96 * QUARTER_MILLISECONDS;
-  const tomorrowDateKey = getNextHelsinkiDateKey(getHelsinkiDateKey(now));
+  const todayDateKey = getHelsinkiDateKey(now);
+  const todayBounds = getHelsinkiDateBounds(todayDateKey);
+  const todayStart = Date.parse(todayBounds.startAt);
+  const todayEnd = Date.parse(todayBounds.endAt);
+  const tomorrowDateKey = getNextHelsinkiDateKey(todayDateKey);
   const tomorrowBounds = getHelsinkiDateBounds(tomorrowDateKey);
   const tomorrowStart = Date.parse(tomorrowBounds.startAt);
   const tomorrowEnd = Date.parse(tomorrowBounds.endAt);
@@ -503,11 +506,11 @@ export function buildExplorerData({
   );
   const quarterByStart = indexQuarterPrices(sourcePrices);
 
-  const next24Hours = buildHorizon(
+  const today = buildHorizon(
     sourcePrices,
     quarterByStart,
-    currentQuarterStart,
-    next24End,
+    todayStart,
+    todayEnd,
   );
   const tomorrow = buildHorizon(
     sourcePrices,
@@ -515,10 +518,10 @@ export function buildExplorerData({
     tomorrowStart,
     tomorrowEnd,
   );
-  const currentQuarterPoint = next24Hours.quarterHour.find(
+  const currentQuarterPoint = today.quarterHour.find(
     (point) => point.id === String(currentQuarterStart),
   );
-  const currentHourPoint = next24Hours.hourly.find(
+  const currentHourPoint = today.hourly.find(
     (point) => point.id === String(Math.floor(nowMilliseconds / HOUR_MILLISECONDS) * HOUR_MILLISECONDS),
   );
 
@@ -527,7 +530,7 @@ export function buildExplorerData({
     source: SOURCE,
     currentQuarterId: currentQuarterPoint?.available ? currentQuarterPoint.id : null,
     currentHourId: currentHourPoint?.available ? currentHourPoint.id : null,
-    next24Hours,
+    today,
     tomorrow,
     uses: EVERYDAY_USES,
     status: "ready",

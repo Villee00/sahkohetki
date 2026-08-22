@@ -3,7 +3,7 @@ import { buildExplorerData } from "./price-domain";
 import type { QuarterPrice } from "./price-types";
 
 const sourceFixture: QuarterPrice[] = Array.from({ length: 240 }, (_, index) => {
-  const startMs = Date.parse("2026-08-22T00:00:00.000Z") + index * 15 * 60 * 1000;
+  const startMs = Date.parse("2026-08-21T21:00:00.000Z") + index * 15 * 60 * 1000;
   return {
     id: String(startMs),
     startAt: new Date(startMs).toISOString(),
@@ -39,15 +39,15 @@ function sourceFromPrices(startAt: string, prices: number[]): QuarterPrice[] {
 }
 
 describe("ExplorerData horizons", () => {
-  it("builds the current 24-hour and following Finnish calendar-day views", () => {
+  it("builds today and the following Finnish calendar-day views", () => {
     const data = buildExplorerData({
       quarterPrices: sourceFixture,
       now: new Date("2026-08-22T12:07:00.000Z"),
       fetchedAt: "2026-08-22T12:10:00.000Z",
     });
-    expect(data.next24Hours.quarterHour).toHaveLength(96);
+    expect(data.today.quarterHour).toHaveLength(96);
     expect(data.tomorrow.quarterHour.length).toBeGreaterThanOrEqual(92);
-    expect(data.next24Hours.hourly.every((point) => point.estimates)).toBe(true);
+    expect(data.today.hourly.every((point) => point.estimates)).toBe(true);
   });
 
   it("exposes a source gap and makes its containing hour unavailable", () => {
@@ -58,10 +58,10 @@ describe("ExplorerData horizons", () => {
       fetchedAt: "2026-08-22T12:10:00.000Z",
     });
     expect(
-      data.next24Hours.quarterHour.find((point) => point.startAt === missingStart),
+      data.today.quarterHour.find((point) => point.startAt === missingStart),
     ).toMatchObject({ available: false, unavailableReason: "source-gap" });
     expect(
-      data.next24Hours.hourly.find((point) => point.startAt === "2026-08-22T13:00:00.000Z"),
+      data.today.hourly.find((point) => point.startAt === "2026-08-22T13:00:00.000Z"),
     ).toMatchObject({ available: false, unavailableReason: "missing-quarter" });
   });
 
@@ -71,8 +71,8 @@ describe("ExplorerData horizons", () => {
       now: new Date("2026-08-22T12:22:00.000Z"),
       fetchedAt: "2026-08-22T12:25:00.000Z",
     });
-    expect(data.next24Hours.quarterHour[0].startAt).toBe("2026-08-22T12:15:00.000Z");
-    expect(data.next24Hours.hourly).toHaveLength(25);
+    expect(data.today.quarterHour[0].startAt).toBe("2026-08-21T21:00:00.000Z");
+    expect(data.today.hourly).toHaveLength(24);
     expect(data.currentQuarterId).toBe(String(Date.parse("2026-08-22T12:15:00.000Z")));
     expect(data.currentHourId).toBe(String(Date.parse("2026-08-22T12:00:00.000Z")));
   });
@@ -94,12 +94,12 @@ describe("ExplorerData horizons", () => {
 
   it("serializes the appliance comparison beside each server-owned estimate", () => {
     const data = buildExplorerData({
-      quarterPrices: sourceFrom("2026-08-22T12:00:00.000Z", 96),
+      quarterPrices: sourceFrom("2026-08-21T21:00:00.000Z", 96),
       now: new Date("2026-08-22T12:00:00.000Z"),
       fetchedAt: "2026-08-22T12:00:00.000Z",
     });
-    const cheapestEstimate = data.next24Hours.hourly[0].estimates?.coffee;
-    const laterEstimate = data.next24Hours.hourly[1].estimates?.coffee;
+    const cheapestEstimate = data.today.hourly[0].estimates?.coffee;
+    const laterEstimate = data.today.hourly[1].estimates?.coffee;
 
     expect(cheapestEstimate?.comparison).toEqual({
       title: "Paras ajankohta",
@@ -107,13 +107,13 @@ describe("ExplorerData horizons", () => {
     });
     expect(laterEstimate?.comparison).toEqual({
       title: "Säästät 0,04 senttiä",
-      detail: "edullisimmalla jaksolla 15:00–16:00",
+      detail: "edullisimmalla jaksolla 00:00–01:00",
     });
   });
 
   it("describes a positive sub-cent saving instead of calling it the cheapest time", () => {
     const data = buildExplorerData({
-      quarterPrices: sourceFromPrices("2026-08-22T12:00:00.000Z", [
+      quarterPrices: sourceFromPrices("2026-08-21T21:00:00.000Z", [
         5,
         5,
         5,
@@ -126,11 +126,11 @@ describe("ExplorerData horizons", () => {
       now: new Date("2026-08-22T12:00:00.000Z"),
       fetchedAt: "2026-08-22T12:00:00.000Z",
     });
-    const comparison = data.next24Hours.hourly[1].estimates?.coffee?.comparison;
+    const comparison = data.today.hourly[1].estimates?.coffee?.comparison;
 
     expect(comparison).toEqual({
       title: "Säästät alle 0,01 senttiä",
-      detail: "edullisimmalla jaksolla 15:00–16:00",
+      detail: "edullisimmalla jaksolla 00:00–01:00",
     });
   });
 });

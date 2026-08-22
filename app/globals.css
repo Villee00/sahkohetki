@@ -437,7 +437,7 @@ button:disabled {
 
 .price-chart__plot {
   display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr);
+  grid-template-columns: 1rem minmax(0, 1fr);
   gap: 0.65rem;
   min-width: 0;
 }
@@ -550,7 +550,7 @@ button:disabled {
 
 .price-chart__bar {
   position: absolute;
-  right: 50%;
+  right: 40%;
   display: block !important;
   width: min(72%, 2.15rem);
   min-height: 0.15rem;
@@ -591,7 +591,7 @@ button:disabled {
 
 .price-chart__axis {
   height: 4.3rem;
-  margin: 0.85rem 0 0 3.65rem;
+  margin: 0.85rem 0 0 1.65rem;
   align-items: start;
 }
 

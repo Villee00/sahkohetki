@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildExplorerData,
   calculateUseCost,
   classifyPriceLevels,
   deriveHourlyPoint,
@@ -163,5 +164,25 @@ describe("price domain", () => {
       "high",
     ]);
     expect(findCheapestPoint(classified)?.id).toBe("0");
+  });
+
+  it("builds today and tomorrow as Helsinki calendar-day horizons", () => {
+    const data = buildExplorerData({
+      quarterPrices: [],
+      now: new Date("2026-08-22T10:30:00.000Z"),
+      fetchedAt: null,
+    });
+
+    expect(data).not.toHaveProperty("next24Hours");
+    expect(data.today.hourly).toHaveLength(24);
+    expect(data.today.hourly[0]).toMatchObject({
+      startAt: "2026-08-21T21:00:00.000Z",
+      endAt: "2026-08-21T22:00:00.000Z",
+    });
+    expect(data.today.hourly[23]).toMatchObject({
+      startAt: "2026-08-22T20:00:00.000Z",
+      endAt: "2026-08-22T21:00:00.000Z",
+    });
+    expect(data.tomorrow.hourly[0].startAt).toBe("2026-08-22T21:00:00.000Z");
   });
 });

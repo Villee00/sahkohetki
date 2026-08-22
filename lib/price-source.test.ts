@@ -106,7 +106,7 @@ describe("Pörssisähkö.net source adapter", () => {
       },
       currentQuarterId: null,
       currentHourId: null,
-      next24Hours: { hourly: [], quarterHour: [] },
+      today: { hourly: [], quarterHour: [] },
       tomorrow: { hourly: [], quarterHour: [] },
     });
     expect(result.message).toMatch(/saatavilla|varmistaa/i);
