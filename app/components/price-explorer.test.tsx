@@ -133,6 +133,26 @@ it("keeps the current interval and spot value visible in the top header", () => 
   expect(header.textContent).toContain("snt/kWh");
 });
 
+it("updates the top header when a different interval is selected", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  const headerValue = within(screen.getByRole("banner")).getByLabelText(
+    /spot-hinta/i,
+  );
+
+  await user.click(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 14:00–15:00/i,
+    }),
+  );
+
+  expect(headerValue.textContent).toContain("Valittu");
+  expect(headerValue.textContent).toContain("14:00–15:00");
+  expect(headerValue.textContent).toContain("2,00");
+  expect(headerValue.textContent).not.toContain("12,00");
+});
+
 it("shows active-view minimum, average, and maximum prices in the header", async () => {
   const user = userEvent.setup();
   const dataWithTomorrow: ExplorerData = {
