@@ -46,7 +46,9 @@ export function ExplanationDialog({
       >
         <div className="flex items-start justify-between gap-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">Sahkohetki</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
+              Sähköhetki
+            </p>
             <h2 id={titleId} className="mt-2 text-2xl font-semibold text-white">
               {title}
             </h2>
@@ -61,7 +63,10 @@ export function ExplanationDialog({
             <Icon name="close" className="h-5 w-5" />
           </button>
         </div>
-        <div id={descriptionId} className="dialog-content mt-6 space-y-4 text-sm leading-7 text-slate-300">
+        <div
+          id={descriptionId}
+          className="dialog-content mt-6 space-y-4 text-sm leading-7 text-slate-300"
+        >
           {children}
         </div>
       </div>

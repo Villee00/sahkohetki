@@ -37,7 +37,7 @@ const data: ExplorerData = {
   },
   currentQuarterId: expensivePoint.id,
   currentHourId: expensivePoint.id,
-  next24Hours: {
+  today: {
     hourly: [expensivePoint, cheapestPoint],
     quarterHour: [expensivePoint, cheapestPoint],
   },
@@ -128,6 +128,15 @@ it("offers a button that selects the cheapest available interval", async () => {
   expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("14:00–15:00");
 });
 
+it("defaults to today's calendar-day horizon", () => {
+  render(<PriceExplorer data={data} />);
+
+  const todayButton = screen.getByRole("button", { name: "Tänään" });
+  expect(todayButton.getAttribute("aria-pressed")).toBe("true");
+  expect(screen.queryByRole("button", { name: "Seuraavat 24h" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Huomenna" })).toBeTruthy();
+});
+
 it("matches the mockup chart header and control order", () => {
   render(<PriceExplorer data={data} />);
 
@@ -146,6 +155,6 @@ it("matches the mockup chart header and control order", () => {
   expect(headerGroups).toEqual(["Hintatarkkuus", "Aikahorisontti"]);
   expect(screen.getByRole("button", { name: "Tunnittain (h)" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "15 min tarkkuus" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Seuraavat 24h" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Huominen vuorokausi" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Tänään" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Huomenna" })).toBeTruthy();
 });
