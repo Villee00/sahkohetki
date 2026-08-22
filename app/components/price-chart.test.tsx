@@ -26,6 +26,30 @@ const higherPoint = {
   level: "normal" as const,
 };
 
+const previousHourPoint = {
+  ...point,
+  id: "hour-1200",
+  startAt: "2026-08-22T09:00:00.000Z",
+  endAt: "2026-08-22T10:00:00.000Z",
+  label: "12:00–13:00",
+};
+
+const currentHourPoint = {
+  ...point,
+  id: "hour-1300",
+  startAt: "2026-08-22T10:00:00.000Z",
+  endAt: "2026-08-22T11:00:00.000Z",
+  label: "13:00–14:00",
+};
+
+const nextHourPoint = {
+  ...higherPoint,
+  id: "hour-1400",
+  startAt: "2026-08-22T11:00:00.000Z",
+  endAt: "2026-08-22T12:00:00.000Z",
+  label: "14:00–15:00",
+};
+
 it("lets a keyboard-accessible chart button select an available interval", async () => {
   const user = userEvent.setup();
   const onSelect = vi.fn();
@@ -76,6 +100,19 @@ it("renders the mockup-style zero-based chart with a visible price scale", () =>
   const selectedButton = screen.getByRole("button", { name: /11:00/ });
   expect(selectedButton.getAttribute("aria-pressed")).toBe("true");
   expect(selectedButton.querySelector(".price-chart__bar--selected")).toBeTruthy();
+});
+
+it("places the current-time line exactly within the current interval", () => {
+  render(
+    <PriceChart
+      points={[previousHourPoint, currentHourPoint, nextHourPoint]}
+      selectedId={currentHourPoint.id}
+      onSelect={vi.fn()}
+      currentTime={Date.parse("2026-08-22T10:30:00.000Z")}
+    />,
+  );
+
+  expect(screen.getByTestId("price-chart-current-time").style.left).toBe("50%");
 });
 
 it("keeps unavailable intervals in the chart without changing the scale", () => {

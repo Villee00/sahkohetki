@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { PriceExplorer } from "./price-explorer";
 import type { ExplorerData, PricePoint } from "@/lib/price-types";
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 const expensivePoint: PricePoint = {
   id: "hour-1000",
@@ -145,6 +148,28 @@ it("defaults to today's calendar-day horizon", () => {
   expect(todayButton.getAttribute("aria-pressed")).toBe("true");
   expect(screen.queryByRole("button", { name: "Seuraavat 24h" })).toBeNull();
   expect(screen.getByRole("button", { name: "Huomenna" })).toBeTruthy();
+});
+
+it("shows the current-time line only on today's horizon", async () => {
+  vi.spyOn(Date, "now").mockReturnValue(
+    Date.parse("2026-08-22T10:30:00.000Z"),
+  );
+  const user = userEvent.setup();
+  const dataWithTomorrowPoints: ExplorerData = {
+    ...data,
+    tomorrow: {
+      hourly: [expensivePoint, cheapestPoint],
+      quarterHour: [expensivePoint, cheapestPoint],
+    },
+  };
+
+  render(<PriceExplorer data={dataWithTomorrowPoints} />);
+
+  expect(screen.getByTestId("price-chart-current-time")).toBeTruthy();
+
+  await user.click(screen.getByRole("button", { name: "Huomenna" }));
+
+  expect(screen.queryByTestId("price-chart-current-time")).toBeNull();
 });
 
 it("shows a friendly update message instead of a lone partial tomorrow bar", async () => {

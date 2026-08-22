@@ -175,6 +175,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     getInitialSelection(data),
   );
+  const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [openDialog, setOpenDialog] = useState<DialogName>(null);
   const coffeeUse = data.uses.find((use) => use.id === "coffee");
   const openerRef = useRef<HTMLButtonElement | null>(null);
@@ -224,6 +225,13 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     currentPoint?.available && currentPoint.priceCentsPerKwh !== null
       ? currentPoint.priceCentsPerKwh
       : null;
+
+  useEffect(() => {
+    const updateCurrentTime = () => setCurrentTime(Date.now());
+    updateCurrentTime();
+    const intervalId = window.setInterval(updateCurrentTime, 60_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const closeDialog = useCallback(() => {
     setOpenDialog(null);
@@ -581,6 +589,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             points={isTomorrowUnavailable ? [] : activePoints}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            currentTime={horizon === "today" ? currentTime : null}
             headerContent={viewControls}
             emptyMessage={
               isTomorrowUnavailable
