@@ -318,7 +318,7 @@ button:disabled {
   overscroll-behavior-x: contain;
   scrollbar-color: #334155 transparent;
   scrollbar-width: thin;
-  touch-action: pan-x;
+  touch-action: pan-x pan-y;
 }
 
 .price-chart__scroll::-webkit-scrollbar {

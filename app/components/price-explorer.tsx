@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
-import { Icon } from "./icon";
+import { Icon } from "./ui-icon";
 import { PriceChart } from "./price-chart";
 import type { ExplorerData, HorizonPoints, PriceLevel, PricePoint } from "@/lib/price-types";
 

@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject } from "react";
-import { Icon } from "./icon";
+import { Icon } from "./ui-icon";
 
 type ExplanationDialogProps = {
   id: string;
