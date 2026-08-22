@@ -94,7 +94,6 @@ button:disabled {
 .hero-panel,
 .view-controls,
 .price-chart__scroll,
-.price-chart__summary,
 .appliance-card,
 .unavailable-panel,
 .dialog-panel {
@@ -120,6 +119,66 @@ button:disabled {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.current-value {
+  min-width: 0;
+  border-left: 1px solid rgba(148, 163, 184, 0.18);
+  padding-left: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.current-value__context {
+  min-width: 0;
+}
+
+.current-value__label {
+  flex-shrink: 0;
+}
+
+.current-value__time {
+  max-width: 8.5rem;
+}
+
+.current-value__price {
+  letter-spacing: -0.025em;
+}
+
+.price-hero__clock-dot {
+  position: relative;
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--sky);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+}
+
+.price-hero__clock-dot::after {
+  position: absolute;
+  top: 0.16rem;
+  left: 0.32rem;
+  width: 1px;
+  height: 0.22rem;
+  background: var(--ink-950);
+  content: "";
+  transform-origin: bottom center;
+}
+
+.price-hero__interval-value {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.price-hero__actions {
+  min-width: 0;
+}
+
+.price-hero__pig-dot {
+  color: var(--cheap);
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
 .hero-panel {
   position: relative;
   overflow: hidden;
@@ -139,22 +198,9 @@ button:disabled {
   pointer-events: none;
 }
 
-.hero-heading {
-  max-width: 40rem;
-  font-size: clamp(2.35rem, 6vw, 4.4rem) !important;
-  line-height: 0.98 !important;
-  letter-spacing: -0.055em !important;
-}
-
-.hero-metric {
-  border-color: rgba(148, 163, 184, 0.2) !important;
-  background: rgba(7, 17, 30, 0.46) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
-}
-
 .hero-price {
   font-variant-numeric: tabular-nums;
-  font-size: clamp(2.9rem, 7vw, 4.4rem) !important;
+  font-size: clamp(2.25rem, 5vw, 3.5rem) !important;
   letter-spacing: -0.06em !important;
 }
 
@@ -417,20 +463,6 @@ button:disabled {
   color: var(--high);
 }
 
-.price-chart__summary {
-  border-radius: 1rem !important;
-  background: rgba(7, 17, 30, 0.38) !important;
-}
-
-.price-chart__summary-list li {
-  border-color: rgba(148, 163, 184, 0.12) !important;
-}
-
-.price-chart__summary-list li:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
-}
-
 .uses-section {
   min-width: 0;
 }
@@ -530,28 +562,20 @@ body:has(.dialog-backdrop) {
 
 @media (max-width: 47.999rem) {
   .site-header__inner {
-    align-items: flex-start;
+    gap: 0.5rem;
   }
 
   .page-content {
-    padding-top: 1.5rem !important;
+    padding-top: 1.25rem !important;
   }
 
   .hero-panel {
     padding: 1.25rem !important;
   }
 
-  .hero-heading {
-    font-size: clamp(2.2rem, 13vw, 3.3rem) !important;
-  }
-
   .price-chart__header {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .price-chart__summary-list {
-    grid-template-columns: minmax(0, 1fr) !important;
   }
 
   .spectrum-labels {
@@ -566,6 +590,35 @@ body:has(.dialog-backdrop) {
   .dialog-panel {
     max-height: calc(100svh - 1.5rem) !important;
     padding: 1.25rem !important;
+  }
+}
+
+@media (max-width: 30rem) {
+  .site-brand-text {
+    display: none;
+  }
+
+  .current-value {
+    gap: 0.4rem;
+    padding-left: 0.55rem;
+  }
+
+  .current-value__context {
+    gap: 0.35rem;
+  }
+
+  .current-value__time {
+    max-width: 6.2rem;
+    font-size: 0.68rem;
+  }
+
+  .current-value__unit {
+    font-size: 0.58rem;
+  }
+
+  .site-nav-button {
+    padding-right: 0.4rem;
+    padding-left: 0.4rem;
   }
 }
 

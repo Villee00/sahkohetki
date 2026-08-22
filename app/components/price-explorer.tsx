@@ -14,24 +14,20 @@ type DialogName = "formula" | "source" | null;
 
 type LevelCopy = {
   label: string;
-  description: string;
   className: string;
 };
 
 const levelCopy: Record<PriceLevel, LevelCopy> = {
   cheap: {
     label: "Edullinen",
-    description: "Tämä jakso kuuluu aktiivisen näkymän edullisimpaan kolmannekseen.",
     className: "text-emerald-300",
   },
   normal: {
     label: "Tavanomainen",
-    description: "Tämä jakso asettuu aktiivisen näkymän keskimmäiseen kolmannekseen.",
     className: "text-amber-200",
   },
   high: {
     label: "Korkea",
-    description: "Tämä jakso kuuluu aktiivisen näkymän kalleimpaan kolmannekseen.",
     className: "text-rose-300",
   },
 };
@@ -65,6 +61,11 @@ function formatFetchedAt(fetchedAt: string | null): string {
   if (!fetchedAt) return "ei tiedossa";
   const date = new Date(fetchedAt);
   return Number.isFinite(date.getTime()) ? fetchedAtFormatter.format(date) : "ei tiedossa";
+}
+
+function getCurrentPoint(data: ExplorerData): PricePoint | undefined {
+  if (data.currentHourId === null) return undefined;
+  return data.next24Hours.hourly.find((point) => point.id === data.currentHourId);
 }
 
 function firstAvailable(points: PricePoint[]): PricePoint | undefined {
@@ -173,6 +174,11 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     activePoints,
     selectedPoint,
   );
+  const currentPoint = getCurrentPoint(data);
+  const currentPrice =
+    currentPoint?.available && currentPoint.priceCentsPerKwh !== null
+      ? currentPoint.priceCentsPerKwh
+      : null;
 
   const closeDialog = useCallback(() => {
     setOpenDialog(null);
@@ -256,104 +262,110 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   return (
     <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
       <header className="site-header sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
-        <div className="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-5 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:gap-5 sm:px-6 lg:px-8">
           <a
             href="#main-content"
             className="group inline-flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300"
           >
-            <span className="brand-mark inline-flex h-9 w-9 items-center justify-center rounded-xl bg-sky-300 text-slate-950">
-              <Icon name="spark" className="h-5 w-5" />
+            <span className="brand-mark inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-300 text-slate-950">
+              <Icon name="spark" className="h-4 w-4" />
             </span>
-            <span>
+            <span className="site-brand-text">
               <span className="block text-sm font-semibold tracking-tight text-white">Sahkohetki</span>
               <span className="block text-[0.65rem] uppercase tracking-[0.2em] text-slate-500">Spot-hinta arjessa</span>
             </span>
           </a>
-          <nav aria-label="Lisätietoja" className="flex items-center gap-1 sm:gap-2">
-            <button
-              type="button"
-              aria-label="Miten laskemme?"
-              className="site-nav-button inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-              onClick={(event) => openExplanation("formula", event)}
+          <div className="site-header__tools flex min-w-0 items-center gap-1 sm:gap-2">
+            <div
+              className="current-value flex min-w-0 items-center gap-2"
+              aria-label={`Nykyinen spot-hinta ${currentPrice === null ? "ei saatavilla" : `${formatPrice(currentPrice)} snt/kWh`}, aikaväli ${currentPoint?.label ?? "ei saatavilla"}`}
             >
-              <Icon name="info" className="h-4 w-4" />
-              <span aria-hidden="true" className="hidden sm:inline">Miten laskemme?</span>
-              <span className="sr-only sm:hidden">Miten laskemme?</span>
-            </button>
-            <button
-              type="button"
-              aria-label="Tietolähde"
-              className="site-nav-button inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-              onClick={(event) => openExplanation("source", event)}
-            >
-              <Icon name="source" className="h-4 w-4" />
-              <span aria-hidden="true" className="hidden sm:inline">Tietolähde</span>
-              <span className="sr-only sm:hidden">Tietolähde</span>
-            </button>
-          </nav>
+              <span className="current-value__context flex min-w-0 items-baseline gap-2">
+                <span className="current-value__label text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-sky-300">Nyt</span>
+                <span className="current-value__time truncate font-mono text-xs text-slate-300">{currentPoint?.label ?? "Ei saatavilla"}</span>
+              </span>
+              <span className="current-value__price shrink-0 font-mono text-sm font-semibold text-white">
+                {currentPrice === null ? "—" : formatPrice(currentPrice)}
+              </span>
+              <span className="current-value__unit shrink-0 text-[0.65rem] text-slate-500">snt/kWh</span>
+            </div>
+            <nav aria-label="Lisätietoja" className="flex items-center gap-0.5 sm:gap-1">
+              <button
+                type="button"
+                aria-label="Miten laskemme?"
+                className="site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3"
+                onClick={(event) => openExplanation("formula", event)}
+              >
+                <Icon name="info" className="h-4 w-4" />
+                <span aria-hidden="true" className="hidden sm:inline">Miten laskemme?</span>
+                <span className="sr-only sm:hidden">Miten laskemme?</span>
+              </button>
+              <button
+                type="button"
+                aria-label="Tietolähde"
+                className="site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3"
+                onClick={(event) => openExplanation("source", event)}
+              >
+                <Icon name="source" className="h-4 w-4" />
+                <span aria-hidden="true" className="hidden sm:inline">Tietolähde</span>
+                <span className="sr-only sm:hidden">Tietolähde</span>
+              </button>
+            </nav>
+          </div>
         </div>
       </header>
 
-      <div id="main-content" className="page-content mx-auto max-w-7xl space-y-8 px-4 pb-16 pt-8 sm:px-6 lg:px-8 lg:pt-12">
-        <section aria-labelledby="selected-heading" className="hero-panel overflow-hidden rounded-3xl border border-slate-700/70 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/30 sm:p-8">
-          <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-300">Sähkön hinta nyt ja pian</p>
-              <h1 id="selected-heading" className="hero-heading mt-4 max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
-                {heading}
-              </h1>
-              <p className="mt-4 max-w-xl text-base leading-7 text-slate-400">
-                Valitse yksi hintajakso, niin sama verollinen spot-hinta näkyy kaikkien arjen käyttöjen kustannusarviona.
-              </p>
-            </div>
-
-            <div className="hero-metric rounded-2xl border border-slate-700 bg-slate-950/45 p-5">
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Valittu spot-hinta</p>
-              <div className="mt-2 flex flex-wrap items-end gap-x-3 gap-y-2">
+      <div id="main-content" className="page-content mx-auto max-w-7xl space-y-7 px-4 pb-16 pt-6 sm:px-6 lg:px-8 lg:pt-8">
+        <section aria-labelledby="selected-heading" className="hero-panel overflow-hidden rounded-3xl border border-slate-700/70 bg-slate-900/80 p-5 shadow-2xl shadow-slate-950/30 sm:p-6">
+          <h1 id="selected-heading" className="sr-only">{heading}</h1>
+          <div className="price-hero__top flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+            <div className="min-w-0">
+              <div className="price-hero__interval flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                <span className="price-hero__clock-dot" aria-hidden="true" />
+                <span>Valittu aikaväli:</span>
+                <span className="price-hero__interval-value rounded-lg border border-slate-700 bg-slate-950/55 px-2 py-1 font-mono text-slate-200">
+                  {selectedPoint?.label ?? "Ei saatavilla"}
+                </span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <span className="hero-price font-mono text-5xl font-semibold tracking-tight text-white sm:text-6xl">
                   {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
                 </span>
-                <span className="pb-2 font-mono text-sm text-slate-400">snt/kWh · sis. ALV</span>
+                <span className="font-mono text-base text-slate-400">snt / kWh</span>
+                <span className="font-mono text-xs text-slate-500">(sis. ALV)</span>
               </div>
-              <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-                {level ? (
-                  <span className={`level-badge level-badge--${selectedPoint?.level ?? "unavailable"} ${level.className}`}>
-                    {level.label}
-                  </span>
-                ) : (
-                  <span className="level-badge level-badge--unavailable">Hintataso ei ole saatavilla</span>
-                )}
-                <span className="text-slate-600">•</span>
-                <span className="text-slate-400">{horizonLabels[horizon]}</span>
-              </div>
-              {level ? <p className="mt-3 text-sm leading-6 text-slate-400">{level.description}</p> : null}
+            </div>
+
+            <div className="price-hero__actions flex flex-wrap items-center justify-start gap-3 lg:justify-end">
+              {level ? (
+                <span className={`level-badge level-badge--${selectedPoint?.level ?? "unavailable"} ${level.className}`}>
+                  {level.label} hinta
+                </span>
+              ) : (
+                <span className="level-badge level-badge--unavailable">Hintataso ei ole saatavilla</span>
+              )}
               {cheapestPoint ? (
                 <button
                   type="button"
-                  className="cheapest-jump mt-5 flex w-full items-center justify-between gap-4 rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-left transition hover:border-emerald-200/60 hover:bg-emerald-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                  className="cheapest-jump inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-left text-sm transition hover:border-emerald-200/60 hover:bg-emerald-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
                   aria-label={`Halvin saatavilla oleva jakso ${cheapestPoint.label}`}
                   aria-pressed={selectedPoint?.id === cheapestPoint.id}
                   onClick={() => setSelectedId(cheapestPoint.id)}
                 >
-                  <span>
-                    <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-emerald-200">
-                      Halvin saatavilla oleva jakso
-                    </span>
-                    <span className="mt-1 block text-sm font-medium text-white">{cheapestPoint.label}</span>
-                  </span>
-                  <span className="shrink-0 font-mono text-sm text-emerald-100">
-                    {formatPrice(cheapestPoint.priceCentsPerKwh!)} snt
-                  </span>
+                  <span className="price-hero__pig-dot" aria-hidden="true">✦</span>
+                  <span className="text-emerald-100">Halvin hetki:</span>
+                  <span className="font-mono font-semibold text-emerald-200">{cheapestPoint.label}</span>
                 </button>
               ) : null}
             </div>
           </div>
 
           {selectedPoint && spectrumPosition !== null ? (
-            <div className="spectrum-widget mt-8" aria-label="Valitun hinnan sijainti aktiivisen näkymän hinnastossa" role="img">
+            <div className="spectrum-widget mt-5" aria-label="Valitun hinnan sijainti aktiivisen näkymän hinnastossa" role="img">
               <div className="spectrum-scale flex items-center justify-between gap-4 text-xs text-slate-500">
-                <span>Halvin {formatPrice(Math.min(...availablePoints.map((point) => point.priceCentsPerKwh!)))} snt</span>
-                <span>Kallein {formatPrice(Math.max(...availablePoints.map((point) => point.priceCentsPerKwh!)))} snt</span>
+                <span className="font-mono font-semibold text-emerald-300">Min: {formatPrice(Math.min(...availablePoints.map((point) => point.priceCentsPerKwh!)))} snt</span>
+                <span className="hidden text-center sm:inline">Sähkön hintahaarukka tarkastelujaksolla</span>
+                <span className="font-mono font-semibold text-rose-300">Max: {formatPrice(Math.max(...availablePoints.map((point) => point.priceCentsPerKwh!)))} snt</span>
               </div>
               <div className="spectrum-track relative mt-3 h-2 rounded-full bg-gradient-to-r from-emerald-400 via-amber-300 to-rose-400">
                 <span
@@ -363,7 +375,11 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                   <span aria-hidden="true" className="spectrum-marker__tick" />
                 </span>
               </div>
-              <p className="spectrum-labels mt-3 text-center text-xs text-slate-400">Valittu jakso suhteessa aktiivisen näkymän saatavilla oleviin hintoihin</p>
+              <div className="spectrum-labels mt-3 flex justify-between gap-3 text-[0.68rem] text-slate-500">
+                <span>&lt; 5,00 snt (Halpa)</span>
+                <span className="hidden text-center sm:inline">5,00–14,00 snt (Normaali)</span>
+                <span>&gt; 14,00 snt (Kallis)</span>
+              </div>
             </div>
           ) : null}
         </section>

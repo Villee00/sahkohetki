@@ -122,24 +122,6 @@ export function PriceChart({ points, selectedId, onSelect }: PriceChartProps) {
         </p>
       )}
 
-      <div className="price-chart__summary rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-          Tekstimuotoinen yhteenveto
-        </p>
-        <ul className="price-chart__summary-list mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-3">
-          {points.map((point) => (
-            <li key={point.id} className="flex items-baseline justify-between gap-3 border-b border-slate-800/80 pb-2">
-              <span>{point.label}</span>
-              <span className="text-right font-mono text-xs text-slate-200">
-                {point.available && point.priceCentsPerKwh !== null
-                  ? `${formatPrice(point.priceCentsPerKwh)} snt/kWh`
-                  : "Ei saatavilla"}
-                {point.level ? ` · ${levelLabels[point.level]}` : ""}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
     </section>
   );
 }

@@ -78,6 +78,29 @@ it("keeps explanation controls explicitly named at every breakpoint", () => {
   expect(sourceButton.getAttribute("aria-label")).toBe("Tietolähde");
 });
 
+it("keeps the current interval and spot value visible in the top header", () => {
+  render(<PriceExplorer data={data} />);
+
+  const header = screen.getByRole("banner");
+  expect(header.textContent).toContain("Nyt");
+  expect(header.textContent).toContain("13:00–14:00");
+  expect(header.textContent).toContain("12,00");
+  expect(header.textContent).toContain("snt/kWh");
+});
+
+it("does not render a text summary for the chart intervals", () => {
+  render(<PriceExplorer data={data} />);
+
+  expect(screen.queryByText("Tekstimuotoinen yhteenveto")).toBeNull();
+});
+
+it("keeps the selected interval as compact calculation context", () => {
+  render(<PriceExplorer data={data} />);
+
+  expect(screen.queryByText("Valittu spot-hinta")).toBeNull();
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("13:00–14:00");
+});
+
 it("offers a button that selects the cheapest available interval", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={data} />);
