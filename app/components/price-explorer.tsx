@@ -80,11 +80,6 @@ function formatFetchedAt(fetchedAt: string | null): string {
     : "ei tiedossa";
 }
 
-function getCurrentPoint(data: ExplorerData): PricePoint | undefined {
-  if (data.currentHourId === null) return undefined;
-  return data.today.hourly.find((point) => point.id === data.currentHourId);
-}
-
 function firstAvailable(points: PricePoint[]): PricePoint | undefined {
   return points.find(
     (point) => point.available && point.priceCentsPerKwh !== null,
@@ -129,6 +124,27 @@ function findCheapest(points: PricePoint[]): PricePoint | undefined {
     }
     return cheapest;
   }, undefined);
+}
+
+type PriceSummary = {
+  minimum: number;
+  average: number;
+  maximum: number;
+};
+
+function getPriceSummary(points: PricePoint[]): PriceSummary | null {
+  const prices = points.flatMap((point) =>
+    point.available && point.priceCentsPerKwh !== null
+      ? [point.priceCentsPerKwh]
+      : [],
+  );
+  if (prices.length === 0) return null;
+
+  return {
+    minimum: Math.min(...prices),
+    average: prices.reduce((sum, price) => sum + price, 0) / prices.length,
+    maximum: Math.max(...prices),
+  };
 }
 
 function getSpectrumPosition(
@@ -207,6 +223,10 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
       ),
     [activePoints],
   );
+  const priceSummary = useMemo(
+    () => getPriceSummary(activePoints),
+    [activePoints],
+  );
   const cheapestPoint = useMemo(
     () => findCheapest(activePoints),
     [activePoints],
@@ -225,12 +245,6 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     data.status === "ready" &&
     horizon === "tomorrow" &&
     !isCompletePriceHorizon(activePoints);
-  const currentPoint = getCurrentPoint(data);
-  const currentPrice =
-    currentPoint?.available && currentPoint.priceCentsPerKwh !== null
-      ? currentPoint.priceCentsPerKwh
-      : null;
-
   useEffect(() => {
     const updateCurrentTime = () => setCurrentTime(Date.now());
     updateCurrentTime();
@@ -403,18 +417,18 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           <div className="site-header__tools flex min-w-0 items-center gap-1 sm:gap-2">
             <div
               className="current-value flex min-w-0 items-center gap-2"
-              aria-label={`Nykyinen spot-hinta ${currentPrice === null ? "ei saatavilla" : `${formatPrice(currentPrice)} snt/kWh`}, aikaväli ${currentPoint?.label ?? "ei saatavilla"}`}
+              aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} spot-hinta ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
             >
               <span className="current-value__context flex min-w-0 items-baseline gap-2">
                 <span className="current-value__label text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-sky-300">
-                  Nyt
+                  {isCurrentSelection ? "Nyt" : "Valittu"}
                 </span>
                 <span className="current-value__time truncate font-mono text-xs text-slate-300">
-                  {currentPoint?.label ?? "Ei saatavilla"}
+                  {selectedPoint?.label ?? "Ei saatavilla"}
                 </span>
               </span>
               <span className="current-value__price shrink-0 font-mono text-sm font-semibold text-white">
-                {currentPrice === null ? "—" : formatPrice(currentPrice)}
+                {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
               </span>
               <span className="current-value__unit shrink-0 text-[0.65rem] text-slate-500">
                 snt/kWh
@@ -506,22 +520,34 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                   Hintataso ei ole saatavilla
                 </span>
               )}
-              {cheapestPoint ? (
-                <button
-                  type="button"
-                  className="cheapest-jump inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-left text-sm transition hover:border-emerald-200/60 hover:bg-emerald-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
-                  aria-label={`Halvin saatavilla oleva jakso ${cheapestPoint.label}`}
-                  aria-pressed={selectedPoint?.id === cheapestPoint.id}
-                  onClick={() => setSelectedId(cheapestPoint.id)}
+              {priceSummary ? (
+                <div
+                  className="price-summary"
+                  role="group"
+                  aria-label="Hintayhteenveto"
                 >
-                  <span className="price-hero__pig-dot" aria-hidden="true">
-                    ✦
-                  </span>
-                  <span className="text-emerald-100">Halvin hetki:</span>
-                  <span className="font-mono font-semibold text-emerald-200">
-                    {cheapestPoint.label}
-                  </span>
-                </button>
+                  <div className="price-summary__item price-summary__item--cheap">
+                    <span className="price-summary__label">Halvin</span>
+                    <span className="price-summary__value">
+                      {formatPrice(priceSummary.minimum)}
+                    </span>
+                    <span className="price-summary__unit">snt/kWh</span>
+                  </div>
+                  <div className="price-summary__item price-summary__item--average">
+                    <span className="price-summary__label">Keskiarvo</span>
+                    <span className="price-summary__value">
+                      {formatPrice(priceSummary.average)}
+                    </span>
+                    <span className="price-summary__unit">snt/kWh</span>
+                  </div>
+                  <div className="price-summary__item price-summary__item--high">
+                    <span className="price-summary__label">Kallein</span>
+                    <span className="price-summary__value">
+                      {formatPrice(priceSummary.maximum)}
+                    </span>
+                    <span className="price-summary__unit">snt/kWh</span>
+                  </div>
+                </div>
               ) : null}
             </div>
           </div>
