@@ -25,6 +25,19 @@ function sourceFrom(startAt: string, count: number): QuarterPrice[] {
   });
 }
 
+function sourceFromPrices(startAt: string, prices: number[]): QuarterPrice[] {
+  const startMs = Date.parse(startAt);
+  return prices.map((price, index) => {
+    const slotStart = startMs + index * 15 * 60 * 1000;
+    return {
+      id: String(slotStart),
+      startAt: new Date(slotStart).toISOString(),
+      endAt: new Date(slotStart + 15 * 60 * 1000).toISOString(),
+      priceCentsPerKwh: price,
+    };
+  });
+}
+
 describe("ExplorerData horizons", () => {
   it("builds the current 24-hour and following Finnish calendar-day views", () => {
     const data = buildExplorerData({
@@ -94,6 +107,29 @@ describe("ExplorerData horizons", () => {
     });
     expect(laterEstimate?.comparison).toEqual({
       title: "Säästät 0,03 senttiä",
+      detail: "edullisimmalla jaksolla 15:00–16:00",
+    });
+  });
+
+  it("describes a positive sub-cent saving instead of calling it the cheapest time", () => {
+    const data = buildExplorerData({
+      quarterPrices: sourceFromPrices("2026-08-22T12:00:00.000Z", [
+        5,
+        5,
+        5,
+        5,
+        5.04,
+        5.04,
+        5.04,
+        5.04,
+      ]),
+      now: new Date("2026-08-22T12:00:00.000Z"),
+      fetchedAt: "2026-08-22T12:00:00.000Z",
+    });
+    const comparison = data.next24Hours.hourly[1].estimates?.coffee?.comparison;
+
+    expect(comparison).toEqual({
+      title: "Säästät alle 0,01 senttiä",
       detail: "edullisimmalla jaksolla 15:00–16:00",
     });
   });
