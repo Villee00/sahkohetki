@@ -6,6 +6,12 @@ import type {
 } from "./price-types";
 
 const QUARTER_MILLISECONDS = 15 * 60 * 1000;
+const HELSINKI_TIME_FORMATTER = new Intl.DateTimeFormat("fi-FI", {
+  timeZone: "Europe/Helsinki",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
 
 type ParsePricePayloadSuccess = {
   ok: true;
@@ -85,6 +91,17 @@ function canonicalTimestamp(milliseconds: number): string {
   return new Date(milliseconds).toISOString();
 }
 
+function formatHelsinkiTime(milliseconds: number): string {
+  const parts = HELSINKI_TIME_FORMATTER.formatToParts(new Date(milliseconds));
+  const hour = parts.find((part) => part.type === "hour")?.value;
+  const minute = parts.find((part) => part.type === "minute")?.value;
+  return `${hour}:${minute}`;
+}
+
+function formatHelsinkiIntervalLabel(startMilliseconds: number, endMilliseconds: number): string {
+  return `${formatHelsinkiTime(startMilliseconds)}–${formatHelsinkiTime(endMilliseconds)}`;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -154,11 +171,12 @@ export function calculateUseCost(
 
 function unavailableHourlyPoint(hourStartMilliseconds: number): PricePoint {
   const startAt = canonicalTimestamp(hourStartMilliseconds);
+  const endMilliseconds = hourStartMilliseconds + 4 * QUARTER_MILLISECONDS;
   return {
     id: String(hourStartMilliseconds),
     startAt,
-    endAt: canonicalTimestamp(hourStartMilliseconds + 4 * QUARTER_MILLISECONDS),
-    label: startAt,
+    endAt: canonicalTimestamp(endMilliseconds),
+    label: formatHelsinkiIntervalLabel(hourStartMilliseconds, endMilliseconds),
     priceCentsPerKwh: null,
     available: false,
     unavailableReason: "missing-quarter",
@@ -185,9 +203,23 @@ export function deriveHourlyPoint(
   const expectedStarts = [0, 1, 2, 3].map(
     (quarterIndex) => hourStartMilliseconds + quarterIndex * QUARTER_MILLISECONDS,
   );
-  const quarterByStart = new Map(
-    quarters.map((quarter) => [parseIsoTimestamp(quarter.startAt), quarter]),
-  );
+  const quarterByStart = new Map<number, QuarterPrice | undefined>();
+  for (const quarter of quarters) {
+    const startMilliseconds = parseIsoTimestamp(quarter.startAt);
+    if (startMilliseconds === undefined) continue;
+
+    const endMilliseconds = parseIsoTimestamp(quarter.endAt);
+    const valid =
+      startMilliseconds % QUARTER_MILLISECONDS === 0 &&
+      endMilliseconds !== undefined &&
+      endMilliseconds - startMilliseconds === QUARTER_MILLISECONDS &&
+      Number.isFinite(quarter.priceCentsPerKwh);
+    if (!valid || quarterByStart.has(startMilliseconds)) {
+      if (!valid) quarterByStart.set(startMilliseconds, undefined);
+      continue;
+    }
+    quarterByStart.set(startMilliseconds, quarter);
+  }
   const matchingQuarters = expectedStarts.map((startMilliseconds) =>
     quarterByStart.get(startMilliseconds),
   );
@@ -198,11 +230,12 @@ export function deriveHourlyPoint(
 
   const prices = matchingQuarters.map((quarter) => quarter!.priceCentsPerKwh);
   const startAt = canonicalTimestamp(hourStartMilliseconds);
+  const endMilliseconds = hourStartMilliseconds + 4 * QUARTER_MILLISECONDS;
   return {
     id: String(hourStartMilliseconds),
     startAt,
-    endAt: canonicalTimestamp(hourStartMilliseconds + 4 * QUARTER_MILLISECONDS),
-    label: startAt,
+    endAt: canonicalTimestamp(endMilliseconds),
+    label: formatHelsinkiIntervalLabel(hourStartMilliseconds, endMilliseconds),
     priceCentsPerKwh: prices.reduce((sum, price) => sum + price, 0) / prices.length,
     available: true,
   };

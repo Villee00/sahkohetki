@@ -46,6 +46,53 @@ describe("price domain", () => {
     ).toMatchObject({ available: false, unavailableReason: "missing-quarter" });
   });
 
+  it("labels hourly points with the Europe/Helsinki interval", () => {
+    const parsed = parsePricePayload({ prices: completeHour });
+    if (!parsed.ok) throw new Error(parsed.message);
+    expect(deriveHourlyPoint(parsed.prices, "2026-08-22T10:00:00.000Z").label).toBe(
+      "13:00–14:00",
+    );
+    expect(
+      deriveHourlyPoint(parsed.prices.slice(0, 3), "2026-08-22T10:00:00.000Z").label,
+    ).toBe("13:00–14:00");
+  });
+
+  it("marks an hourly point unavailable when a matched quarter has a non-finite price", () => {
+    const parsed = parsePricePayload({ prices: completeHour });
+    if (!parsed.ok) throw new Error(parsed.message);
+    const malformed = parsed.prices.map((quarter, index) =>
+      index === 1 ? { ...quarter, priceCentsPerKwh: Number.NaN } : quarter,
+    );
+    expect(deriveHourlyPoint(malformed, "2026-08-22T10:00:00.000Z")).toMatchObject({
+      available: false,
+      priceCentsPerKwh: null,
+      unavailableReason: "missing-quarter",
+    });
+    const unparsable = parsed.prices.map((quarter, index) =>
+      index === 2 ? { ...quarter, endAt: "not-an-iso-timestamp" } : quarter,
+    );
+    expect(deriveHourlyPoint(unparsable, "2026-08-22T10:00:00.000Z")).toMatchObject({
+      available: false,
+      priceCentsPerKwh: null,
+      unavailableReason: "missing-quarter",
+    });
+  });
+
+  it("marks an hourly point unavailable when a matched quarter has an invalid interval", () => {
+    const parsed = parsePricePayload({ prices: completeHour });
+    if (!parsed.ok) throw new Error(parsed.message);
+    const malformed = parsed.prices.map((quarter, index) =>
+      index === 2
+        ? { ...quarter, endAt: "2026-08-22T10:50:00.000Z" }
+        : quarter,
+    );
+    expect(deriveHourlyPoint(malformed, "2026-08-22T10:00:00.000Z")).toMatchObject({
+      available: false,
+      priceCentsPerKwh: null,
+      unavailableReason: "missing-quarter",
+    });
+  });
+
   it("keeps negative prices and rounds only the displayed values", () => {
     expect(calculateUseCost(0.12, -1.5)).toEqual({
       cents: -0.18,
