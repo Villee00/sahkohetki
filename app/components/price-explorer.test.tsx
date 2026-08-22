@@ -68,6 +68,16 @@ it("moves focus into the dialog, traps Tab, and restores the opener", async () =
   expect(document.activeElement).toBe(opener);
 });
 
+it("keeps explanation controls explicitly named at every breakpoint", () => {
+  render(<PriceExplorer data={data} />);
+
+  const formulaButton = screen.getByRole("button", { name: "Miten laskemme?" });
+  const sourceButton = screen.getByRole("button", { name: "Tietolähde" });
+
+  expect(formulaButton.getAttribute("aria-label")).toBe("Miten laskemme?");
+  expect(sourceButton.getAttribute("aria-label")).toBe("Tietolähde");
+});
+
 it("offers a button that selects the cheapest available interval", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={data} />);

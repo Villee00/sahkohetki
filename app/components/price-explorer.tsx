@@ -272,6 +272,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           <nav aria-label="Lisätietoja" className="flex items-center gap-1 sm:gap-2">
             <button
               type="button"
+              aria-label="Miten laskemme?"
               className="site-nav-button inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
               onClick={(event) => openExplanation("formula", event)}
             >
@@ -281,6 +282,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             </button>
             <button
               type="button"
+              aria-label="Tietolähde"
               className="site-nav-button inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
               onClick={(event) => openExplanation("source", event)}
             >
