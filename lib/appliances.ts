@@ -31,7 +31,8 @@ export const EVERYDAY_USES: readonly EverydayUse[] = [
   {
     id: "coffee",
     name: "Kahvinkeitin",
-    standardUse: "Yksi noin litran suodatettava pannullinen, lämpölevy enintään 30 min",
+    standardUse:
+      "Yksi noin litran suodatettava pannullinen, lämpölevy enintään 30 min",
     consumptionKwh: 0.15,
     assumption:
       "Vertailuarvo sisältää noin litran kahvin valmistuksen ja enintään 30 minuuttia lämpölevyllä.",
@@ -42,16 +43,16 @@ export const EVERYDAY_USES: readonly EverydayUse[] = [
     },
   },
   {
-    id: "kettle",
-    name: "Vedenkeitin",
-    standardUse: "Yksi litra kylmää vettä kiehuvaksi",
-    consumptionKwh: 0.12,
+    id: "sauna",
+    name: "Sauna",
+    standardUse: "Yksi noin 1,5 h:n saunomiskerta, lämmitys ja kylpy",
+    consumptionKwh: 8,
     assumption:
-      "Vertailuarvo perustuu yhden litran kylmän vesimäärän kuumentamiseen kiehumispisteeseen.",
+      "Vertailuarvo sisältää noin 1,5 tuntia sähkökiukaan päälläoloa, esilämmityksen ja normaalin saunomisen.",
     reviewedOn: "2026-08-22",
     source: {
-      label: "Motiva – vedenkeittimen mittausesimerkki",
-      url: "https://www.motiva.fi/files/986/Pitkajarvenkoulu_laskutehtavat.pdf",
+      label: "Helen – saunan lämmittäminen",
+      url: "https://www.helen.fi/asiakastuki/henkiloasiakkaat/energiankayton-neuvonta/usein-kysyttya",
     },
   },
   {
@@ -81,6 +82,20 @@ export const EVERYDAY_USES: readonly EverydayUse[] = [
     },
   },
   {
+    id: "kettle",
+    name: "Vedenkeitin",
+    standardUse: "Yksi litra kylmää vettä kiehuvaksi",
+    consumptionKwh: 0.12,
+    assumption:
+      "Vertailuarvo perustuu yhden litran kylmän vesimäärän kuumentamiseen kiehumispisteeseen.",
+    reviewedOn: "2026-08-22",
+    source: {
+      label: "Motiva – vedenkeittimen mittausesimerkki",
+      url: "https://www.motiva.fi/files/986/Pitkajarvenkoulu_laskutehtavat.pdf",
+    },
+  },
+
+  {
     id: "dryer",
     name: "Kuivausrumpu",
     standardUse: "Yksi noin 3 kg:n kuivaussykli",
@@ -104,19 +119,6 @@ export const EVERYDAY_USES: readonly EverydayUse[] = [
     source: {
       label: "Siemens – astianpesukoneen Eco-kulutus",
       url: "https://www.siemens-home.bsh-group.com/be/nl/toestellen/vaatwassen/de-juiste-vaatwasser-kiezen",
-    },
-  },
-  {
-    id: "sauna",
-    name: "Sauna",
-    standardUse: "Yksi noin 1,5 h:n saunomiskerta, lämmitys ja kylpy",
-    consumptionKwh: 8,
-    assumption:
-      "Vertailuarvo sisältää noin 1,5 tuntia sähkökiukaan päälläoloa, esilämmityksen ja normaalin saunomisen.",
-    reviewedOn: "2026-08-22",
-    source: {
-      label: "Helen – saunan lämmittäminen",
-      url: "https://www.helen.fi/asiakastuki/henkiloasiakkaat/energiankayton-neuvonta/usein-kysyttya",
     },
   },
   {

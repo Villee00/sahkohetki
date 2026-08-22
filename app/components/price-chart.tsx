@@ -8,6 +8,7 @@ type PriceChartProps = {
   points: PricePoint[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  currentTime?: number | null;
   headerContent?: ReactNode;
   emptyMessage?: string;
 };
@@ -73,6 +74,30 @@ function getScalePosition(value: number, scale: ChartScale): number {
   return ((value - scale.minimum) / range) * 100;
 }
 
+function getCurrentTimePosition(
+  points: PricePoint[],
+  currentTime: number | null | undefined,
+): number | null {
+  if (currentTime === null || currentTime === undefined || points.length === 0) {
+    return null;
+  }
+
+  const chartStart = Date.parse(points[0].startAt);
+  const chartEnd = Date.parse(points[points.length - 1].endAt);
+  if (
+    !Number.isFinite(currentTime) ||
+    !Number.isFinite(chartStart) ||
+    !Number.isFinite(chartEnd) ||
+    chartEnd <= chartStart ||
+    currentTime < chartStart ||
+    currentTime >= chartEnd
+  ) {
+    return null;
+  }
+
+  return ((currentTime - chartStart) / (chartEnd - chartStart)) * 100;
+}
+
 function getBarStyle(point: PricePoint, scale: ChartScale): {
   bottom: string;
   height: string;
@@ -134,12 +159,14 @@ export function PriceChart({
   points,
   selectedId,
   onSelect,
+  currentTime,
   headerContent,
   emptyMessage,
 }: PriceChartProps) {
   const availablePrices = getAvailablePrices(points);
   const chartScale = getChartScale(availablePrices);
   const zeroPosition = getScalePosition(0, chartScale);
+  const currentTimePosition = getCurrentTimePosition(points, currentTime);
   const chartGridStyle = {
     gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))`,
   };
@@ -201,6 +228,14 @@ export function PriceChart({
                   style={{ bottom: `${zeroPosition}%` }}
                   aria-hidden="true"
                 />
+                {currentTimePosition !== null ? (
+                  <span
+                    className="price-chart__current-time"
+                    data-testid="price-chart-current-time"
+                    style={{ left: `${currentTimePosition}%` }}
+                    aria-hidden="true"
+                  />
+                ) : null}
                 <div className="price-chart__bars grid" style={chartGridStyle}>
                   {points.map((point) => {
                     const isSelected = point.id === selectedId;

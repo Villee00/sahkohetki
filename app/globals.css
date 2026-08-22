@@ -299,7 +299,15 @@ button:disabled {
   height: 0.7rem !important;
   overflow: visible !important;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  background: linear-gradient(90deg, var(--cheap) 0%, var(--normal) 51%, var(--high) 100%) !important;
+  background: linear-gradient(
+    90deg,
+    var(--cheap) 0%,
+    var(--cheap) 40%,
+    var(--normal) 40%,
+    var(--normal) 76%,
+    var(--high) 76%,
+    var(--high) 100%
+  ) !important;
   box-shadow: 0 0 22px rgba(56, 189, 248, 0.11), inset 0 1px 2px rgba(2, 8, 23, 0.4);
 }
 
@@ -510,6 +518,19 @@ button:disabled {
   pointer-events: none;
 }
 
+.price-chart__current-time {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 2px;
+  border-radius: 999px;
+  background: #f8fafc;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35), 0 0 14px rgba(56, 189, 248, 0.7);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
 .price-chart__bars,
 .price-chart__axis {
   display: grid;
@@ -702,7 +723,7 @@ button:disabled {
 .appliance-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1rem;
+  gap: 0.7rem;
 }
 
 .appliance-card {
@@ -712,13 +733,27 @@ button:disabled {
   transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
-.appliance-card::before {
+.appliance-card--row {
+  display: grid;
+  grid-template-columns: minmax(3.5rem, auto) minmax(13rem, 1.15fr) minmax(22rem, 1.7fr) minmax(7rem, auto);
+  align-items: center;
+  column-gap: 1.1rem;
+  row-gap: 0.75rem;
+  min-width: 0;
+  border-width: 0.5px !important;
+  border-radius: 1rem !important;
+  padding: 0.9rem 1rem;
+}
+
+.appliance-card--row::before {
   position: absolute;
-  top: 0;
-  right: 1.25rem;
-  left: 1.25rem;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.35), transparent);
+  top: 0.7rem;
+  bottom: 0.7rem;
+  left: 0;
+  width: 1px;
+  height: auto;
+  border-radius: 999px;
+  background: linear-gradient(180deg, transparent, rgba(56, 189, 248, 0.85), transparent);
   content: "";
 }
 
@@ -735,13 +770,129 @@ button:disabled {
   letter-spacing: -0.02em;
 }
 
+.appliance-card__icon-frame {
+  display: grid;
+  width: 3.5rem;
+  height: 3.5rem;
+  place-items: center;
+  border: 0.5px solid rgba(56, 189, 248, 0.24);
+  border-radius: 0.95rem;
+  background: linear-gradient(145deg, rgba(56, 189, 248, 0.18), rgba(56, 189, 248, 0.04));
+  color: #7dd3fc;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 20px rgba(2, 8, 23, 0.18);
+}
+
+.appliance-card__icon {
+  width: 2.15rem;
+  height: 2.15rem;
+}
+
+.appliance-card__identity,
+.appliance-card__metrics,
+.appliance-card__metric,
+.appliance-card__assumption-panel {
+  min-width: 0;
+}
+
+.appliance-card__consumption {
+  border: 0.5px solid rgba(148, 163, 184, 0.12);
+  background: rgba(7, 17, 30, 0.38);
+}
+
+.appliance-card__standard-use {
+  overflow: hidden;
+}
+
+.appliance-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 1.15rem;
+}
+
+.appliance-card__metric--saving {
+  border-left: 0.5px solid rgba(148, 163, 184, 0.16);
+  padding-left: 1.15rem;
+}
+
+.appliance-card__metric-label {
+  color: #64748b;
+  display: flex;
+  min-height: 1.35rem;
+  align-items: flex-end;
+  font-size: 0.57rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.appliance-card__metric-label--saving {
+  color: #6ee7b7;
+}
+
 .appliance-card__cost {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.055em;
 }
 
-.appliance-card__assumption {
-  border-top-color: rgba(148, 163, 184, 0.12) !important;
+.appliance-card__euro-value,
+.appliance-card__saving {
+  font-variant-numeric: tabular-nums;
+}
+
+.appliance-card__metric-detail {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.appliance-card__assumption-trigger {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-items: center;
+  align-self: center;
+  justify-self: end;
+  border: 0.5px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.75rem;
+  background: rgba(7, 17, 30, 0.32);
+  color: #94a3b8;
+  text-align: center;
+}
+
+.appliance-card__assumption-trigger:hover {
+  color: #e2e8f0;
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.appliance-card__assumption-chevron {
+  width: 1.1rem;
+  height: 1.1rem;
+  transition: transform 180ms ease;
+}
+
+.appliance-card__assumption-trigger[aria-expanded="true"]
+  .appliance-card__assumption-chevron {
+  transform: rotate(180deg);
+}
+
+.appliance-card__assumption-panel {
+  grid-column: 1 / -1;
+  width: 100%;
+  border-top: 0.5px solid rgba(148, 163, 184, 0.12);
+  padding-top: 0.65rem;
+}
+
+.appliance-card__assumption-copy {
+  max-width: none;
+  color: #94a3b8;
+}
+
+.appliance-card__assumption-copy a {
+  color: #7dd3fc;
 }
 
 .site-footer {
@@ -780,15 +931,14 @@ body:has(.dialog-backdrop) {
   overflow: hidden;
 }
 
-@media (min-width: 48rem) {
-  .appliance-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 64rem) {
+  .appliance-card--row {
+    grid-template-columns: minmax(3.5rem, auto) minmax(0, 1fr) minmax(18rem, 1.25fr);
   }
-}
 
-@media (min-width: 72rem) {
-  .appliance-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .appliance-card__assumption-trigger {
+    grid-column: 3;
+    justify-self: end;
   }
 }
 
@@ -803,6 +953,41 @@ body:has(.dialog-backdrop) {
 
   .hero-panel {
     padding: 1.25rem !important;
+  }
+
+  .appliance-card--row {
+    grid-template-columns: minmax(3rem, auto) minmax(0, 1fr) auto;
+    padding: 0.85rem;
+  }
+
+  .appliance-card__icon-frame {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .appliance-card__icon {
+    width: 1.9rem;
+    height: 1.9rem;
+  }
+
+  .appliance-card__metrics,
+  .appliance-card__assumption-panel {
+    grid-column: 1 / -1;
+  }
+
+  .appliance-card__assumption-trigger {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+    justify-self: end;
+  }
+
+  .appliance-card__assumption-panel {
+    padding-top: 0.5rem;
+  }
+
+  .appliance-card__assumption-copy {
+    max-width: none;
   }
 
   .price-chart__header {

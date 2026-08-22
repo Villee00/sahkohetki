@@ -14,6 +14,7 @@ vi.mock("next/cache", () => ({
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("Pörssisähkö.net source adapter", () => {
@@ -63,6 +64,74 @@ describe("Pörssisähkö.net source adapter", () => {
     expect(result.status).toBe("ready");
     if (result.status !== "ready") throw new Error(result.message);
     expect(result.prices[0].endAt).toBe("2026-08-22T10:15:00.000Z");
+  });
+
+  it("fills today's missing Finnish midnight hour from the point endpoint", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-22T12:30:00.000Z"));
+
+    const midnightPrices = [
+      {
+        price: 14.794,
+        startDate: "2026-08-21T21:00:00.000Z",
+        endDate: "2026-08-21T21:15:00.000Z",
+      },
+      {
+        price: 11.624,
+        startDate: "2026-08-21T21:15:00.000Z",
+        endDate: "2026-08-21T21:30:00.000Z",
+      },
+      {
+        price: 10.08,
+        startDate: "2026-08-21T21:30:00.000Z",
+        endDate: "2026-08-21T21:45:00.000Z",
+      },
+      {
+        price: 9.407,
+        startDate: "2026-08-21T21:45:00.000Z",
+        endDate: "2026-08-21T22:00:00.000Z",
+      },
+    ];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://api.porssisahko.net/v2/latest-prices.json") {
+        return new Response(
+          JSON.stringify({
+            prices: [
+              {
+                price: 10,
+                startDate: "2026-08-21T22:00:00.000Z",
+                endDate: "2026-08-21T22:15:00.000Z",
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+
+      const date = new URL(url).searchParams.get("date");
+      const matchingPrice = midnightPrices.find(
+        (price) => price.startDate === date,
+      );
+      return new Response(JSON.stringify({ price: matchingPrice?.price }), {
+        status: matchingPrice ? 200 : 404,
+      });
+    });
+    const result = await fetchLatestPrices(fetchImpl);
+
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") throw new Error(result.message);
+    expect(result.prices).toEqual(
+      expect.arrayContaining(
+        midnightPrices.map((price) => ({
+          id: String(Date.parse(price.startDate)),
+          startAt: price.startDate,
+          endAt: price.endDate,
+          priceCentsPerKwh: price.price,
+        })),
+      ),
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
   });
 
   it("returns an explicit unavailable result for HTTP or JSON failures", async () => {
