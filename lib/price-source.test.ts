@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchLatestPrices, getExplorerData } from "./price-source";
 
+const serverOnlyBoundary = vi.hoisted(() => ({ imported: false }));
+
+vi.mock("server-only", () => {
+  serverOnlyBoundary.imported = true;
+  return {};
+});
+
 vi.mock("next/cache", () => ({
   unstable_cache: (loader: () => Promise<unknown>) => loader,
 }));
@@ -10,6 +17,10 @@ afterEach(() => {
 });
 
 describe("Pörssisähkö.net source adapter", () => {
+  it("declares the source adapter as server-only", () => {
+    expect(serverOnlyBoundary.imported).toBe(true);
+  });
+
   it("returns source records from a successful response", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(

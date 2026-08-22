@@ -1,3 +1,4 @@
+import "server-only";
 import { unstable_cache } from "next/cache";
 import { EVERYDAY_USES } from "./appliances";
 import { buildExplorerData, parsePricePayload } from "./price-domain";
