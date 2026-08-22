@@ -80,11 +80,6 @@ function formatFetchedAt(fetchedAt: string | null): string {
     : "ei tiedossa";
 }
 
-function getCurrentPoint(data: ExplorerData): PricePoint | undefined {
-  if (data.currentHourId === null) return undefined;
-  return data.today.hourly.find((point) => point.id === data.currentHourId);
-}
-
 function firstAvailable(points: PricePoint[]): PricePoint | undefined {
   return points.find(
     (point) => point.available && point.priceCentsPerKwh !== null,
@@ -250,12 +245,6 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     data.status === "ready" &&
     horizon === "tomorrow" &&
     !isCompletePriceHorizon(activePoints);
-  const currentPoint = getCurrentPoint(data);
-  const currentPrice =
-    currentPoint?.available && currentPoint.priceCentsPerKwh !== null
-      ? currentPoint.priceCentsPerKwh
-      : null;
-
   useEffect(() => {
     const updateCurrentTime = () => setCurrentTime(Date.now());
     updateCurrentTime();
@@ -428,18 +417,18 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           <div className="site-header__tools flex min-w-0 items-center gap-1 sm:gap-2">
             <div
               className="current-value flex min-w-0 items-center gap-2"
-              aria-label={`Nykyinen spot-hinta ${currentPrice === null ? "ei saatavilla" : `${formatPrice(currentPrice)} snt/kWh`}, aikaväli ${currentPoint?.label ?? "ei saatavilla"}`}
+              aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} spot-hinta ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
             >
               <span className="current-value__context flex min-w-0 items-baseline gap-2">
                 <span className="current-value__label text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-sky-300">
-                  Nyt
+                  {isCurrentSelection ? "Nyt" : "Valittu"}
                 </span>
                 <span className="current-value__time truncate font-mono text-xs text-slate-300">
-                  {currentPoint?.label ?? "Ei saatavilla"}
+                  {selectedPoint?.label ?? "Ei saatavilla"}
                 </span>
               </span>
               <span className="current-value__price shrink-0 font-mono text-sm font-semibold text-white">
-                {currentPrice === null ? "—" : formatPrice(currentPrice)}
+                {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
               </span>
               <span className="current-value__unit shrink-0 text-[0.65rem] text-slate-500">
                 snt/kWh
