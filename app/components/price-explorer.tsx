@@ -33,16 +33,21 @@ const levelCopy: Record<PriceLevel, LevelCopy> = {
 };
 
 const horizonLabels: Record<Horizon, string> = {
-  next24Hours: "Seuraavat 24 tuntia",
-  tomorrow: "Huomenna",
+  next24Hours: "Seuraavat 24h",
+  tomorrow: "Huominen vuorokausi",
 };
 
 const modeLabels: Record<PriceMode, string> = {
-  hourly: "Tunneittain",
-  quarterHour: "15 min tarkkuudella",
+  hourly: "Tunnittain (h)",
+  quarterHour: "15 min tarkkuus",
 };
 
 const priceFormatter = new Intl.NumberFormat("fi-FI", {
+  maximumFractionDigits: 2,
+  minimumFractionDigits: 2,
+});
+
+const consumptionFormatter = new Intl.NumberFormat("fi-FI", {
   maximumFractionDigits: 2,
   minimumFractionDigits: 2,
 });
@@ -145,6 +150,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const [horizon, setHorizon] = useState<Horizon>("next24Hours");
   const [selectedId, setSelectedId] = useState<string | null>(() => getInitialSelection(data));
   const [openDialog, setOpenDialog] = useState<DialogName>(null);
+  const coffeeUse = data.uses.find((use) => use.id === "coffee");
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -257,7 +263,50 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
   const level = selectedPoint?.level ? levelCopy[selectedPoint.level] : null;
   const selectedPrice = selectedPoint?.priceCentsPerKwh ?? null;
-  const heading = selectedPoint ? `Valittu jakso ${selectedPoint.label}` : "Valittu jakso";
+  const currentSelectionId = mode === "hourly" ? data.currentHourId : data.currentQuarterId;
+  const isCurrentSelection =
+    horizon === "next24Hours" && selectedPoint?.id === currentSelectionId;
+  const heading = selectedPoint
+    ? `${isCurrentSelection ? "Nykyinen aikaväli" : "Valittu jakso"} ${selectedPoint.label}`
+    : "Valittu jakso";
+  const viewControls = (
+    <div className="price-chart__controls">
+      <div className="view-control-group">
+        <div className="view-control-options" role="group" aria-label="Hintatarkkuus">
+          {(Object.keys(modeLabels) as PriceMode[]).map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={`view-toggle min-h-11 rounded-xl px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 ${
+                mode === option ? "view-toggle--active" : ""
+              }`}
+              aria-pressed={mode === option}
+              onClick={() => changeMode(option)}
+            >
+              {modeLabels[option]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="view-control-group">
+        <div className="view-control-options" role="group" aria-label="Aikahorisontti">
+          {(Object.keys(horizonLabels) as Horizon[]).map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={`view-toggle min-h-11 rounded-xl px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 ${
+                horizon === option ? "view-toggle--active view-toggle--horizon" : ""
+              }`}
+              aria-pressed={horizon === option}
+              onClick={() => changeHorizon(option)}
+            >
+              {horizonLabels[option]}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
@@ -323,6 +372,11 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               <div className="price-hero__interval flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                 <span className="price-hero__clock-dot" aria-hidden="true" />
                 <span>Valittu aikaväli:</span>
+                {isCurrentSelection ? (
+                  <span className="price-hero__current-badge" aria-label="Nykyinen aika">
+                    Nyt
+                  </span>
+                ) : null}
                 <span className="price-hero__interval-value rounded-lg border border-slate-700 bg-slate-950/55 px-2 py-1 font-mono text-slate-200">
                   {selectedPoint?.label ?? "Ei saatavilla"}
                 </span>
@@ -384,45 +438,6 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           ) : null}
         </section>
 
-        <section aria-label="Näkymän valinta" className="view-controls grid gap-4 rounded-2xl border border-slate-800 bg-slate-900/55 p-4 sm:grid-cols-2 sm:p-5">
-          <div className="view-control-group">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Aikahorisontti</p>
-            <div className="view-control-options" role="group" aria-label="Aikahorisontti">
-              {(Object.keys(horizonLabels) as Horizon[]).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`view-toggle min-h-11 rounded-xl px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 ${
-                    horizon === option ? "view-toggle--active view-toggle--horizon" : ""
-                  }`}
-                  aria-pressed={horizon === option}
-                  onClick={() => changeHorizon(option)}
-                >
-                  {horizonLabels[option]}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="view-control-group">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Hintatarkkuus</p>
-            <div className="view-control-options" role="group" aria-label="Hintatarkkuus">
-              {(Object.keys(modeLabels) as PriceMode[]).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`view-toggle min-h-11 rounded-xl px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 ${
-                    mode === option ? "view-toggle--active" : ""
-                  }`}
-                  aria-pressed={mode === option}
-                  onClick={() => changeMode(option)}
-                >
-                  {modeLabels[option]}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
         {unavailableMessage ? (
           <section role="status" className="unavailable-panel rounded-2xl border border-amber-300/30 bg-amber-300/10 p-5 text-sm leading-7 text-amber-100">
             <div className="flex gap-3">
@@ -433,7 +448,12 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         ) : null}
 
         {data.status === "ready" && !(horizon === "tomorrow" && availablePoints.length === 0) ? (
-          <PriceChart points={activePoints} selectedId={selectedId} onSelect={setSelectedId} />
+          <PriceChart
+            points={activePoints}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            headerContent={viewControls}
+          />
         ) : null}
 
         {selectedPoint && cheapestPoint ? (
@@ -492,7 +512,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           kulutus (kWh) × spot-hinta (snt/kWh) = kustannus (snt)
         </p>
         <p>
-          Esimerkiksi kahvinkeittimen väliaikainen oletus on 0,12 kWh. Näytetty kustannus säilyttää laskennan täyden tarkkuuden ja pyöristää vain esityksen kahteen desimaaliin.
+          Esimerkiksi kahvinkeittimen tutkittu vertailuarvo on {coffeeUse ? `${consumptionFormatter.format(coffeeUse.consumptionKwh)} kWh` : "katalogissa määritelty kulutus"}. Näytetty kustannus säilyttää laskennan täyden tarkkuuden ja pyöristää vain esityksen kahteen desimaaliin.
         </p>
         <p>
           Verkkopalvelumaksut, sähkövero, sähkönmyyjän marginaali ja perusmaksut eivät sisälly tähän opetukselliseen energia-arvioon.

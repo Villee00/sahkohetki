@@ -106,7 +106,7 @@ describe("ExplorerData horizons", () => {
       detail: "Tämä on aktiivisen näkymän edullisin saatavilla oleva jakso.",
     });
     expect(laterEstimate?.comparison).toEqual({
-      title: "Säästät 0,03 senttiä",
+      title: "Säästät 0,04 senttiä",
       detail: "edullisimmalla jaksolla 15:00–16:00",
     });
   });
@@ -118,10 +118,10 @@ describe("ExplorerData horizons", () => {
         5,
         5,
         5,
-        5.04,
-        5.04,
-        5.04,
-        5.04,
+        5.02,
+        5.02,
+        5.02,
+        5.02,
       ]),
       now: new Date("2026-08-22T12:00:00.000Z"),
       fetchedAt: "2026-08-22T12:00:00.000Z",

@@ -101,6 +101,21 @@ it("keeps the selected interval as compact calculation context", () => {
   expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("13:00–14:00");
 });
 
+it("marks the selected interval as current until a future interval is chosen", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  expect(screen.getByLabelText("Nykyinen aika").textContent).toBe("Nyt");
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Nykyinen aikaväli");
+
+  await user.click(screen.getByRole("button", {
+    name: /halvin saatavilla oleva jakso 14:00–15:00/i,
+  }));
+
+  expect(screen.queryByLabelText("Nykyinen aika")).toBeNull();
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Valittu jakso");
+});
+
 it("offers a button that selects the cheapest available interval", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={data} />);
@@ -111,4 +126,26 @@ it("offers a button that selects the cheapest available interval", async () => {
   await user.click(cheapestButton);
 
   expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("14:00–15:00");
+});
+
+it("matches the mockup chart header and control order", () => {
+  render(<PriceExplorer data={data} />);
+
+  const chart = screen.getByRole("region", { name: "Pörssisähkön Tuntikaavio" });
+  const chartHeader = chart.querySelector(".price-chart__header");
+  const horizonControls = screen.getByRole("group", { name: "Aikahorisontti" });
+  const precisionControls = screen.getByRole("group", { name: "Hintatarkkuus" });
+  const headerGroups = Array.from(chartHeader?.querySelectorAll('[role="group"]') ?? []).map(
+    (group) => group.getAttribute("aria-label"),
+  );
+
+  expect(chartHeader).not.toBeNull();
+  expect(chartHeader?.contains(horizonControls)).toBe(true);
+  expect(chartHeader?.contains(precisionControls)).toBe(true);
+  expect(chart.querySelector(".price-chart__frame")?.contains(chartHeader)).toBe(true);
+  expect(headerGroups).toEqual(["Hintatarkkuus", "Aikahorisontti"]);
+  expect(screen.getByRole("button", { name: "Tunnittain (h)" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "15 min tarkkuus" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Seuraavat 24h" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Huominen vuorokausi" })).toBeTruthy();
 });

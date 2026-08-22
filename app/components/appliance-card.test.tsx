@@ -14,15 +14,16 @@ const estimate: CostEstimate = {
   eurosLabel: "0.01",
 };
 
-it("marks the appliance assumption as provisional and awaiting external verification", () => {
+it("shows the researched assumption and its source", () => {
   const use = getEverydayUse("coffee");
   if (!use) throw new Error("Expected the coffee use to be in the catalog.");
 
   render(<ApplianceCard use={use} estimate={estimate} />);
 
-  expect(
-    screen.getByText(
-      "Väliaikainen oletus, joka perustuu toimitettuun mockupiin. Ulkoinen varmistus on vielä kesken. Päivätty 22.8.2026.",
-    ),
-  ).toBeTruthy();
+  expect(screen.getByText(/Vertailuarvo sisältää noin litran kahvin valmistuksen/)).toBeTruthy();
+  const sourceLink = screen.getByRole("link", {
+    name: "TTS / Doria – Kahvinkeittimien testi 2020",
+  });
+  expect(sourceLink.getAttribute("href")).toBe("https://www.doria.fi/handle/10024/189370");
+  expect(screen.getByText(/Tarkistettu 22\.8\.2026\./)).toBeTruthy();
 });

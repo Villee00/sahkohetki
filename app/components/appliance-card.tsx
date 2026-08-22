@@ -52,7 +52,16 @@ export function ApplianceCard({ use, estimate }: ApplianceCardProps) {
           Oletus ja rajaus
         </summary>
         <p className="mt-2 leading-5">
-          {use.assumption} Ulkoinen varmistus on vielä kesken. Päivätty {formatReviewedOn(use.reviewedOn)}.
+          {use.assumption} Lähde:{" "}
+          <a
+            href={use.source.url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+          >
+            {use.source.label}
+          </a>
+          . Tarkistettu {formatReviewedOn(use.reviewedOn)}.
         </p>
       </details>
     </article>

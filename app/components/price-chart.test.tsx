@@ -23,7 +23,7 @@ const higherPoint = {
   label: "10:30–10:45",
   priceCentsPerKwh: 9,
   available: true,
-  level: "high" as const,
+  level: "normal" as const,
 };
 
 it("lets a keyboard-accessible chart button select an available interval", async () => {
@@ -36,28 +36,49 @@ it("lets a keyboard-accessible chart button select an available interval", async
   expect(onSelect).toHaveBeenCalledWith(point.id);
 });
 
-it("shows the active-view average line and keeps levels color-only", () => {
+it("renders the mockup-style zero-based chart with a visible price scale", () => {
   render(
     <PriceChart
-      points={[point, higherPoint]}
-      selectedId={point.id}
+      points={[
+        point,
+        higherPoint,
+        {
+          ...higherPoint,
+          id: "quarter-1100",
+          label: "11:00–11:15",
+          priceCentsPerKwh: 18.67,
+          level: "high" as const,
+        },
+      ]}
+      selectedId="quarter-1100"
       onSelect={vi.fn()}
     />,
   );
 
-  expect(
-    screen.getByRole("img", {
-      name: "Vuorokauden keskiarvo 6,75 snt/kWh",
-    }),
-  ).toBeTruthy();
-  expect(screen.getByText("Vuorokauden keskiarvo 6,75 snt/kWh")).toBeTruthy();
-  expect(screen.queryByText("Edullinen")).toBeNull();
-  expect(screen.queryByText("Tavanomainen")).toBeNull();
-  expect(screen.queryByText("Korkea")).toBeNull();
-  expect(screen.getAllByRole("button")).toHaveLength(2);
+  expect(screen.getByRole("heading", { name: "Pörssisähkön Tuntikaavio" })).toBeTruthy();
+  expect(screen.queryByText("Hintajaksot")).toBeNull();
+  expect(screen.getByTestId("price-chart-grid")).toBeTruthy();
+  expect(screen.getByTestId("price-chart-vertical-grid").children).toHaveLength(3);
+  expect(screen.getByText("-5 c")).toBeTruthy();
+  expect(screen.getByText("0 c")).toBeTruthy();
+  expect(screen.getByText("5 c")).toBeTruthy();
+  expect(screen.getByText("10 c")).toBeTruthy();
+  expect(screen.getByText("15 c")).toBeTruthy();
+  expect(screen.getByText("20 c")).toBeTruthy();
+  expect(screen.getByText("10:15–10:30")).toBeTruthy();
+  expect(screen.getByText("11:00–11:15")).toBeTruthy();
+  expect(screen.getByTestId("price-chart-legend")).toBeTruthy();
+  expect(screen.getByText("Vihreä")).toBeTruthy();
+  expect(screen.getByText("Keltainen")).toBeTruthy();
+  expect(screen.getByText("Punainen")).toBeTruthy();
+  expect(screen.queryByText(/Vuorokauden keskiarvo/)).toBeNull();
+
+  const selectedButton = screen.getByRole("button", { name: /11:00/ });
+  expect(selectedButton.getAttribute("aria-pressed")).toBe("true");
+  expect(selectedButton.querySelector(".price-chart__bar--selected")).toBeTruthy();
 });
 
-it("excludes unavailable intervals from the average line", () => {
+it("keeps unavailable intervals in the chart without changing the scale", () => {
   render(
     <PriceChart
       points={[
@@ -76,11 +97,10 @@ it("excludes unavailable intervals from the average line", () => {
     />,
   );
 
-  expect(
-    screen.getByRole("img", {
-      name: "Vuorokauden keskiarvo 6,75 snt/kWh",
-    }),
-  ).toBeTruthy();
+  expect(screen.getByTestId("price-chart-grid")).toBeTruthy();
+  expect(screen.getByText("0 c")).toBeTruthy();
+  expect(screen.getByText("10 c")).toBeTruthy();
+  expect(screen.getByRole("button", { name: /hinta ei ole saatavilla/ }).hasAttribute("disabled")).toBe(true);
 });
 
 it("keeps daylight-saving offset markers in visible time labels", () => {
