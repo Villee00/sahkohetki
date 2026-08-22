@@ -45,7 +45,17 @@ function getPartValue(
 }
 
 function toMilliseconds(instant: Instant): number {
-  const milliseconds = instant instanceof Date ? instant.getTime() : new Date(instant).getTime();
+  let milliseconds: number;
+  if (instant instanceof Date) {
+    milliseconds = instant.getTime();
+  } else if (typeof instant === "number") {
+    milliseconds = instant;
+  } else {
+    if (!/(?:Z|[+-]\d{2}:\d{2})$/.test(instant)) {
+      throw new RangeError("String instants must include an explicit Z or timezone offset.");
+    }
+    milliseconds = Date.parse(instant);
+  }
   if (!Number.isFinite(milliseconds)) {
     throw new RangeError("Invalid instant.");
   }

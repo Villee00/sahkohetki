@@ -11,6 +11,17 @@ describe("Europe/Helsinki time helpers", () => {
     expect(formatIntervalLabel("2026-08-22T21:30:00.000Z", "2026-08-22T22:30:00.000Z")).toContain("00:30");
   });
 
+  it("rejects timezone-less datetime strings", () => {
+    expect(() => getHelsinkiDateKey("2026-08-22T12:00:00")).toThrow();
+  });
+
+  it("accepts explicit UTC datetime strings", () => {
+    expect(getHelsinkiDateKey("2026-08-22T12:00:00.000Z")).toBe("2026-08-22");
+    expect(
+      formatIntervalLabel("2026-08-22T12:00:00.000Z", "2026-08-22T13:00:00.000Z"),
+    ).toBe("15:00–16:00");
+  });
+
   it("keeps the spring and autumn Finnish dates at 23 and 25 elapsed hours", () => {
     const spring = getHelsinkiDateBounds("2026-03-29");
     const autumn = getHelsinkiDateBounds("2026-10-25");
