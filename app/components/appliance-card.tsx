@@ -11,6 +11,12 @@ const numberFormatter = new Intl.NumberFormat("fi-FI", {
   minimumFractionDigits: 2,
 });
 
+function formatReviewedOn(reviewedOn: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(reviewedOn);
+  if (!match) return reviewedOn;
+  return `${Number(match[3])}.${Number(match[2])}.${match[1]}`;
+}
+
 export function ApplianceCard({ use, estimate }: ApplianceCardProps) {
   return (
     <article className="appliance-card flex h-full flex-col rounded-2xl border border-slate-700/70 bg-slate-900/70 p-5">
@@ -45,7 +51,9 @@ export function ApplianceCard({ use, estimate }: ApplianceCardProps) {
         <summary className="cursor-pointer font-medium text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300">
           Oletus ja rajaus
         </summary>
-        <p className="mt-2 leading-5">{use.assumption} Tarkistettu {use.reviewedOn}.</p>
+        <p className="mt-2 leading-5">
+          {use.assumption} Ulkoinen varmistus on vielä kesken. Päivätty {formatReviewedOn(use.reviewedOn)}.
+        </p>
       </details>
     </article>
   );
