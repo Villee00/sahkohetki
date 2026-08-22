@@ -956,7 +956,7 @@ body:has(.dialog-backdrop) {
   }
 
   .appliance-card--row {
-    grid-template-columns: minmax(3rem, auto) minmax(0, 1fr);
+    grid-template-columns: minmax(3rem, auto) minmax(0, 1fr) auto;
     padding: 0.85rem;
   }
 
@@ -971,9 +971,15 @@ body:has(.dialog-backdrop) {
   }
 
   .appliance-card__metrics,
-  .appliance-card__assumption-trigger,
   .appliance-card__assumption-panel {
     grid-column: 1 / -1;
+  }
+
+  .appliance-card__assumption-trigger {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+    justify-self: end;
   }
 
   .appliance-card__assumption-panel {
