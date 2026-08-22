@@ -395,6 +395,27 @@ function estimatePoint(point: PricePoint): PricePoint {
   return { ...point, estimates };
 }
 
+export function applyPriceMargin(
+  points: PricePoint[],
+  marginCentsPerKwh: number,
+): PricePoint[] {
+  if (!Number.isFinite(marginCentsPerKwh)) {
+    throw new RangeError("Price margin must be a finite number.");
+  }
+
+  const adjusted = points.map((point) => {
+    if (!point.available || point.priceCentsPerKwh === null) return point;
+    return {
+      ...point,
+      priceCentsPerKwh: point.priceCentsPerKwh + marginCentsPerKwh,
+    };
+  });
+
+  return attachComparisons(
+    classifyPriceLevels(adjusted.map((point) => estimatePoint(point))),
+  );
+}
+
 function createQuarterPoint(
   startMilliseconds: number,
   quarterByStart: Map<number, QuarterPrice>,

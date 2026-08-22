@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildExplorerData,
+  applyPriceMargin,
   calculateUseCost,
   classifyPriceLevels,
   deriveHourlyPoint,
@@ -182,6 +183,46 @@ describe("price domain", () => {
       "normal",
       "high",
     ]);
+  });
+
+  it("adds a fixed margin and recalculates levels, estimates, and comparisons", () => {
+    const points = [
+      {
+        id: "cheap",
+        startAt: "2026-08-22T10:00:00.000Z",
+        endAt: "2026-08-22T11:00:00.000Z",
+        label: "13:00–14:00",
+        priceCentsPerKwh: 4,
+        available: true,
+        level: "cheap" as const,
+      },
+      {
+        id: "expensive",
+        startAt: "2026-08-22T11:00:00.000Z",
+        endAt: "2026-08-22T12:00:00.000Z",
+        label: "14:00–15:00",
+        priceCentsPerKwh: 12,
+        available: true,
+        level: "normal" as const,
+      },
+    ];
+
+    const adjusted = applyPriceMargin(points, 2);
+
+    expect(adjusted.map((point) => point.priceCentsPerKwh)).toEqual([6, 14]);
+    expect(adjusted.map((point) => point.level)).toEqual(["normal", "normal"]);
+    expect(adjusted[0].estimates?.coffee).toMatchObject({
+      centsLabel: "0.90",
+      eurosLabel: "0.01",
+    });
+    expect(adjusted[1].estimates?.coffee?.comparison?.title).toBe(
+      "Säästät 1,20 senttiä",
+    );
+    expect(adjusted[1].estimates?.coffee?.comparison?.detail).toContain(
+      "13:00–14:00",
+    );
+    expect(points[0].priceCentsPerKwh).toBe(4);
+    expect(points[0].level).toBe("cheap");
   });
 
   it("keeps a barely-over-one-cent price in the cheap level when the horizon is otherwise below one cent", () => {

@@ -13,6 +13,7 @@ export type IconName =
   | "kettle"
   | "oven"
   | "sauna"
+  | "settings"
   | "source"
   | "television"
   | "washing";
@@ -113,6 +114,13 @@ export function Icon({ name, ...props }: IconProps) {
       return (
         <svg {...commonProps}>
           <path d="M5 17.5h14M7 14h10M8 14v3.5M16 14v3.5M9 10.5c0-1.7 1.3-1.7 1.3-3.4M13 10.5c0-1.7 1.3-1.7 1.3-3.4M17 10.5c0-1.7 1.3-1.7 1.3-3.4" />
+        </svg>
+      );
+    case "settings":
+      return (
+        <svg {...commonProps}>
+          <circle cx="12" cy="12" r="3.5" />
+          <path d="M19 13.5v-3l-2-.6a6 6 0 0 0-.8-1.8l1-1.8-2.1-2.1-1.8 1a6 6 0 0 0-1.8-.8L11 2.5H8l-.5 1.9a6 6 0 0 0-1.8.8l-1.8-1L1.8 6.3l1 1.8A6 6 0 0 0 2 9.9l-2 .6v3l2 .6a6 6 0 0 0 .8 1.8l-1 1.8 2.1 2.1 1.8-1a6 6 0 0 0 1.8.8l.5 1.9h3l.5-1.9a6 6 0 0 0 1.8-.8l1.8 1 2.1-2.1-1-1.8a6 6 0 0 0 .8-1.8l2-.6Z" />
         </svg>
       );
     case "info":

@@ -1,12 +1,29 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { EVERYDAY_USES } from "../../lib/appliances";
 import { PriceExplorer } from "./price-explorer";
 import type { ExplorerData, PricePoint } from "@/lib/price-types";
 
+const storage = new Map<string, string>();
+const localStorageMock = {
+  getItem: (key: string) => storage.get(key) ?? null,
+  setItem: (key: string, value: string) => storage.set(key, value),
+  removeItem: (key: string) => storage.delete(key),
+  clear: () => storage.clear(),
+};
+
+beforeEach(() => {
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: localStorageMock,
+  });
+});
+
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
   vi.restoreAllMocks();
 });
 
@@ -47,6 +64,11 @@ const data: ExplorerData = {
   tomorrow: { hourly: [], quarterHour: [] },
   uses: [],
   status: "ready",
+};
+
+const dataWithUses: ExplorerData = {
+  ...data,
+  uses: EVERYDAY_USES,
 };
 
 const lowRangePoints: PricePoint[] = [0.2, 0.4, 0.7, 1.1].map((price, index) => ({
@@ -96,6 +118,116 @@ it("keeps explanation controls explicitly named at every breakpoint", () => {
 
   expect(formulaButton.getAttribute("aria-label")).toBe("Miten laskemme?");
   expect(sourceButton.getAttribute("aria-label")).toBe("Tietolähde");
+});
+
+it("applies the supplier margin to displayed prices and appliance estimates", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithUses} />);
+
+  await user.click(screen.getByRole("button", { name: "Hinta-asetukset" }));
+
+  const dialog = screen.getByRole("dialog", { name: "Hinta-asetukset" });
+  const marginInput = within(dialog).getByLabelText("Sähköyhtiön marginaali");
+  await user.clear(marginInput);
+  await user.type(marginInput, "3");
+  await user.click(
+    within(dialog).getByRole("button", { name: "Käytä marginaalia" }),
+  );
+
+  expect(screen.queryByRole("dialog", { name: "Hinta-asetukset" })).toBeNull();
+  expect(screen.getByRole("banner").textContent).toContain("15,00");
+  expect(document.querySelector(".hero-price")?.textContent).toBe("15,00");
+  expect(
+    screen.getByRole("heading", { name: "Kahvinkeitin" }).closest("article")
+      ?.textContent,
+  ).toContain("2.25");
+  expect(
+    screen.getAllByText("ARVIOITU KUSTANNUS SPOT + MARGINAALI").length,
+  ).toBe(9);
+  expect(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 13:00–14:00, hinta 15,00 senttiä kilowattitunnilta/,
+    }),
+  ).toBeTruthy();
+});
+
+it("restores a saved margin and clears it when returning to market price", async () => {
+  const user = userEvent.setup();
+  window.localStorage.setItem("sahkohetki.price-margin", "3.5");
+
+  render(<PriceExplorer data={dataWithUses} />);
+
+  await waitFor(() => {
+    expect(document.querySelector(".hero-price")?.textContent).toBe("15,50");
+  });
+
+  await user.click(screen.getByRole("button", { name: "Hinta-asetukset" }));
+  const dialog = screen.getByRole("dialog", { name: "Hinta-asetukset" });
+  const marginInput = within(dialog).getByLabelText(
+    "Sähköyhtiön marginaali",
+  ) as HTMLInputElement;
+  expect(marginInput.value).toBe("3.5");
+
+  await user.click(
+    within(dialog).getByRole("button", { name: "Palauta spot-hintaan" }),
+  );
+
+  expect(document.querySelector(".hero-price")?.textContent).toBe("12,00");
+  expect(window.localStorage.getItem("sahkohetki.price-margin")).toBeNull();
+});
+
+it("keeps the settings form controls inside the keyboard focus trap", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithUses} />);
+
+  await user.click(screen.getByRole("button", { name: "Hinta-asetukset" }));
+
+  const dialog = screen.getByRole("dialog", { name: "Hinta-asetukset" });
+  const closeButton = within(dialog).getByRole("button", {
+    name: "Sulje hinta-asetukset",
+  });
+  const marginInput = within(dialog).getByLabelText("Sähköyhtiön marginaali");
+  const applyButton = within(dialog).getByRole("button", {
+    name: "Käytä marginaalia",
+  });
+  const resetButton = within(dialog).getByRole("button", {
+    name: "Palauta spot-hintaan",
+  });
+
+  expect(document.activeElement).toBe(closeButton);
+  await user.tab();
+  expect(document.activeElement).toBe(marginInput);
+  await user.tab();
+  expect(document.activeElement).toBe(applyButton);
+  await user.tab();
+  expect(document.activeElement).toBe(resetButton);
+  await user.tab();
+  expect(document.activeElement).toBe(closeButton);
+  await user.tab({ shift: true });
+  expect(document.activeElement).toBe(resetButton);
+});
+
+it("associates an invalid margin with its validation message", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithUses} />);
+
+  await user.click(screen.getByRole("button", { name: "Hinta-asetukset" }));
+  const dialog = screen.getByRole("dialog", { name: "Hinta-asetukset" });
+  const marginInput = within(dialog).getByLabelText(
+    "Sähköyhtiön marginaali",
+  );
+
+  await user.clear(marginInput);
+  await user.type(marginInput, "-1");
+  await user.click(
+    within(dialog).getByRole("button", { name: "Käytä marginaalia" }),
+  );
+
+  expect(marginInput.getAttribute("aria-invalid")).toBe("true");
+  expect(marginInput.getAttribute("aria-describedby")).toContain(
+    "price-margin-error",
+  );
+  expect(within(dialog).getByRole("alert").id).toBe("price-margin-error");
 });
 
 it("keeps the current interval and spot value visible in the top header", () => {

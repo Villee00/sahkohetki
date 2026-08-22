@@ -7,6 +7,7 @@ import type { IconName } from "./ui-icon";
 type ApplianceCardProps = {
   use: EverydayUse;
   estimate: CostEstimate;
+  costLabel?: string;
 };
 
 const numberFormatter = new Intl.NumberFormat("fi-FI", {
@@ -32,7 +33,7 @@ const applianceIcons: Record<EverydayUse["id"], IconName> = {
   computer: "computer",
 };
 
-export function ApplianceCard({ use, estimate }: ApplianceCardProps) {
+export function ApplianceCard({ use, estimate, costLabel }: ApplianceCardProps) {
   const [assumptionOpen, setAssumptionOpen] = useState(false);
 
   return (
@@ -65,7 +66,7 @@ export function ApplianceCard({ use, estimate }: ApplianceCardProps) {
       >
         <div className="appliance-card__metric appliance-card__metric--cost">
           <p className="appliance-card__metric-label">
-            ARVIOITU SPOT-KUSTANNUS
+            {costLabel ?? "ARVIOITU SPOT-KUSTANNUS"}
           </p>
           <p className="appliance-card__cost mt-1 font-mono text-2xl font-semibold tracking-tight text-white">
             {estimate.centsLabel}{" "}
