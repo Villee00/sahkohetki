@@ -1,4 +1,4 @@
-# Sahkohetki
+# Sähköhetki
 
 ## Getting Started
 

@@ -1,0 +1,116 @@
+// @vitest-environment jsdom
+import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, expect, it, vi } from "vitest";
+import { PriceChart } from "./price-chart";
+
+afterEach(() => cleanup());
+
+const point = {
+  id: "quarter-1015",
+  startAt: "2026-08-22T10:15:00.000Z",
+  endAt: "2026-08-22T10:30:00.000Z",
+  label: "10:15–10:30",
+  priceCentsPerKwh: 4.5,
+  available: true,
+  level: "cheap" as const,
+};
+
+const higherPoint = {
+  id: "quarter-1030",
+  startAt: "2026-08-22T10:30:00.000Z",
+  endAt: "2026-08-22T10:45:00.000Z",
+  label: "10:30–10:45",
+  priceCentsPerKwh: 9,
+  available: true,
+  level: "normal" as const,
+};
+
+it("lets a keyboard-accessible chart button select an available interval", async () => {
+  const user = userEvent.setup();
+  const onSelect = vi.fn();
+  render(<PriceChart points={[point]} selectedId={point.id} onSelect={onSelect} />);
+  const button = screen.getByRole("button", { name: /10:15/ });
+  expect(button.getAttribute("aria-pressed")).toBe("true");
+  await user.click(button);
+  expect(onSelect).toHaveBeenCalledWith(point.id);
+});
+
+it("renders the mockup-style zero-based chart with a visible price scale", () => {
+  render(
+    <PriceChart
+      points={[
+        point,
+        higherPoint,
+        {
+          ...higherPoint,
+          id: "quarter-1100",
+          label: "11:00–11:15",
+          priceCentsPerKwh: 18.67,
+          level: "high" as const,
+        },
+      ]}
+      selectedId="quarter-1100"
+      onSelect={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Pörssisähkön Tuntikaavio" })).toBeTruthy();
+  expect(screen.queryByText("Hintajaksot")).toBeNull();
+  expect(screen.getByTestId("price-chart-grid")).toBeTruthy();
+  expect(screen.getByTestId("price-chart-vertical-grid").children).toHaveLength(3);
+  expect(screen.getByText("-5 c")).toBeTruthy();
+  expect(screen.getByText("0 c")).toBeTruthy();
+  expect(screen.getByText("5 c")).toBeTruthy();
+  expect(screen.getByText("10 c")).toBeTruthy();
+  expect(screen.getByText("15 c")).toBeTruthy();
+  expect(screen.getByText("20 c")).toBeTruthy();
+  expect(screen.getByText("10:15–10:30")).toBeTruthy();
+  expect(screen.getByText("11:00–11:15")).toBeTruthy();
+  expect(screen.getByTestId("price-chart-legend")).toBeTruthy();
+  expect(screen.getByText("Vihreä")).toBeTruthy();
+  expect(screen.getByText("Keltainen")).toBeTruthy();
+  expect(screen.getByText("Punainen")).toBeTruthy();
+  expect(screen.queryByText(/Vuorokauden keskiarvo/)).toBeNull();
+
+  const selectedButton = screen.getByRole("button", { name: /11:00/ });
+  expect(selectedButton.getAttribute("aria-pressed")).toBe("true");
+  expect(selectedButton.querySelector(".price-chart__bar--selected")).toBeTruthy();
+});
+
+it("keeps unavailable intervals in the chart without changing the scale", () => {
+  render(
+    <PriceChart
+      points={[
+        point,
+        {
+          ...higherPoint,
+          id: "quarter-unavailable",
+          label: "10:30–10:45",
+          priceCentsPerKwh: null,
+          available: false,
+        },
+        { ...higherPoint, id: "quarter-1045", label: "10:45–11:00" },
+      ]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByTestId("price-chart-grid")).toBeTruthy();
+  expect(screen.getByText("0 c")).toBeTruthy();
+  expect(screen.getByText("10 c")).toBeTruthy();
+  expect(screen.getByRole("button", { name: /hinta ei ole saatavilla/ }).hasAttribute("disabled")).toBe(true);
+});
+
+it("keeps daylight-saving offset markers in visible time labels", () => {
+  render(
+    <PriceChart
+      points={[{ ...point, label: "03:00–04:00 (UTC+3)" }]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByText("+3")).toBeTruthy();
+});
