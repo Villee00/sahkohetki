@@ -83,19 +83,26 @@ it("renders the mockup-style zero-based chart with a visible price scale", () =>
   expect(screen.queryByText("Hintajaksot")).toBeNull();
   expect(screen.getByTestId("price-chart-grid")).toBeTruthy();
   expect(screen.getByTestId("price-chart-vertical-grid").children).toHaveLength(3);
-  expect(screen.getByText("-5 c")).toBeTruthy();
-  expect(screen.getByText("0 c")).toBeTruthy();
-  expect(screen.getByText("5 c")).toBeTruthy();
-  expect(screen.getByText("10 c")).toBeTruthy();
-  expect(screen.getByText("15 c")).toBeTruthy();
-  expect(screen.getByText("20 c")).toBeTruthy();
+  expect(screen.getByText("-5")).toBeTruthy();
+  expect(screen.getByText("0")).toBeTruthy();
+  expect(screen.getByText("5")).toBeTruthy();
+  expect(screen.getByText("10")).toBeTruthy();
+  expect(screen.getByText("15")).toBeTruthy();
+  expect(screen.getByText("20")).toBeTruthy();
+  expect(screen.queryByText("-5 c")).toBeNull();
+  expect(screen.getByText("snt/kWh")).toBeTruthy();
   expect(screen.getByText("10:15–10:30")).toBeTruthy();
   expect(screen.getByText("11:00–11:15")).toBeTruthy();
+  expect(screen.getByText("Päivän keskihinta: 10,72 snt/kWh")).toBeTruthy();
+  expect(
+    Number.parseFloat(
+      screen.getByTestId("price-chart-average-line").style.bottom,
+    ),
+  ).toBeCloseTo(62.8933, 4);
   expect(screen.getByTestId("price-chart-legend")).toBeTruthy();
   expect(screen.getByText("Vihreä")).toBeTruthy();
   expect(screen.getByText("Keltainen")).toBeTruthy();
   expect(screen.getByText("Punainen")).toBeTruthy();
-  expect(screen.queryByText(/Vuorokauden keskiarvo/)).toBeNull();
 
   const selectedButton = screen.getByRole("button", { name: /11:00/ });
   expect(selectedButton.getAttribute("aria-pressed")).toBe("true");
@@ -135,9 +142,31 @@ it("keeps unavailable intervals in the chart without changing the scale", () => 
   );
 
   expect(screen.getByTestId("price-chart-grid")).toBeTruthy();
-  expect(screen.getByText("0 c")).toBeTruthy();
-  expect(screen.getByText("10 c")).toBeTruthy();
+  expect(screen.getByText("0")).toBeTruthy();
+  expect(screen.getByText("10")).toBeTruthy();
+  expect(screen.getByText("snt/kWh")).toBeTruthy();
   expect(screen.getByRole("button", { name: /hinta ei ole saatavilla/ }).hasAttribute("disabled")).toBe(true);
+});
+
+it("calculates the daily average from available intervals only", () => {
+  render(
+    <PriceChart
+      points={[
+        point,
+        {
+          ...higherPoint,
+          id: "quarter-unavailable-for-average",
+          priceCentsPerKwh: null,
+          available: false,
+        },
+        { ...higherPoint, id: "quarter-1100", priceCentsPerKwh: 18.67 },
+      ]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByText("Päivän keskihinta: 11,59 snt/kWh")).toBeTruthy();
 });
 
 it("keeps daylight-saving offset markers in visible time labels", () => {
