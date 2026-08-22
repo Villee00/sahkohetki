@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { PriceExplorer } from "./price-explorer";
@@ -108,6 +108,45 @@ it("keeps the current interval and spot value visible in the top header", () => 
   expect(header.textContent).toContain("snt/kWh");
 });
 
+it("shows active-view minimum, average, and maximum prices in the header", async () => {
+  const user = userEvent.setup();
+  const tomorrowPoint = (point: PricePoint, id: string, price: number) => ({
+    ...point,
+    id,
+    priceCentsPerKwh: price,
+  });
+  const dataWithTomorrow: ExplorerData = {
+    ...data,
+    tomorrow: {
+      hourly: [
+        tomorrowPoint(expensivePoint, "tomorrow-low", 20),
+        tomorrowPoint(cheapestPoint, "tomorrow-high", 30),
+      ],
+      quarterHour: [
+        tomorrowPoint(expensivePoint, "tomorrow-quarter-low", 20),
+        tomorrowPoint(cheapestPoint, "tomorrow-quarter-high", 30),
+      ],
+    },
+  };
+
+  render(<PriceExplorer data={dataWithTomorrow} />);
+
+  const summary = screen.getByRole("group", { name: "Hintayhteenveto" });
+  expect(within(summary).getByText("Halvin")).toBeTruthy();
+  expect(within(summary).getByText("Keskiarvo")).toBeTruthy();
+  expect(within(summary).getByText("Kallein")).toBeTruthy();
+  expect(within(summary).getByText("2,00")).toBeTruthy();
+  expect(within(summary).getByText("7,00")).toBeTruthy();
+  expect(within(summary).getByText("12,00")).toBeTruthy();
+  expect(screen.queryByText("Halvin hetki:")).toBeNull();
+
+  await user.click(screen.getByRole("button", { name: "Huomenna" }));
+
+  expect(within(summary).getByText("20,00")).toBeTruthy();
+  expect(within(summary).getByText("25,00")).toBeTruthy();
+  expect(within(summary).getByText("30,00")).toBeTruthy();
+});
+
 it("keeps a just-over-one-cent price in the low part of the price scale", () => {
   render(<PriceExplorer data={lowRangeData} />);
 
@@ -154,27 +193,13 @@ it("marks the selected interval as current until a future interval is chosen", a
 
   await user.click(
     screen.getByRole("button", {
-      name: /halvin saatavilla oleva jakso 14:00–15:00/i,
+      name: /Valitse aikaväli 14:00–15:00/i,
     }),
   );
 
   expect(screen.queryByLabelText("Nykyinen aika")).toBeNull();
   expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
     "Valittu jakso",
-  );
-});
-
-it("offers a button that selects the cheapest available interval", async () => {
-  const user = userEvent.setup();
-  render(<PriceExplorer data={data} />);
-
-  const cheapestButton = screen.getByRole("button", {
-    name: /halvin saatavilla oleva jakso 14:00–15:00/i,
-  });
-  await user.click(cheapestButton);
-
-  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-    "14:00–15:00",
   );
 });
 
@@ -255,6 +280,9 @@ it("shows a friendly update message instead of a lone partial tomorrow bar", asy
       .getByRole("button", { name: "Huomenna" })
       .getAttribute("aria-pressed"),
   ).toBe("true");
+  expect(
+    screen.queryByRole("group", { name: "Hintayhteenveto" }),
+  ).toBeNull();
   expect(
     screen.queryByRole("button", {
       name: /Valitse aikaväli 00:00–01:00/,

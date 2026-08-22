@@ -7,10 +7,7 @@ import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
 import { Icon } from "./ui-icon";
 import { PriceChart } from "./price-chart";
-import {
-  PRICE_LEVEL_CUTOFFS,
-  PRICE_SCALE_BOUNDS,
-} from "../../lib/price-types";
+import { PRICE_LEVEL_CUTOFFS, PRICE_SCALE_BOUNDS } from "../../lib/price-types";
 import type {
   ExplorerData,
   HorizonPoints,
@@ -131,6 +128,27 @@ function findCheapest(points: PricePoint[]): PricePoint | undefined {
   }, undefined);
 }
 
+type PriceSummary = {
+  minimum: number;
+  average: number;
+  maximum: number;
+};
+
+function getPriceSummary(points: PricePoint[]): PriceSummary | null {
+  const prices = points.flatMap((point) =>
+    point.available && point.priceCentsPerKwh !== null
+      ? [point.priceCentsPerKwh]
+      : [],
+  );
+  if (prices.length === 0) return null;
+
+  return {
+    minimum: Math.min(...prices),
+    average: prices.reduce((sum, price) => sum + price, 0) / prices.length,
+    maximum: Math.max(...prices),
+  };
+}
+
 function getSpectrumPosition(
   points: PricePoint[],
   selectedPoint: PricePoint | null,
@@ -145,7 +163,8 @@ function getSpectrumPosition(
   const range =
     PRICE_SCALE_BOUNDS.maximumCents - PRICE_SCALE_BOUNDS.minimumCents;
   return (
-    ((selectedPoint.priceCentsPerKwh - PRICE_SCALE_BOUNDS.minimumCents) / range) *
+    ((selectedPoint.priceCentsPerKwh - PRICE_SCALE_BOUNDS.minimumCents) /
+      range) *
     100
   );
 }
@@ -205,6 +224,10 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
       activePoints.filter(
         (point) => point.available && point.priceCentsPerKwh !== null,
       ),
+    [activePoints],
+  );
+  const priceSummary = useMemo(
+    () => getPriceSummary(activePoints),
     [activePoints],
   );
   const cheapestPoint = useMemo(
@@ -506,22 +529,34 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                   Hintataso ei ole saatavilla
                 </span>
               )}
-              {cheapestPoint ? (
-                <button
-                  type="button"
-                  className="cheapest-jump inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-left text-sm transition hover:border-emerald-200/60 hover:bg-emerald-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
-                  aria-label={`Halvin saatavilla oleva jakso ${cheapestPoint.label}`}
-                  aria-pressed={selectedPoint?.id === cheapestPoint.id}
-                  onClick={() => setSelectedId(cheapestPoint.id)}
+              {priceSummary && !isTomorrowUnavailable ? (
+                <div
+                  className="price-summary"
+                  role="group"
+                  aria-label="Hintayhteenveto"
                 >
-                  <span className="price-hero__pig-dot" aria-hidden="true">
-                    ✦
-                  </span>
-                  <span className="text-emerald-100">Halvin hetki:</span>
-                  <span className="font-mono font-semibold text-emerald-200">
-                    {cheapestPoint.label}
-                  </span>
-                </button>
+                  <div className="price-summary__item price-summary__item--cheap">
+                    <span className="price-summary__label">Halvin</span>
+                    <span className="price-summary__value">
+                      {formatPrice(priceSummary.minimum)}
+                    </span>
+                    <span className="price-summary__unit">snt/kWh</span>
+                  </div>
+                  <div className="price-summary__item price-summary__item--average">
+                    <span className="price-summary__label">Keskihinta</span>
+                    <span className="price-summary__value">
+                      {formatPrice(priceSummary.average)}
+                    </span>
+                    <span className="price-summary__unit">snt/kWh</span>
+                  </div>
+                  <div className="price-summary__item price-summary__item--high">
+                    <span className="price-summary__label">Kallein</span>
+                    <span className="price-summary__value">
+                      {formatPrice(priceSummary.maximum)}
+                    </span>
+                    <span className="price-summary__unit">snt/kWh</span>
+                  </div>
+                </div>
               ) : null}
             </div>
           </div>
@@ -575,10 +610,12 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 </span>
                 <span className="hidden text-center sm:inline">
                   &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)}–≤{" "}
-                  {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt (Normaali)
+                  {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt
+                  (Normaali)
                 </span>
                 <span>
-                  &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt (Kallis)
+                  &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt
+                  (Kallis)
                 </span>
               </div>
             </div>
