@@ -33,6 +33,27 @@ describe("Pörssisähkö.net source adapter", () => {
     );
   });
 
+  it("normalizes the source's one-millisecond-short quarter end", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          prices: [
+            {
+              price: 4.5,
+              startDate: "2026-08-22T10:00:00.000Z",
+              endDate: "2026-08-22T10:14:59.999Z",
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    const result = await fetchLatestPrices(fetchImpl);
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") throw new Error(result.message);
+    expect(result.prices[0].endAt).toBe("2026-08-22T10:15:00.000Z");
+  });
+
   it("returns an explicit unavailable result for HTTP or JSON failures", async () => {
     await expect(
       fetchLatestPrices(vi.fn().mockResolvedValue(new Response("down", { status: 503 }))),

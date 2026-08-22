@@ -28,10 +28,46 @@ describe("price domain", () => {
     expect(result.prices[3]).toMatchObject({ priceCentsPerKwh: 16 });
   });
 
+  it("accepts the source's 899999ms quarter and normalizes its endAt", () => {
+    const result = parsePricePayload({
+      prices: [
+        {
+          ...completeHour[0],
+          endDate: "2026-08-22T10:14:59.999Z",
+        },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.message);
+    expect(result.prices[0]).toMatchObject({
+      startAt: "2026-08-22T10:00:00.000Z",
+      endAt: "2026-08-22T10:15:00.000Z",
+      priceCentsPerKwh: 10,
+    });
+  });
+
   it("rejects malformed or non-finite source data", () => {
     expect(parsePricePayload({ prices: [{ price: "10" }] }).ok).toBe(false);
     expect(parsePricePayload({ prices: [{ ...completeHour[0], price: Number.NaN }] }).ok).toBe(false);
     expect(parsePricePayload({ prices: [] }).ok).toBe(false);
+  });
+
+  it("rejects other durations and malformed timestamps", () => {
+    expect(
+      parsePricePayload({
+        prices: [{ ...completeHour[0], endDate: "2026-08-22T10:14:59.998Z" }],
+      }).ok,
+    ).toBe(false);
+    expect(
+      parsePricePayload({
+        prices: [{ ...completeHour[0], endDate: "2026-08-22T10:15:00.001Z" }],
+      }).ok,
+    ).toBe(false);
+    expect(
+      parsePricePayload({
+        prices: [{ ...completeHour[0], endDate: "not-an-iso-timestamp" }],
+      }).ok,
+    ).toBe(false);
   });
 
   it("averages all four quarters and marks a missing quarter unavailable", () => {

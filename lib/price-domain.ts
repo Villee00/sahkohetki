@@ -17,6 +17,7 @@ import type {
 import type { EverydayUseId } from "./appliances";
 
 const QUARTER_MILLISECONDS = 15 * 60 * 1000;
+const TRUNCATED_QUARTER_MILLISECONDS = QUARTER_MILLISECONDS - 1;
 const HOUR_MILLISECONDS = 60 * 60 * 1000;
 
 type ParsePricePayloadSuccess = {
@@ -123,9 +124,11 @@ export function parsePricePayload(payload: unknown): ParsePricePayloadResult {
       return { ok: false, message: `Price record ${index} has invalid ISO timestamps.` };
     }
 
+    const durationMilliseconds = endMilliseconds - startMilliseconds;
     if (
       startMilliseconds % QUARTER_MILLISECONDS !== 0 ||
-      endMilliseconds - startMilliseconds !== QUARTER_MILLISECONDS
+      (durationMilliseconds !== QUARTER_MILLISECONDS &&
+        durationMilliseconds !== TRUNCATED_QUARTER_MILLISECONDS)
     ) {
       return { ok: false, message: `Price record ${index} is not a 15-minute interval.` };
     }
@@ -134,7 +137,7 @@ export function parsePricePayload(payload: unknown): ParsePricePayloadResult {
       price: {
         id: String(startMilliseconds),
         startAt: canonicalTimestamp(startMilliseconds),
-        endAt: canonicalTimestamp(endMilliseconds),
+        endAt: canonicalTimestamp(startMilliseconds + QUARTER_MILLISECONDS),
         priceCentsPerKwh: source.price,
       },
       startMilliseconds,
