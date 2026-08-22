@@ -16,7 +16,7 @@ export function ApplianceCard({ use, estimate }: ApplianceCardProps) {
     <article className="appliance-card flex h-full flex-col rounded-2xl border border-slate-700/70 bg-slate-900/70 p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold text-white">{use.name}</h3>
+          <h3 className="appliance-card__name text-lg font-semibold text-white">{use.name}</h3>
           <p className="mt-1 text-sm leading-6 text-slate-400">{use.standardUse}</p>
         </div>
         <span className="rounded-full bg-slate-800 px-2.5 py-1 font-mono text-xs text-slate-300">
@@ -27,7 +27,7 @@ export function ApplianceCard({ use, estimate }: ApplianceCardProps) {
       <div className="mt-6 flex items-end justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Arvioitu spot-kustannus</p>
-          <p className="mt-1 font-mono text-3xl font-semibold tracking-tight text-white">
+          <p className="appliance-card__cost mt-1 font-mono text-3xl font-semibold tracking-tight text-white">
             {estimate.centsLabel} <span className="text-base font-normal text-slate-400">snt</span>
           </p>
         </div>
@@ -41,7 +41,7 @@ export function ApplianceCard({ use, estimate }: ApplianceCardProps) {
         </div>
       ) : null}
 
-      <details className="mt-auto pt-5 text-xs text-slate-500">
+      <details className="appliance-card__assumption mt-auto border-t border-transparent pt-5 text-xs text-slate-500">
         <summary className="cursor-pointer font-medium text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300">
           Oletus ja rajaus
         </summary>

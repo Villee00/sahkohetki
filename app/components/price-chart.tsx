@@ -51,7 +51,7 @@ export function PriceChart({ points, selectedId, onSelect }: PriceChartProps) {
 
   return (
     <section aria-labelledby="price-chart-heading" className="price-chart space-y-4">
-      <div className="flex items-end justify-between gap-4">
+      <div className="price-chart__header flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
             Hintajaksot
@@ -66,9 +66,9 @@ export function PriceChart({ points, selectedId, onSelect }: PriceChartProps) {
       </div>
 
       {points.length > 0 ? (
-        <div className="overflow-x-auto rounded-2xl border border-slate-700/70 bg-slate-950/35 p-4">
+        <div className="price-chart__scroll overflow-x-auto rounded-2xl border border-slate-700/70 bg-slate-950/35 p-4">
           <div
-            className="grid min-h-64 items-end gap-2"
+            className="price-chart__bars grid min-h-64 items-end gap-2"
             style={{
               gridTemplateColumns: `repeat(${points.length}, minmax(3.75rem, 1fr))`,
               minWidth: `${Math.max(points.length * 3.75, 24)}rem`,
@@ -77,11 +77,16 @@ export function PriceChart({ points, selectedId, onSelect }: PriceChartProps) {
             {points.map((point) => {
               const isSelected = point.id === selectedId;
               const levelClass = point.level ?? "unavailable";
+              const barClass = point.available
+                ? `price-chart__bar--${point.level ?? "normal"}`
+                : "price-chart__bar--unavailable";
               return (
-                <div key={point.id} className="flex min-w-0 h-full flex-col justify-end gap-2">
+                <div key={point.id} className="price-chart__item flex min-w-0 h-full flex-col justify-end gap-2">
                   <button
                     type="button"
-                    className={`group flex min-h-44 w-full flex-col items-center justify-end rounded-xl px-1 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 disabled:cursor-not-allowed disabled:opacity-50 ${
+                    className={`price-chart__bar-button group flex min-h-44 w-full flex-col items-center justify-end rounded-xl px-1 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 disabled:cursor-not-allowed disabled:opacity-50 ${
+                      !point.available ? "price-chart__bar-button--unavailable" : ""
+                    } ${
                       isSelected
                         ? "bg-sky-400/15 ring-2 ring-sky-300"
                         : "hover:bg-white/5"
@@ -96,22 +101,14 @@ export function PriceChart({ points, selectedId, onSelect }: PriceChartProps) {
                   >
                     <span
                       aria-hidden="true"
-                      className={`block w-full max-w-10 rounded-t-lg transition group-focus-visible:bg-sky-200 ${
-                        point.available
-                          ? point.level === "cheap"
-                            ? "bg-emerald-400"
-                            : point.level === "high"
-                              ? "bg-rose-400"
-                              : "bg-amber-300"
-                          : "bg-slate-700"
-                      }`}
+                      className={`price-chart__bar ${barClass} block w-full max-w-10 rounded-t-lg transition group-focus-visible:bg-sky-200`}
                       style={{ height: `${getBarHeight(point, minimum, maximum)}%` }}
                     />
-                    <span className="mt-2 block text-[0.7rem] font-medium leading-tight text-slate-300">
+                    <span className="price-chart__time-label mt-2 block text-[0.7rem] font-medium leading-tight text-slate-300">
                       {point.label}
                     </span>
                   </button>
-                  <span className="min-h-4 text-center text-[0.65rem] text-slate-500">
+                  <span className="price-chart__level-label min-h-4 text-center text-[0.65rem] text-slate-500" data-level={point.level ?? "unavailable"}>
                     {point.level ? levelLabels[point.level] : "Ei saatavilla"}
                   </span>
                 </div>
@@ -120,16 +117,16 @@ export function PriceChart({ points, selectedId, onSelect }: PriceChartProps) {
           </div>
         </div>
       ) : (
-        <p className="rounded-2xl border border-dashed border-slate-700 p-6 text-sm text-slate-400">
+        <p className="unavailable-panel rounded-2xl border border-dashed border-slate-700 p-6 text-sm text-slate-400">
           Hintajaksoja ei ole tällä hetkellä saatavilla.
         </p>
       )}
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
+      <div className="price-chart__summary rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
           Tekstimuotoinen yhteenveto
         </p>
-        <ul className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="price-chart__summary-list mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-3">
           {points.map((point) => (
             <li key={point.id} className="flex items-baseline justify-between gap-3 border-b border-slate-800/80 pb-2">
               <span>{point.label}</span>

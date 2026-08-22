@@ -255,13 +255,13 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
   return (
     <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
-      <header className="sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-4 py-4 sm:px-6 lg:px-8">
+      <header className="site-header sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
+        <div className="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-5 px-4 py-4 sm:px-6 lg:px-8">
           <a
             href="#main-content"
             className="group inline-flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300"
           >
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-sky-300 text-slate-950">
+            <span className="brand-mark inline-flex h-9 w-9 items-center justify-center rounded-xl bg-sky-300 text-slate-950">
               <Icon name="spark" className="h-5 w-5" />
             </span>
             <span>
@@ -272,7 +272,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           <nav aria-label="Lisätietoja" className="flex items-center gap-1 sm:gap-2">
             <button
               type="button"
-              className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+              className="site-nav-button inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
               onClick={(event) => openExplanation("formula", event)}
             >
               <Icon name="info" className="h-4 w-4" />
@@ -281,7 +281,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             </button>
             <button
               type="button"
-              className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+              className="site-nav-button inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
               onClick={(event) => openExplanation("source", event)}
             >
               <Icon name="source" className="h-4 w-4" />
@@ -292,12 +292,12 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         </div>
       </header>
 
-      <div id="main-content" className="mx-auto max-w-7xl space-y-8 px-4 pb-16 pt-8 sm:px-6 lg:px-8 lg:pt-12">
-        <section aria-labelledby="selected-heading" className="overflow-hidden rounded-3xl border border-slate-700/70 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/30 sm:p-8">
+      <div id="main-content" className="page-content mx-auto max-w-7xl space-y-8 px-4 pb-16 pt-8 sm:px-6 lg:px-8 lg:pt-12">
+        <section aria-labelledby="selected-heading" className="hero-panel overflow-hidden rounded-3xl border border-slate-700/70 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/30 sm:p-8">
           <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-300">Sähkön hinta nyt ja pian</p>
-              <h1 id="selected-heading" className="mt-4 max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
+              <h1 id="selected-heading" className="hero-heading mt-4 max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
                 {heading}
               </h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-slate-400">
@@ -305,19 +305,21 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-700 bg-slate-950/45 p-5">
+            <div className="hero-metric rounded-2xl border border-slate-700 bg-slate-950/45 p-5">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Valittu spot-hinta</p>
               <div className="mt-2 flex flex-wrap items-end gap-x-3 gap-y-2">
-                <span className="font-mono text-5xl font-semibold tracking-tight text-white sm:text-6xl">
+                <span className="hero-price font-mono text-5xl font-semibold tracking-tight text-white sm:text-6xl">
                   {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
                 </span>
                 <span className="pb-2 font-mono text-sm text-slate-400">snt/kWh · sis. ALV</span>
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
                 {level ? (
-                  <span className={`font-semibold ${level.className}`}>{level.label}</span>
+                  <span className={`level-badge level-badge--${selectedPoint?.level ?? "unavailable"} ${level.className}`}>
+                    {level.label}
+                  </span>
                 ) : (
-                  <span className="text-slate-400">Hintataso ei ole saatavilla</span>
+                  <span className="level-badge level-badge--unavailable">Hintataso ei ole saatavilla</span>
                 )}
                 <span className="text-slate-600">•</span>
                 <span className="text-slate-400">{horizonLabels[horizon]}</span>
@@ -326,7 +328,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               {cheapestPoint ? (
                 <button
                   type="button"
-                  className="mt-5 flex w-full items-center justify-between gap-4 rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-left transition hover:border-emerald-200/60 hover:bg-emerald-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                  className="cheapest-jump mt-5 flex w-full items-center justify-between gap-4 rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-left transition hover:border-emerald-200/60 hover:bg-emerald-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
                   aria-label={`Halvin saatavilla oleva jakso ${cheapestPoint.label}`}
                   aria-pressed={selectedPoint?.id === cheapestPoint.id}
                   onClick={() => setSelectedId(cheapestPoint.id)}
@@ -346,32 +348,34 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           </div>
 
           {selectedPoint && spectrumPosition !== null ? (
-            <div className="mt-8" aria-label="Valitun hinnan sijainti aktiivisen näkymän hinnastossa" role="img">
-              <div className="flex items-center justify-between gap-4 text-xs text-slate-500">
+            <div className="spectrum-widget mt-8" aria-label="Valitun hinnan sijainti aktiivisen näkymän hinnastossa" role="img">
+              <div className="spectrum-scale flex items-center justify-between gap-4 text-xs text-slate-500">
                 <span>Halvin {formatPrice(Math.min(...availablePoints.map((point) => point.priceCentsPerKwh!)))} snt</span>
                 <span>Kallein {formatPrice(Math.max(...availablePoints.map((point) => point.priceCentsPerKwh!)))} snt</span>
               </div>
-              <div className="relative mt-3 h-2 rounded-full bg-gradient-to-r from-emerald-400 via-amber-300 to-rose-400">
+              <div className="spectrum-track relative mt-3 h-2 rounded-full bg-gradient-to-r from-emerald-400 via-amber-300 to-rose-400">
                 <span
-                  className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-slate-950 bg-white shadow-lg shadow-white/25"
+                  className="spectrum-marker absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-slate-950 bg-white shadow-lg shadow-white/25"
                   style={{ left: `${Math.min(100, Math.max(0, spectrumPosition))}%` }}
-                />
+                >
+                  <span aria-hidden="true" className="spectrum-marker__tick" />
+                </span>
               </div>
-              <p className="mt-3 text-center text-xs text-slate-400">Valittu jakso suhteessa aktiivisen näkymän saatavilla oleviin hintoihin</p>
+              <p className="spectrum-labels mt-3 text-center text-xs text-slate-400">Valittu jakso suhteessa aktiivisen näkymän saatavilla oleviin hintoihin</p>
             </div>
           ) : null}
         </section>
 
-        <section aria-label="Näkymän valinta" className="grid gap-4 rounded-2xl border border-slate-800 bg-slate-900/55 p-4 sm:grid-cols-2 sm:p-5">
-          <div>
+        <section aria-label="Näkymän valinta" className="view-controls grid gap-4 rounded-2xl border border-slate-800 bg-slate-900/55 p-4 sm:grid-cols-2 sm:p-5">
+          <div className="view-control-group">
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Aikahorisontti</p>
-            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Aikahorisontti">
+            <div className="view-control-options" role="group" aria-label="Aikahorisontti">
               {(Object.keys(horizonLabels) as Horizon[]).map((option) => (
                 <button
                   key={option}
                   type="button"
-                  className={`min-h-11 rounded-xl px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 ${
-                    horizon === option ? "bg-white text-slate-950" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  className={`view-toggle min-h-11 rounded-xl px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 ${
+                    horizon === option ? "view-toggle--active view-toggle--horizon" : ""
                   }`}
                   aria-pressed={horizon === option}
                   onClick={() => changeHorizon(option)}
@@ -381,15 +385,15 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               ))}
             </div>
           </div>
-          <div>
+          <div className="view-control-group">
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Hintatarkkuus</p>
-            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Hintatarkkuus">
+            <div className="view-control-options" role="group" aria-label="Hintatarkkuus">
               {(Object.keys(modeLabels) as PriceMode[]).map((option) => (
                 <button
                   key={option}
                   type="button"
-                  className={`min-h-11 rounded-xl px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 ${
-                    mode === option ? "bg-sky-300 text-slate-950" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  className={`view-toggle min-h-11 rounded-xl px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 ${
+                    mode === option ? "view-toggle--active" : ""
                   }`}
                   aria-pressed={mode === option}
                   onClick={() => changeMode(option)}
@@ -402,7 +406,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         </section>
 
         {unavailableMessage ? (
-          <section role="status" className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-5 text-sm leading-7 text-amber-100">
+          <section role="status" className="unavailable-panel rounded-2xl border border-amber-300/30 bg-amber-300/10 p-5 text-sm leading-7 text-amber-100">
             <div className="flex gap-3">
               <Icon name="info" className="mt-1 h-5 w-5 shrink-0 text-amber-200" />
               <p>{unavailableMessage}</p>
@@ -415,7 +419,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         ) : null}
 
         {selectedPoint && cheapestPoint ? (
-          <section aria-labelledby="uses-heading" className="space-y-5">
+          <section aria-labelledby="uses-heading" className="uses-section space-y-5">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">Yhdeksän arjen käyttöä</p>
@@ -423,7 +427,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               </div>
               <p className="max-w-md text-sm leading-6 text-slate-400">Arvio käyttää vain valittua spot-energiahintaa. Verkkopalvelu, myyjän marginaali, sähkövero ja perusmaksut eivät sisälly.</p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="appliance-grid">
               {data.uses.map((use) => {
                 const estimate = selectedPoint.estimates?.[use.id];
                 return estimate ? (
@@ -434,7 +438,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           </section>
         ) : null}
 
-        <footer className="border-t border-slate-800 pt-6 text-sm leading-7 text-slate-500">
+        <footer className="site-footer border-t border-slate-800 pt-6 text-sm leading-7 text-slate-500">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
             <div>
               <p className="font-medium text-slate-300">Sahkohetki näyttää Pörssisähkö.netin verollisen spot-energiahinnan.</p>

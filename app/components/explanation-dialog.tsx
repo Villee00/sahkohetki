@@ -27,7 +27,7 @@ export function ExplanationDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:items-center sm:p-6"
+      className="dialog-backdrop fixed inset-0 z-50 flex items-end justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:items-center sm:p-6"
       role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -41,7 +41,7 @@ export function ExplanationDialog({
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         tabIndex={-1}
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 text-slate-200 shadow-2xl shadow-black/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300 sm:p-8"
+        className="dialog-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 text-slate-200 shadow-2xl shadow-black/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300 sm:p-8"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-6">
@@ -61,7 +61,7 @@ export function ExplanationDialog({
             <Icon name="close" className="h-5 w-5" />
           </button>
         </div>
-        <div id={descriptionId} className="mt-6 space-y-4 text-sm leading-7 text-slate-300">
+        <div id={descriptionId} className="dialog-content mt-6 space-y-4 text-sm leading-7 text-slate-300">
           {children}
         </div>
       </div>
