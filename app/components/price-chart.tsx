@@ -23,12 +23,40 @@ function formatPrice(price: number): string {
   return priceFormatter.format(price);
 }
 
-function getBarHeight(point: PricePoint, minimum: number, maximum: number): number {
-  if (!point.available || point.priceCentsPerKwh === null) return 12;
+function getBarHeightForPrice(price: number, minimum: number, maximum: number): number {
   if (minimum === maximum) return 58;
 
-  const normalized = (point.priceCentsPerKwh - minimum) / (maximum - minimum);
+  const normalized = (price - minimum) / (maximum - minimum);
   return 18 + normalized * 82;
+}
+
+function getBarHeight(point: PricePoint, minimum: number, maximum: number): number {
+  if (!point.available || point.priceCentsPerKwh === null) return 12;
+  return getBarHeightForPrice(point.priceCentsPerKwh, minimum, maximum);
+}
+
+function getAvailablePrices(points: PricePoint[]): number[] {
+  return points.flatMap((point) =>
+    point.available && point.priceCentsPerKwh !== null ? [point.priceCentsPerKwh] : [],
+  );
+}
+
+function getAveragePrice(availablePrices: number[]): number | null {
+  if (availablePrices.length === 0) return null;
+
+  return availablePrices.reduce((total, price) => total + price, 0) / availablePrices.length;
+}
+
+function getPointTimeLabel(point: PricePoint): {
+  hour: string;
+  minute: string;
+  offset: string | null;
+} {
+  const [timeRange, offsetLabel] = point.label.split(" (");
+  const startLabel = timeRange?.split("–")[0] ?? point.label;
+  const [hour = startLabel, minute = ""] = startLabel.split(":");
+  const offset = offsetLabel?.replace(")", "").replace(/UTC/g, "") ?? null;
+  return { hour, minute, offset };
 }
 
 function pointAccessibleLabel(point: PricePoint): string {
@@ -43,11 +71,19 @@ function pointAccessibleLabel(point: PricePoint): string {
 }
 
 export function PriceChart({ points, selectedId, onSelect }: PriceChartProps) {
-  const availablePrices = points.flatMap((point) =>
-    point.available && point.priceCentsPerKwh !== null ? [point.priceCentsPerKwh] : [],
-  );
+  const availablePrices = getAvailablePrices(points);
   const minimum = availablePrices.length > 0 ? Math.min(...availablePrices) : 0;
   const maximum = availablePrices.length > 0 ? Math.max(...availablePrices) : 0;
+  const averagePrice = getAveragePrice(availablePrices);
+  const averageHeight =
+    averagePrice === null ? null : getBarHeightForPrice(averagePrice, minimum, maximum);
+  const averageLabel =
+    averagePrice === null
+      ? null
+      : `Vuorokauden keskiarvo ${formatPrice(averagePrice)} snt/kWh`;
+  const chartGridStyle = {
+    gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))`,
+  };
 
   return (
     <section aria-labelledby="price-chart-heading" className="price-chart space-y-4">
@@ -66,52 +102,80 @@ export function PriceChart({ points, selectedId, onSelect }: PriceChartProps) {
       </div>
 
       {points.length > 0 ? (
-        <div className="price-chart__scroll overflow-x-auto rounded-2xl border border-slate-700/70 bg-slate-950/35 p-4">
+        <div className="price-chart__frame rounded-2xl border border-slate-700/70 bg-slate-950/35 p-4">
+          <div className="price-chart__legend" aria-label="Kaavion selite">
+            <span className="price-chart__legend-item">
+              <span className="price-chart__legend-swatch price-chart__legend-swatch--bar" aria-hidden="true" />
+              <span>Hinta (snt/kWh)</span>
+            </span>
+            {averageLabel ? (
+              <span className="price-chart__legend-item">
+                <span className="price-chart__legend-swatch price-chart__legend-swatch--average" aria-hidden="true" />
+                <span>{averageLabel}</span>
+              </span>
+            ) : null}
+          </div>
+
+          <div className="price-chart__bar-area">
+            {averageLabel && averageHeight !== null ? (
+              <div
+                className="price-chart__average-line"
+                style={{ bottom: `${averageHeight}%` }}
+                role="img"
+                aria-label={averageLabel}
+              />
+            ) : null}
+            <div className="price-chart__bars grid" style={chartGridStyle}>
+              {points.map((point) => {
+                const isSelected = point.id === selectedId;
+                const levelClass = point.level ?? "unavailable";
+                const barClass = point.available
+                  ? `price-chart__bar--${point.level ?? "normal"}`
+                  : "price-chart__bar--unavailable";
+                return (
+                  <div key={point.id} className="price-chart__item">
+                    <button
+                      type="button"
+                      className={`price-chart__bar-button group flex w-full items-end justify-center rounded-xl px-1 pt-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 disabled:cursor-not-allowed disabled:opacity-50 ${
+                        !point.available ? "price-chart__bar-button--unavailable" : ""
+                      } ${
+                        isSelected
+                          ? "bg-sky-400/15 ring-2 ring-sky-300"
+                          : "hover:bg-white/5"
+                      }`}
+                      aria-label={pointAccessibleLabel(point)}
+                      aria-pressed={isSelected}
+                      data-level={levelClass}
+                      disabled={!point.available}
+                      onClick={() => {
+                        if (point.available) onSelect(point.id);
+                      }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`price-chart__bar ${barClass} block w-full rounded-t-lg transition group-focus-visible:bg-sky-200`}
+                        style={{ height: `${getBarHeight(point, minimum, maximum)}%` }}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <div
-            className="price-chart__bars grid min-h-64 items-end gap-2"
-            style={{
-              gridTemplateColumns: `repeat(${points.length}, minmax(3.75rem, 1fr))`,
-              minWidth: `${Math.max(points.length * 3.75, 24)}rem`,
-            }}
+            className={`price-chart__axis grid${points.length > 48 ? " price-chart__axis--dense" : ""}`}
+            style={chartGridStyle}
+            aria-hidden="true"
           >
             {points.map((point) => {
-              const isSelected = point.id === selectedId;
-              const levelClass = point.level ?? "unavailable";
-              const barClass = point.available
-                ? `price-chart__bar--${point.level ?? "normal"}`
-                : "price-chart__bar--unavailable";
+              const { hour, minute, offset } = getPointTimeLabel(point);
               return (
-                <div key={point.id} className="price-chart__item flex min-w-0 h-full flex-col justify-end gap-2">
-                  <button
-                    type="button"
-                    className={`price-chart__bar-button group flex min-h-44 w-full flex-col items-center justify-end rounded-xl px-1 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 disabled:cursor-not-allowed disabled:opacity-50 ${
-                      !point.available ? "price-chart__bar-button--unavailable" : ""
-                    } ${
-                      isSelected
-                        ? "bg-sky-400/15 ring-2 ring-sky-300"
-                        : "hover:bg-white/5"
-                    }`}
-                    aria-label={pointAccessibleLabel(point)}
-                    aria-pressed={isSelected}
-                    data-level={levelClass}
-                    disabled={!point.available}
-                    onClick={() => {
-                      if (point.available) onSelect(point.id);
-                    }}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`price-chart__bar ${barClass} block w-full max-w-10 rounded-t-lg transition group-focus-visible:bg-sky-200`}
-                      style={{ height: `${getBarHeight(point, minimum, maximum)}%` }}
-                    />
-                    <span className="price-chart__time-label mt-2 block text-[0.7rem] font-medium leading-tight text-slate-300">
-                      {point.label}
-                    </span>
-                  </button>
-                  <span className="price-chart__level-label min-h-4 text-center text-[0.65rem] text-slate-500" data-level={point.level ?? "unavailable"}>
-                    {point.level ? levelLabels[point.level] : "Ei saatavilla"}
-                  </span>
-                </div>
+                <span key={point.id} className="price-chart__time-label" data-minute={minute}>
+                  <span>{hour}</span>
+                  <span className="price-chart__time-label-minutes">:{minute}</span>
+                  {offset ? <span className="price-chart__time-label-offset">{offset}</span> : null}
+                </span>
               );
             })}
           </div>

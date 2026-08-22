@@ -93,7 +93,7 @@ button:disabled {
 .glass-panel,
 .hero-panel,
 .view-controls,
-.price-chart__scroll,
+.price-chart__frame,
 .appliance-card,
 .unavailable-panel,
 .dialog-panel {
@@ -358,42 +358,94 @@ button:disabled {
   padding-bottom: 1rem;
 }
 
-.price-chart__scroll {
+.price-chart__frame {
   min-width: 0;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-color: #334155 transparent;
-  scrollbar-width: thin;
-  touch-action: pan-x pan-y;
 }
 
-.price-chart__scroll::-webkit-scrollbar {
-  height: 0.45rem;
+.price-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem 1.5rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 0 0.25rem 1rem;
+  color: #a5b4fc;
+  font-size: 0.68rem;
+  font-weight: 600;
 }
 
-.price-chart__scroll::-webkit-scrollbar-track {
-  background: rgba(7, 17, 30, 0.48);
+.price-chart__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
 }
 
-.price-chart__scroll::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: #334155;
+.price-chart__legend-swatch {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 2.25rem;
+}
+
+.price-chart__legend-swatch--bar {
+  height: 0.7rem;
+  border-radius: 0.15rem;
+  background: linear-gradient(90deg, var(--cheap), var(--normal) 52%, var(--high));
+}
+
+.price-chart__legend-swatch--average {
+  border-top: 2px dashed #c084fc;
+}
+
+.price-chart__bar-area {
+  position: relative;
+  min-height: 16rem;
+  margin-top: 1rem;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(148, 163, 184, 0.13) 1px,
+    transparent 1px
+  );
+  background-size: 100% 25%;
+}
+
+.price-chart__average-line {
+  position: absolute;
+  z-index: 3;
+  right: 0.5rem;
+  left: 0.5rem;
+  border-top: 2px dashed #c084fc;
+  filter: drop-shadow(0 0 5px rgba(192, 132, 252, 0.35));
+  pointer-events: none;
+}
+
+.price-chart__bars,
+.price-chart__axis {
+  display: grid;
+  gap: clamp(0.08rem, 0.35vw, 0.35rem);
 }
 
 .price-chart__bars {
-  min-height: 18rem !important;
-  align-items: stretch !important;
+  position: relative;
+  z-index: 1;
+  height: 16rem;
+  align-items: stretch;
 }
 
 .price-chart__item {
   min-width: 0;
+  height: 100%;
 }
 
 .price-chart__bar-button {
-  min-height: 16rem !important;
+  height: 100%;
+  min-width: 0;
   border: 1px solid transparent;
-  border-radius: 0.85rem !important;
+  border-radius: 0.7rem !important;
   background: rgba(7, 17, 30, 0.22) !important;
+  padding-right: clamp(0.05rem, 0.25vw, 0.2rem);
+  padding-left: clamp(0.05rem, 0.25vw, 0.2rem);
 }
 
 .price-chart__bar-button:hover {
@@ -408,6 +460,7 @@ button:disabled {
 
 .price-chart__bar {
   min-height: 0.6rem;
+  max-width: 3rem;
   border: 1px solid transparent;
   border-radius: 0.5rem 0.5rem 0.2rem 0.2rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 15px rgba(2, 8, 23, 0.15);
@@ -439,28 +492,42 @@ button:disabled {
   opacity: 0.82 !important;
 }
 
-.price-chart__time-label {
-  overflow-wrap: anywhere;
+.price-chart__axis {
+  margin-top: 0.65rem;
+  align-items: start;
 }
 
-.price-chart__level-label {
-  min-height: 1rem;
+.price-chart__time-label {
+  min-width: 0;
+  overflow: hidden;
   color: #94a3b8;
-  font-size: 0.68rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.63rem;
   font-weight: 600;
   letter-spacing: 0.01em;
+  line-height: 1;
+  text-align: center;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
-.price-chart__level-label[data-level="cheap"] {
-  color: var(--cheap);
+.price-chart__time-label-minutes {
+  color: #64748b;
 }
 
-.price-chart__level-label[data-level="normal"] {
-  color: var(--normal);
+.price-chart__time-label-offset {
+  margin-left: 0.12rem;
+  color: #c4b5fd;
+  font-size: 0.55rem;
+  letter-spacing: -0.04em;
 }
 
-.price-chart__level-label[data-level="high"] {
-  color: var(--high);
+.price-chart__axis--dense .price-chart__time-label:not([data-minute="00"]) {
+  visibility: hidden;
+}
+
+.price-chart__axis--dense .price-chart__time-label-minutes {
+  display: none;
 }
 
 .uses-section {
@@ -578,6 +645,10 @@ body:has(.dialog-backdrop) {
     flex-direction: column;
   }
 
+  .price-chart__legend {
+    justify-content: flex-start;
+  }
+
   .spectrum-labels {
     gap: 0.75rem;
     line-height: 1.35;
@@ -619,6 +690,15 @@ body:has(.dialog-backdrop) {
   .site-nav-button {
     padding-right: 0.4rem;
     padding-left: 0.4rem;
+  }
+
+  .price-chart__time-label-minutes {
+    display: none;
+  }
+
+  .price-chart__time-label-offset {
+    margin-left: 0.05rem;
+    font-size: 0.45rem;
   }
 }
 
