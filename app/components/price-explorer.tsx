@@ -7,6 +7,7 @@ import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
 import { Icon } from "./ui-icon";
 import { PriceChart } from "./price-chart";
+import { getHelsinkiDateBounds, getHelsinkiDateKey } from "../../lib/time";
 import { PRICE_LEVEL_CUTOFFS, PRICE_SCALE_BOUNDS } from "../../lib/price-types";
 import type {
   ExplorerData,
@@ -64,6 +65,9 @@ const fetchedAtFormatter = new Intl.DateTimeFormat("fi-FI", {
   timeStyle: "short",
   timeZone: "Europe/Helsinki",
 });
+
+const QUARTER_HOUR_MILLISECONDS = 15 * 60 * 1000;
+const HOUR_MILLISECONDS = 60 * 60 * 1000;
 
 function formatPrice(price: number): string {
   return priceFormatter.format(price);
@@ -169,16 +173,61 @@ function getSpectrumPosition(
   );
 }
 
-function isCompletePriceHorizon(points: PricePoint[]): boolean {
-  return (
-    points.length > 0 &&
-    points.every((point) => point.available && point.priceCentsPerKwh !== null)
-  );
+function isCompletePriceHorizon(
+  points: PricePoint[],
+  mode: PriceMode,
+): boolean {
+  if (points.length === 0) return false;
+
+  const firstPoint = points[0];
+  const lastPoint = points[points.length - 1];
+  const firstStartMilliseconds = Date.parse(firstPoint.startAt);
+  const lastEndMilliseconds = Date.parse(lastPoint.endAt);
+  if (
+    !Number.isFinite(firstStartMilliseconds) ||
+    !Number.isFinite(lastEndMilliseconds)
+  ) {
+    return false;
+  }
+
+  let dateBounds: { startAt: string; endAt: string };
+  try {
+    dateBounds = getHelsinkiDateBounds(getHelsinkiDateKey(firstPoint.startAt));
+  } catch {
+    return false;
+  }
+
+  if (
+    firstStartMilliseconds !== Date.parse(dateBounds.startAt) ||
+    lastEndMilliseconds !== Date.parse(dateBounds.endAt)
+  ) {
+    return false;
+  }
+
+  const intervalMilliseconds =
+    mode === "hourly" ? HOUR_MILLISECONDS : QUARTER_HOUR_MILLISECONDS;
+  return points.every((point, index) => {
+    if (!point.available || point.priceCentsPerKwh === null) return false;
+
+    const startMilliseconds = Date.parse(point.startAt);
+    const endMilliseconds = Date.parse(point.endAt);
+    if (
+      !Number.isFinite(startMilliseconds) ||
+      !Number.isFinite(endMilliseconds) ||
+      endMilliseconds - startMilliseconds !== intervalMilliseconds
+    ) {
+      return false;
+    }
+
+    if (index === 0) return true;
+    return startMilliseconds === Date.parse(points[index - 1].endAt);
+  });
 }
 
 function getUnavailableMessage(
   data: ExplorerData,
   horizon: Horizon,
+  mode: PriceMode,
   activePoints: PricePoint[],
   selectedPoint: PricePoint | null,
 ): string | null {
@@ -186,7 +235,10 @@ function getUnavailableMessage(
     return data.message ?? "Hintatiedot eivät ole saatavilla juuri nyt.";
   }
 
-  if (horizon === "tomorrow" && !isCompletePriceHorizon(activePoints)) {
+  if (
+    horizon === "tomorrow" &&
+    !isCompletePriceHorizon(activePoints, mode)
+  ) {
     return "Huomisen hinnat eivät ole vielä saatavilla, mutta ne päivitetään noin klo 15.00.";
   }
   if (!selectedPoint) return "Valittua hintajaksoa ei ole saatavilla.";
@@ -241,13 +293,14 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const unavailableMessage = getUnavailableMessage(
     data,
     horizon,
+    mode,
     activePoints,
     selectedPoint,
   );
   const isTomorrowUnavailable =
     data.status === "ready" &&
     horizon === "tomorrow" &&
-    !isCompletePriceHorizon(activePoints);
+    !isCompletePriceHorizon(activePoints, mode);
   const currentPoint = getCurrentPoint(data);
   const currentPrice =
     currentPoint?.available && currentPoint.priceCentsPerKwh !== null
@@ -543,7 +596,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                     <span className="price-summary__unit">snt/kWh</span>
                   </div>
                   <div className="price-summary__item price-summary__item--average">
-                    <span className="price-summary__label">Keskihinta</span>
+                    <span className="price-summary__label">Keskiarvo</span>
                     <span className="price-summary__value">
                       {formatPrice(priceSummary.average)}
                     </span>
