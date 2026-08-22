@@ -182,6 +182,37 @@ it("keeps the selected interval as compact calculation context", () => {
   );
 });
 
+it("shows the selected date above the selected interval", async () => {
+  const user = userEvent.setup();
+  const tomorrowPoint: PricePoint = {
+    ...cheapestPoint,
+    id: "tomorrow-midnight",
+    startAt: "2026-08-22T21:00:00.000Z",
+    endAt: "2026-08-22T22:00:00.000Z",
+    label: "00:00–01:00",
+  };
+  const dataWithTomorrow: ExplorerData = {
+    ...data,
+    tomorrow: {
+      hourly: [tomorrowPoint],
+      quarterHour: [tomorrowPoint],
+    },
+  };
+
+  render(<PriceExplorer data={dataWithTomorrow} />);
+
+  const selectedDate = screen.getByText("22.8.2026");
+  const selectedInterval = screen.getByText("Valittu aikaväli:");
+  expect(
+    selectedDate.compareDocumentPosition(selectedInterval) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+
+  await user.click(screen.getByRole("button", { name: "Huomenna" }));
+
+  expect(screen.getByText("23.8.2026")).toBeTruthy();
+});
+
 it("marks the selected interval as current until a future interval is chosen", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={data} />);

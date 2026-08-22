@@ -65,6 +65,13 @@ const fetchedAtFormatter = new Intl.DateTimeFormat("fi-FI", {
   timeZone: "Europe/Helsinki",
 });
 
+const selectedDateFormatter = new Intl.DateTimeFormat("fi-FI", {
+  day: "numeric",
+  month: "numeric",
+  year: "numeric",
+  timeZone: "Europe/Helsinki",
+});
+
 function formatPrice(price: number): string {
   return priceFormatter.format(price);
 }
@@ -75,6 +82,13 @@ function formatFetchedAt(fetchedAt: string | null): string {
   return Number.isFinite(date.getTime())
     ? fetchedAtFormatter.format(date)
     : "ei tiedossa";
+}
+
+function formatSelectedDate(startAt: string): string {
+  const date = new Date(startAt);
+  return Number.isFinite(date.getTime())
+    ? selectedDateFormatter.format(date)
+    : "Ei saatavilla";
 }
 
 function getCurrentPoint(data: ExplorerData): PricePoint | undefined {
@@ -489,6 +503,14 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           </h1>
           <div className="price-hero__top flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
             <div className="min-w-0">
+              {selectedPoint ? (
+                <time
+                  className="price-hero__selected-date mb-2 block font-mono text-xs font-medium tracking-wide text-slate-500"
+                  dateTime={selectedPoint.startAt}
+                >
+                  {formatSelectedDate(selectedPoint.startAt)}
+                </time>
+              ) : null}
               <div className="price-hero__interval flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                 <span className="price-hero__clock-dot" aria-hidden="true" />
                 <span>Valittu aikaväli:</span>
@@ -510,9 +532,6 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 </span>
                 <span className="font-mono text-base text-slate-400">
                   snt / kWh
-                </span>
-                <span className="font-mono text-xs text-slate-500">
-                  (sis. ALV)
                 </span>
               </div>
             </div>
