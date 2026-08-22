@@ -93,7 +93,7 @@ it("renders the mockup-style zero-based chart with a visible price scale", () =>
   expect(screen.getByText("snt/kWh")).toBeTruthy();
   expect(screen.getByText("10:15–10:30")).toBeTruthy();
   expect(screen.getByText("11:00–11:15")).toBeTruthy();
-  expect(screen.getByText("Päivän keskihinta: 10,72 snt/kWh")).toBeTruthy();
+  expect(screen.queryByText(/Päivän keskihinta/)).toBeNull();
   expect(
     Number.parseFloat(
       screen.getByTestId("price-chart-average-line").style.bottom,
@@ -166,7 +166,11 @@ it("calculates the daily average from available intervals only", () => {
     />,
   );
 
-  expect(screen.getByText("Päivän keskihinta: 11,59 snt/kWh")).toBeTruthy();
+  expect(
+    screen.getByRole("img", {
+      name: "Päivän keskihinta: 11,59 snt/kWh",
+    }),
+  ).toBeTruthy();
 });
 
 it("keeps daylight-saving offset markers in visible time labels", () => {

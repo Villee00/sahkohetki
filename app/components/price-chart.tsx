@@ -242,12 +242,9 @@ export function PriceChart({
                     className="price-chart__average-line"
                     data-testid="price-chart-average-line"
                     style={{ bottom: `${averagePosition}%` }}
+                    role="img"
                     aria-label={averageLabel}
-                  >
-                    <span className="price-chart__average-label">
-                      {averageLabel}
-                    </span>
-                  </span>
+                  />
                 ) : null}
                 <span
                   className="price-chart__zero-line"

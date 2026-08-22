@@ -540,22 +540,6 @@ button:disabled {
   pointer-events: none;
 }
 
-.price-chart__average-label {
-  position: absolute;
-  right: 0.35rem;
-  bottom: 0.35rem;
-  padding: 0.2rem 0.4rem;
-  border: 1px solid rgba(125, 211, 252, 0.28);
-  border-radius: 999px;
-  background: rgba(7, 17, 30, 0.9);
-  color: #bae6fd;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 0.55rem;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  white-space: nowrap;
-}
-
 .price-chart__current-time {
   position: absolute;
   top: 0;
