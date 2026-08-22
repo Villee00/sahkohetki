@@ -16,7 +16,7 @@ The central interaction is: select a price interval, then see the same selected 
 - The browser never fetches the price API, accepts manually entered prices, or substitutes a stale/demo value when source data is unavailable.
 - Source values remain canonical at 15-minute resolution. The default view is hourly; an hour is available only when all four quarter-hour values exist, and its value is their arithmetic average.
 - “Next 24 hours” is an elapsed-time horizon from the current Finnish interval. “Tomorrow” follows the Finnish calendar date and can contain 23, 24, or 25 local clock hours.
-- Price level is relative to the available points in the active chart horizon: lower third is cheap, middle third is normal, and upper third is high. The UI does not use the mockup’s absolute 5/14 c/kWh thresholds.
+- Price level uses stable absolute bands: prices up to 5 c/kWh are cheap, prices above 5 and up to 14 c/kWh are normal, and prices above 14 c/kWh are high. A tightly clustered active horizon must not turn its single highest value into a high price solely because it is the maximum in that horizon.
 - All prices are shown as cents per kWh and are treated as VAT-inclusive because that is what the selected source returns. Network charges, supplier margins, electricity tax, and fixed fees stay outside the headline estimate.
 - The site is Finnish only, has no account or non-essential cookie requirement, and must support phone and desktop layouts, keyboard selection, visible focus, and assistive technology.
 
@@ -139,7 +139,7 @@ The primary seam is the pure price-domain interface. Focused tests will cover:
 - missing-quarter hourly unavailability;
 - elapsed 24-hour filtering and Finnish calendar-day filtering;
 - daylight-saving transition labels and repeated local clock hours;
-- relative level classification against the active available horizon;
+- absolute price-level classification at the 5 and 14 c/kWh cutoffs;
 - negative prices and the cents/euro cost formula;
 - deterministic cheapest-point selection.
 

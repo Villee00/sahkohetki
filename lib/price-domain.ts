@@ -5,6 +5,7 @@ import {
   getHelsinkiDateKey,
   getNextHelsinkiDateKey,
 } from "./time";
+import { PRICE_LEVEL_CUTOFFS } from "./price-types";
 import type {
   CostComparison,
   CostEstimate,
@@ -246,51 +247,24 @@ function withoutLevel(point: PricePoint): PricePoint {
 }
 
 export function classifyPriceLevels(points: PricePoint[]): PricePoint[] {
-  const ranked = points
-    .map((point, index) => ({ point, index }))
-    .filter(
-      ({ point }) =>
-        point.available &&
-        point.priceCentsPerKwh !== null &&
-        Number.isFinite(point.priceCentsPerKwh),
-    );
-
-  if (ranked.length === 0) return points.map(withoutLevel);
-
-  const allPricesEqual = ranked.every(
-    ({ point }) => point.priceCentsPerKwh === ranked[0].point.priceCentsPerKwh,
-  );
-  if (allPricesEqual) {
-    const normalByIndex = new Map(ranked.map(({ index }) => [index, "normal" as PriceLevel]));
-    return points.map((point, index) => {
-      const pointWithoutLevel = withoutLevel(point);
-      const level = normalByIndex.get(index);
-      return level === undefined ? pointWithoutLevel : { ...pointWithoutLevel, level };
-    });
-  }
-
-  const sorted = [...ranked].sort(
-    (left, right) =>
-      left.point.priceCentsPerKwh! - right.point.priceCentsPerKwh! ||
-      left.index - right.index,
-  );
-  const bandSize = Math.ceil(sorted.length / 3);
-  const levelByIndex = new Map<number, PriceLevel>();
-
-  sorted.forEach(({ index }, rank) => {
-    const level =
-      rank < bandSize
-        ? "cheap"
-        : rank >= sorted.length - bandSize
-          ? "high"
-          : "normal";
-    levelByIndex.set(index, level);
-  });
-
-  return points.map((point, index) => {
+  return points.map((point) => {
     const pointWithoutLevel = withoutLevel(point);
-    const level = levelByIndex.get(index);
-    return level === undefined ? pointWithoutLevel : { ...pointWithoutLevel, level };
+    if (
+      !point.available ||
+      point.priceCentsPerKwh === null ||
+      !Number.isFinite(point.priceCentsPerKwh)
+    ) {
+      return pointWithoutLevel;
+    }
+
+    const level: PriceLevel =
+      point.priceCentsPerKwh <= PRICE_LEVEL_CUTOFFS.cheapMaxCents
+        ? "cheap"
+        : point.priceCentsPerKwh <= PRICE_LEVEL_CUTOFFS.normalMaxCents
+          ? "normal"
+          : "high";
+
+    return { ...pointWithoutLevel, level };
   });
 }
 

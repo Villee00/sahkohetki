@@ -17,7 +17,7 @@
 - No fallback, stale substitution, invented price, browser-side API request, or manual price input is allowed.
 - Quarter-hour values are canonical; hourly values require exactly four valid quarter-hour values and use their arithmetic average.
 - All Finnish labels use the Europe/Helsinki timezone, including DST transition days with 23, 24, or 25 local hours.
-- Price levels are relative to the available values in the active chart horizon, not fixed 5/14 c/kWh thresholds.
+- Price levels use stable absolute 5/14 c/kWh thresholds so a narrow active horizon cannot make a low price appear high.
 - Displayed prices are VAT-inclusive cents per kWh; network charges, supplier margins, electricity tax, and fixed fees are excluded.
 - The nine provisional consumption values are the values approved from Docs/MOCKUP.html and must remain centralized and replaceable.
 - The site is Finnish only, responsive, keyboard-accessible, focus-visible, and readable with assistive technology.
@@ -409,7 +409,7 @@ export function calculateUseCost(
 }
 ~~~
 
-For hourly derivation, look up the four expected quarter starts at hourStartAt, plus 15, 30, and 45 minutes. Return an unavailable point when any is absent; otherwise average the four full-precision prices. For relative levels, sort available points by price and mark the first ceil(n / 3) ranks cheap, the last ceil(n / 3) ranks high, and the remaining ranks normal; when all available prices are equal, mark them normal. Preserve source order for ties and select the first minimum.
+For hourly derivation, look up the four expected quarter starts at hourStartAt, plus 15, 30, and 45 minutes. Return an unavailable point when any is absent; otherwise average the four full-precision prices. For levels, mark prices up to 5 c/kWh cheap, prices above 5 and up to 14 c/kWh normal, and prices above 14 c/kWh high. Preserve source order and select the first minimum.
 
 - [ ] Step 4: Run the focused tests and typecheck
 
@@ -879,7 +879,7 @@ Check each requirement directly in the running page and source:
 - invalid or missing data never becomes a fallback number;
 - hourly mode averages four quarters and exposes missing-hour gaps;
 - next24 is 96 quarter slots and tomorrow follows Finnish local-day duration;
-- level labels are relative to the active available set;
+- level labels use stable 5 and 14 c/kWh cutoffs;
 - estimates use the nine centralized provisional values and negative prices remain negative;
 - source links, VAT note, fetch timestamp, excluded charges, formula, and assumption notes are visible;
 - all controls are keyboard and assistive-technology friendly.

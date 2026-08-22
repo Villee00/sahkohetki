@@ -49,6 +49,23 @@ const data: ExplorerData = {
   status: "ready",
 };
 
+const lowRangePoints: PricePoint[] = [0.2, 0.4, 0.7, 1.1].map((price, index) => ({
+  id: `low-range-${index}`,
+  startAt: new Date(Date.UTC(2026, 7, 22, index)).toISOString(),
+  endAt: new Date(Date.UTC(2026, 7, 22, index + 1)).toISOString(),
+  label: `${index + 10}:00–${index + 11}:00`,
+  priceCentsPerKwh: price,
+  available: true,
+  level: "cheap",
+}));
+
+const lowRangeData: ExplorerData = {
+  ...data,
+  currentQuarterId: lowRangePoints[3].id,
+  currentHourId: lowRangePoints[3].id,
+  today: { hourly: lowRangePoints, quarterHour: lowRangePoints },
+};
+
 it("moves focus into the dialog, traps Tab, and restores the opener", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={data} />);
@@ -89,6 +106,26 @@ it("keeps the current interval and spot value visible in the top header", () => 
   expect(header.textContent).toContain("13:00–14:00");
   expect(header.textContent).toContain("12,00");
   expect(header.textContent).toContain("snt/kWh");
+});
+
+it("keeps a just-over-one-cent price in the low part of the price scale", () => {
+  render(<PriceExplorer data={lowRangeData} />);
+
+  const marker = document.querySelector<HTMLElement>(".spectrum-marker");
+  expect(marker).not.toBeNull();
+  expect(Number.parseFloat(marker?.style.left ?? "100")).toBeLessThan(50);
+  expect(screen.getByText("Edullinen hinta")).toBeTruthy();
+});
+
+it("renders the project logo in the site header", () => {
+  render(<PriceExplorer data={data} />);
+
+  const logo = screen.getByRole("banner").querySelector('img[alt=""]');
+
+  expect(logo).not.toBeNull();
+  expect(logo?.getAttribute("src")).toBe("/icon.ico");
+  expect(logo?.getAttribute("width")).toBe("32");
+  expect(logo?.getAttribute("height")).toBe("32");
 });
 
 it("does not render a text summary for the chart intervals", () => {

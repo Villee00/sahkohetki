@@ -145,8 +145,8 @@ describe("price domain", () => {
     });
   });
 
-  it("classifies values by their active-horizon rank and finds the first minimum", () => {
-    const points = [2, 4, 6, 8, 10, 12].map((price, index) => ({
+  it("classifies values by stable price bands and finds the first minimum", () => {
+    const points = [2, 4, 6, 8, 15, 20].map((price, index) => ({
       id: String(index),
       startAt: new Date(Date.UTC(2026, 7, 22, index)).toISOString(),
       endAt: new Date(Date.UTC(2026, 7, 22, index + 1)).toISOString(),
@@ -164,6 +164,42 @@ describe("price domain", () => {
       "high",
     ]);
     expect(findCheapestPoint(classified)?.id).toBe("0");
+  });
+
+  it("applies the cheap and high cutoffs at five and fourteen cents", () => {
+    const points = [5, 5.01, 14, 14.01].map((price, index) => ({
+      id: String(index),
+      startAt: new Date(Date.UTC(2026, 7, 22, index)).toISOString(),
+      endAt: new Date(Date.UTC(2026, 7, 22, index + 1)).toISOString(),
+      label: String(index) + ":00",
+      priceCentsPerKwh: price,
+      available: true,
+    }));
+
+    expect(classifyPriceLevels(points).map((point) => point.level)).toEqual([
+      "cheap",
+      "normal",
+      "normal",
+      "high",
+    ]);
+  });
+
+  it("keeps a barely-over-one-cent price in the cheap level when the horizon is otherwise below one cent", () => {
+    const points = [0.2, 0.4, 0.7, 1.1].map((price, index) => ({
+      id: String(index),
+      startAt: new Date(Date.UTC(2026, 7, 22, index)).toISOString(),
+      endAt: new Date(Date.UTC(2026, 7, 22, index + 1)).toISOString(),
+      label: String(index) + ":00",
+      priceCentsPerKwh: price,
+      available: true,
+    }));
+
+    expect(classifyPriceLevels(points).map((point) => point.level)).toEqual([
+      "cheap",
+      "cheap",
+      "cheap",
+      "cheap",
+    ]);
   });
 
   it("builds today and tomorrow as Helsinki calendar-day horizons", () => {

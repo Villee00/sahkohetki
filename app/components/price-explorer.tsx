@@ -2,10 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import Image from "next/image";
 import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
 import { Icon } from "./ui-icon";
 import { PriceChart } from "./price-chart";
+import {
+  PRICE_LEVEL_CUTOFFS,
+  PRICE_SCALE_BOUNDS,
+} from "../../lib/price-types";
 import type {
   ExplorerData,
   HorizonPoints,
@@ -137,11 +142,11 @@ function getSpectrumPosition(
       : [],
   );
   if (prices.length === 0) return null;
-  const minimum = Math.min(...prices);
-  const maximum = Math.max(...prices);
-  if (minimum === maximum) return 50;
+  const range =
+    PRICE_SCALE_BOUNDS.maximumCents - PRICE_SCALE_BOUNDS.minimumCents;
   return (
-    ((selectedPoint.priceCentsPerKwh - minimum) / (maximum - minimum)) * 100
+    ((selectedPoint.priceCentsPerKwh - PRICE_SCALE_BOUNDS.minimumCents) / range) *
+    100
   );
 }
 
@@ -377,9 +382,15 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             href="#main-content"
             className="group inline-flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300"
           >
-            <span className="brand-mark inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-300 text-slate-950">
-              <Icon name="spark" className="h-4 w-4" />
-            </span>
+            <Image
+              src="/icon.ico"
+              alt=""
+              width={32}
+              height={32}
+              className="h-8 w-8 rounded-lg"
+              aria-hidden="true"
+              unoptimized
+            />
             <span className="site-brand-text">
               <span className="block text-sm font-semibold tracking-tight text-white">
                 Sähköhetki
@@ -518,7 +529,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           {selectedPoint && spectrumPosition !== null ? (
             <div
               className="spectrum-widget mt-5"
-              aria-label="Valitun hinnan sijainti aktiivisen näkymän hinnastossa"
+              aria-label="Valitun hinnan sijainti hintatasoasteikolla"
               role="img"
             >
               <div className="spectrum-scale flex items-center justify-between gap-4 text-xs text-slate-500">
@@ -559,11 +570,16 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 </span>
               </div>
               <div className="spectrum-labels mt-3 flex justify-between gap-3 text-[0.68rem] text-slate-500">
-                <span>&lt; 5,00 snt (Halpa)</span>
-                <span className="hidden text-center sm:inline">
-                  5,00–14,00 snt (Normaali)
+                <span>
+                  ≤ {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)} snt (Halpa)
                 </span>
-                <span>&gt; 14,00 snt (Kallis)</span>
+                <span className="hidden text-center sm:inline">
+                  &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)}–≤{" "}
+                  {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt (Normaali)
+                </span>
+                <span>
+                  &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt (Kallis)
+                </span>
               </div>
             </div>
           ) : null}

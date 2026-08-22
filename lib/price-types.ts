@@ -2,6 +2,16 @@ import type { EverydayUse, EverydayUseId } from "./appliances";
 
 export type PriceLevel = "cheap" | "normal" | "high";
 
+export const PRICE_LEVEL_CUTOFFS = {
+  cheapMaxCents: 5,
+  normalMaxCents: 14,
+} as const;
+
+export const PRICE_SCALE_BOUNDS = {
+  minimumCents: -5,
+  maximumCents: 20,
+} as const;
+
 export type QuarterPrice = {
   id: string;
   startAt: string;
