@@ -98,7 +98,9 @@ it("keeps the selected interval as compact calculation context", () => {
   render(<PriceExplorer data={data} />);
 
   expect(screen.queryByText("Valittu spot-hinta")).toBeNull();
-  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("13:00–14:00");
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
+    "13:00–14:00",
+  );
 });
 
 it("marks the selected interval as current until a future interval is chosen", async () => {
@@ -106,14 +108,20 @@ it("marks the selected interval as current until a future interval is chosen", a
   render(<PriceExplorer data={data} />);
 
   expect(screen.getByLabelText("Nykyinen aika").textContent).toBe("Nyt");
-  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Nykyinen aikaväli");
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
+    "Nykyinen aikaväli",
+  );
 
-  await user.click(screen.getByRole("button", {
-    name: /halvin saatavilla oleva jakso 14:00–15:00/i,
-  }));
+  await user.click(
+    screen.getByRole("button", {
+      name: /halvin saatavilla oleva jakso 14:00–15:00/i,
+    }),
+  );
 
   expect(screen.queryByLabelText("Nykyinen aika")).toBeNull();
-  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Valittu jakso");
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
+    "Valittu jakso",
+  );
 });
 
 it("offers a button that selects the cheapest available interval", async () => {
@@ -125,7 +133,9 @@ it("offers a button that selects the cheapest available interval", async () => {
   });
   await user.click(cheapestButton);
 
-  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("14:00–15:00");
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
+    "14:00–15:00",
+  );
 });
 
 it("defaults to today's calendar-day horizon", () => {
@@ -137,21 +147,80 @@ it("defaults to today's calendar-day horizon", () => {
   expect(screen.getByRole("button", { name: "Huomenna" })).toBeTruthy();
 });
 
+it("shows a friendly update message instead of a lone partial tomorrow bar", async () => {
+  const user = userEvent.setup();
+  const partialTomorrowData: ExplorerData = {
+    ...data,
+    tomorrow: {
+      hourly: [
+        {
+          id: "tomorrow-hour-0000",
+          startAt: "2026-08-22T21:00:00.000Z",
+          endAt: "2026-08-22T22:00:00.000Z",
+          label: "00:00–01:00",
+          priceCentsPerKwh: 5,
+          available: true,
+          level: "normal",
+        },
+        {
+          id: "tomorrow-hour-0100",
+          startAt: "2026-08-22T22:00:00.000Z",
+          endAt: "2026-08-22T23:00:00.000Z",
+          label: "01:00–02:00",
+          priceCentsPerKwh: null,
+          available: false,
+          unavailableReason: "missing-quarter",
+        },
+      ],
+      quarterHour: [],
+    },
+  };
+
+  render(<PriceExplorer data={partialTomorrowData} />);
+  await user.click(screen.getByRole("button", { name: "Huomenna" }));
+
+  const chart = screen.getByRole("region", {
+    name: "Pörssisähkön Tuntikaavio",
+  });
+  const unavailableMessage =
+    "Huomisen hinnat eivät ole vielä saatavilla, mutta ne päivitetään noin klo 15.00.";
+
+  expect(chart.textContent).toContain(unavailableMessage);
+  expect(screen.queryAllByText(unavailableMessage)).toHaveLength(1);
+  expect(screen.getByRole("button", { name: "Tänään" })).toBeTruthy();
+  expect(
+    screen
+      .getByRole("button", { name: "Huomenna" })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(
+    screen.queryByRole("button", {
+      name: /Valitse aikaväli 00:00–01:00/,
+    }),
+  ).toBeNull();
+});
+
 it("matches the mockup chart header and control order", () => {
   render(<PriceExplorer data={data} />);
 
-  const chart = screen.getByRole("region", { name: "Pörssisähkön Tuntikaavio" });
+  const chart = screen.getByRole("region", {
+    name: "Pörssisähkön Tuntikaavio",
+  });
   const chartHeader = chart.querySelector(".price-chart__header");
   const horizonControls = screen.getByRole("group", { name: "Aikahorisontti" });
-  const precisionControls = screen.getByRole("group", { name: "Hintatarkkuus" });
-  const headerGroups = Array.from(chartHeader?.querySelectorAll('[role="group"]') ?? []).map(
-    (group) => group.getAttribute("aria-label"),
-  );
+  const precisionControls = screen.getByRole("group", {
+    name: "Hintatarkkuus",
+  });
+  const headerGroups = Array.from(
+    chartHeader?.querySelectorAll('[role="group"]') ?? [],
+  ).map((group) => group.getAttribute("aria-label"));
 
   expect(chartHeader).not.toBeNull();
   expect(chartHeader?.contains(horizonControls)).toBe(true);
   expect(chartHeader?.contains(precisionControls)).toBe(true);
-  expect(chart.querySelector(".price-chart__frame")?.contains(chartHeader)).toBe(true);
+  expect(
+    chart.querySelector(".price-chart__frame")?.contains(chartHeader),
+  ).toBe(true);
   expect(headerGroups).toEqual(["Hintatarkkuus", "Aikahorisontti"]);
   expect(screen.getByRole("button", { name: "Tunnittain (h)" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "15 min tarkkuus" })).toBeTruthy();

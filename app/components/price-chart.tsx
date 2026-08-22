@@ -9,6 +9,7 @@ type PriceChartProps = {
   selectedId: string | null;
   onSelect: (id: string) => void;
   headerContent?: ReactNode;
+  emptyMessage?: string;
 };
 
 const levelLabels: Record<PriceLevel, string> = {
@@ -134,6 +135,7 @@ export function PriceChart({
   selectedId,
   onSelect,
   headerContent,
+  emptyMessage,
 }: PriceChartProps) {
   const availablePrices = getAvailablePrices(points);
   const chartScale = getChartScale(availablePrices);
@@ -273,7 +275,7 @@ export function PriceChart({
           </>
       ) : (
         <p className="unavailable-panel rounded-2xl border border-dashed border-slate-700 p-6 text-sm text-slate-400">
-          Hintajaksoja ei ole tällä hetkellä saatavilla.
+          {emptyMessage ?? "Hintajaksoja ei ole tällä hetkellä saatavilla."}
         </p>
       )}
       </div>

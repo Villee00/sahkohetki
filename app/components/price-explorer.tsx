@@ -145,6 +145,13 @@ function getSpectrumPosition(
   );
 }
 
+function isCompletePriceHorizon(points: PricePoint[]): boolean {
+  return (
+    points.length > 0 &&
+    points.every((point) => point.available && point.priceCentsPerKwh !== null)
+  );
+}
+
 function getUnavailableMessage(
   data: ExplorerData,
   horizon: Horizon,
@@ -155,9 +162,8 @@ function getUnavailableMessage(
     return data.message ?? "Hintatiedot eivät ole saatavilla juuri nyt.";
   }
 
-  const availableCount = activePoints.filter((point) => point.available).length;
-  if (horizon === "tomorrow" && availableCount === 0) {
-    return "Huomisen hintoja ei ole vielä julkaistu tai niitä ei voitu varmistaa.";
+  if (horizon === "tomorrow" && !isCompletePriceHorizon(activePoints)) {
+    return "Huomisen hinnat eivät ole vielä saatavilla, mutta ne päivitetään noin klo 15.00.";
   }
   if (!selectedPoint) return "Valittua hintajaksoa ei ole saatavilla.";
   return null;
@@ -209,6 +215,10 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     activePoints,
     selectedPoint,
   );
+  const isTomorrowUnavailable =
+    data.status === "ready" &&
+    horizon === "tomorrow" &&
+    !isCompletePriceHorizon(activePoints);
   const currentPoint = getCurrentPoint(data);
   const currentPrice =
     currentPoint?.available && currentPoint.priceCentsPerKwh !== null
@@ -551,7 +561,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           ) : null}
         </section>
 
-        {unavailableMessage ? (
+        {unavailableMessage && !isTomorrowUnavailable ? (
           <section
             role="status"
             className="unavailable-panel rounded-2xl border border-amber-300/30 bg-amber-300/10 p-5 text-sm leading-7 text-amber-100"
@@ -566,13 +576,17 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           </section>
         ) : null}
 
-        {data.status === "ready" &&
-        !(horizon === "tomorrow" && availablePoints.length === 0) ? (
+        {data.status === "ready" ? (
           <PriceChart
-            points={activePoints}
+            points={isTomorrowUnavailable ? [] : activePoints}
             selectedId={selectedId}
             onSelect={setSelectedId}
             headerContent={viewControls}
+            emptyMessage={
+              isTomorrowUnavailable
+                ? (unavailableMessage ?? undefined)
+                : undefined
+            }
           />
         ) : null}
 
