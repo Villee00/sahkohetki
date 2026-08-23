@@ -71,6 +71,31 @@ const dataWithUses: ExplorerData = {
   uses: EVERYDAY_USES,
 };
 
+function createCompleteTomorrowPoints(
+  intervalMilliseconds: number,
+  count: number,
+  prefix: string,
+): PricePoint[] {
+  const horizonStartMilliseconds = Date.parse("2026-08-22T21:00:00.000Z");
+  return Array.from({ length: count }, (_, index) => {
+    const startAt = new Date(
+      horizonStartMilliseconds + index * intervalMilliseconds,
+    ).toISOString();
+    const endAt = new Date(
+      horizonStartMilliseconds + (index + 1) * intervalMilliseconds,
+    ).toISOString();
+    return {
+      id: `${prefix}-${index}`,
+      startAt,
+      endAt,
+      label: `${index}`,
+      priceCentsPerKwh: index === 0 ? 20 : index === 1 ? 30 : 25,
+      available: true,
+      level: "normal",
+    };
+  });
+}
+
 const lowRangePoints: PricePoint[] = [0.2, 0.4, 0.7, 1.1].map((price, index) => ({
   id: `low-range-${index}`,
   startAt: new Date(Date.UTC(2026, 7, 22, index)).toISOString(),
@@ -240,24 +265,37 @@ it("keeps the current interval and spot value visible in the top header", () => 
   expect(header.textContent).toContain("snt/kWh");
 });
 
+it("updates the top header when a different interval is selected", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  const headerValue = within(screen.getByRole("banner")).getByLabelText(
+    /spot-hinta/i,
+  );
+
+  await user.click(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 14:00–15:00/i,
+    }),
+  );
+
+  expect(headerValue.textContent).toContain("Valittu");
+  expect(headerValue.textContent).toContain("14:00–15:00");
+  expect(headerValue.textContent).toContain("2,00");
+  expect(headerValue.textContent).not.toContain("12,00");
+});
+
 it("shows active-view minimum, average, and maximum prices in the header", async () => {
   const user = userEvent.setup();
-  const tomorrowPoint = (point: PricePoint, id: string, price: number) => ({
-    ...point,
-    id,
-    priceCentsPerKwh: price,
-  });
   const dataWithTomorrow: ExplorerData = {
     ...data,
     tomorrow: {
-      hourly: [
-        tomorrowPoint(expensivePoint, "tomorrow-low", 20),
-        tomorrowPoint(cheapestPoint, "tomorrow-high", 30),
-      ],
-      quarterHour: [
-        tomorrowPoint(expensivePoint, "tomorrow-quarter-low", 20),
-        tomorrowPoint(cheapestPoint, "tomorrow-quarter-high", 30),
-      ],
+      hourly: createCompleteTomorrowPoints(60 * 60 * 1000, 24, "tomorrow-hour"),
+      quarterHour: createCompleteTomorrowPoints(
+        15 * 60 * 1000,
+        96,
+        "tomorrow-quarter",
+      ),
     },
   };
 
@@ -450,6 +488,51 @@ it("shows a friendly update message instead of a lone partial tomorrow bar", asy
     screen.queryByRole("button", {
       name: /Valitse aikaväli 00:00–01:00/,
     }),
+  ).toBeNull();
+});
+
+it("hides the summary for a truncated tomorrow horizon", async () => {
+  const user = userEvent.setup();
+  const truncatedTomorrowPoint = (
+    id: string,
+    startAt: string,
+    endAt: string,
+    priceCentsPerKwh: number,
+  ): PricePoint => ({
+    ...expensivePoint,
+    id,
+    startAt,
+    endAt,
+    priceCentsPerKwh,
+    label: "00:00–01:00",
+    level: "normal",
+  });
+  const truncatedTomorrowData: ExplorerData = {
+    ...data,
+    tomorrow: {
+      hourly: [
+        truncatedTomorrowPoint(
+          "truncated-0",
+          "2026-08-22T21:00:00.000Z",
+          "2026-08-22T22:00:00.000Z",
+          5,
+        ),
+        truncatedTomorrowPoint(
+          "truncated-1",
+          "2026-08-22T22:00:00.000Z",
+          "2026-08-22T23:00:00.000Z",
+          8,
+        ),
+      ],
+      quarterHour: [],
+    },
+  };
+
+  render(<PriceExplorer data={truncatedTomorrowData} />);
+  await user.click(screen.getByRole("button", { name: "Huomenna" }));
+
+  expect(
+    screen.queryByRole("group", { name: "Hintayhteenveto" }),
   ).toBeNull();
 });
 

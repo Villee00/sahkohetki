@@ -123,13 +123,19 @@ function getBarStyle(point: PricePoint, scale: ChartScale): {
 }
 
 function formatAxisValue(value: number): string {
-  return `${axisFormatter.format(value).replace("−", "-")} snt`;
+  return axisFormatter.format(value).replace("−", "-");
 }
 
 function getAvailablePrices(points: PricePoint[]): number[] {
   return points.flatMap((point) =>
     point.available && point.priceCentsPerKwh !== null ? [point.priceCentsPerKwh] : [],
   );
+}
+
+function getAveragePrice(points: PricePoint[]): number | null {
+  const prices = getAvailablePrices(points);
+  if (prices.length === 0) return null;
+  return prices.reduce((total, price) => total + price, 0) / prices.length;
 }
 
 function getPointTimeLabel(point: PricePoint): {
@@ -166,6 +172,13 @@ export function PriceChart({
   const availablePrices = getAvailablePrices(points);
   const chartScale = getChartScale(availablePrices);
   const zeroPosition = getScalePosition(0, chartScale);
+  const averagePrice = getAveragePrice(points);
+  const averagePosition =
+    averagePrice === null ? null : getScalePosition(averagePrice, chartScale);
+  const averageLabel =
+    averagePrice === null
+      ? null
+      : `Päivän keskihinta: ${formatPrice(averagePrice)} snt/kWh`;
   const currentTimePosition = getCurrentTimePosition(points, currentTime);
   const chartGridStyle = {
     gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))`,
@@ -192,6 +205,7 @@ export function PriceChart({
           <div className="price-chart__plot-layout">
             <div className="price-chart__plot" role="group" aria-label="Pörssisähkön hintakaavio">
               <div className="price-chart__y-axis" aria-hidden="true">
+                <span className="price-chart__y-unit">snt/kWh</span>
                 {chartScale.ticks.map((tick) => (
                   <span
                     key={tick}
@@ -223,6 +237,15 @@ export function PriceChart({
                     <span key={point.id} className="price-chart__vertical-grid-line" />
                   ))}
                 </div>
+                {averagePosition !== null && averageLabel !== null ? (
+                  <span
+                    className="price-chart__average-line"
+                    data-testid="price-chart-average-line"
+                    style={{ bottom: `${averagePosition}%` }}
+                    role="img"
+                    aria-label={averageLabel}
+                  />
+                ) : null}
                 <span
                   className="price-chart__zero-line"
                   style={{ bottom: `${zeroPosition}%` }}

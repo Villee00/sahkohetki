@@ -11,6 +11,7 @@ import { ExplanationDialog } from "./explanation-dialog";
 import { Icon } from "./ui-icon";
 import { PriceChart } from "./price-chart";
 import { applyPriceMargin } from "../../lib/price-domain";
+import { getHelsinkiDateBounds, getHelsinkiDateKey } from "../../lib/time";
 import { PRICE_LEVEL_CUTOFFS, PRICE_SCALE_BOUNDS } from "../../lib/price-types";
 import type {
   ExplorerData,
@@ -77,6 +78,8 @@ const selectedDateFormatter = new Intl.DateTimeFormat("fi-FI", {
   year: "numeric",
   timeZone: "Europe/Helsinki",
 });
+const QUARTER_HOUR_MILLISECONDS = 15 * 60 * 1000;
+const HOUR_MILLISECONDS = 60 * 60 * 1000;
 
 function formatPrice(price: number): string {
   return priceFormatter.format(price);
@@ -208,16 +211,61 @@ function getSpectrumPosition(
   );
 }
 
-function isCompletePriceHorizon(points: PricePoint[]): boolean {
-  return (
-    points.length > 0 &&
-    points.every((point) => point.available && point.priceCentsPerKwh !== null)
-  );
+function isCompletePriceHorizon(
+  points: PricePoint[],
+  mode: PriceMode,
+): boolean {
+  if (points.length === 0) return false;
+
+  const firstPoint = points[0];
+  const lastPoint = points[points.length - 1];
+  const firstStartMilliseconds = Date.parse(firstPoint.startAt);
+  const lastEndMilliseconds = Date.parse(lastPoint.endAt);
+  if (
+    !Number.isFinite(firstStartMilliseconds) ||
+    !Number.isFinite(lastEndMilliseconds)
+  ) {
+    return false;
+  }
+
+  let dateBounds: { startAt: string; endAt: string };
+  try {
+    dateBounds = getHelsinkiDateBounds(getHelsinkiDateKey(firstPoint.startAt));
+  } catch {
+    return false;
+  }
+
+  if (
+    firstStartMilliseconds !== Date.parse(dateBounds.startAt) ||
+    lastEndMilliseconds !== Date.parse(dateBounds.endAt)
+  ) {
+    return false;
+  }
+
+  const intervalMilliseconds =
+    mode === "hourly" ? HOUR_MILLISECONDS : QUARTER_HOUR_MILLISECONDS;
+  return points.every((point, index) => {
+    if (!point.available || point.priceCentsPerKwh === null) return false;
+
+    const startMilliseconds = Date.parse(point.startAt);
+    const endMilliseconds = Date.parse(point.endAt);
+    if (
+      !Number.isFinite(startMilliseconds) ||
+      !Number.isFinite(endMilliseconds) ||
+      endMilliseconds - startMilliseconds !== intervalMilliseconds
+    ) {
+      return false;
+    }
+
+    if (index === 0) return true;
+    return startMilliseconds === Date.parse(points[index - 1].endAt);
+  });
 }
 
 function getUnavailableMessage(
   data: ExplorerData,
   horizon: Horizon,
+  mode: PriceMode,
   activePoints: PricePoint[],
   selectedPoint: PricePoint | null,
 ): string | null {
@@ -225,7 +273,7 @@ function getUnavailableMessage(
     return data.message ?? "Hintatiedot eivät ole saatavilla juuri nyt.";
   }
 
-  if (horizon === "tomorrow" && !isCompletePriceHorizon(activePoints)) {
+  if (horizon === "tomorrow" && !isCompletePriceHorizon(activePoints, mode)) {
     return "Huomisen hinnat eivät ole vielä saatavilla. Ne päivittyvät noin klo 15.";
   }
   if (!selectedPoint) return "Valitun aikavälin hintatietoa ei ole saatavilla.";
@@ -298,25 +346,14 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const unavailableMessage = getUnavailableMessage(
     data,
     horizon,
+    mode,
     activePoints,
     selectedPoint,
   );
   const isTomorrowUnavailable =
     data.status === "ready" &&
     horizon === "tomorrow" &&
-    !isCompletePriceHorizon(activePoints);
-  const currentPoint = adjustedToday.hourly.find(
-    (point) => point.id === data.currentHourId,
-  );
-  const currentPrice =
-    currentPoint?.available && currentPoint.priceCentsPerKwh !== null
-      ? currentPoint.priceCentsPerKwh
-      : null;
-  const currentPriceDescription =
-    priceMargin > 0
-      ? "Nykyinen hinta marginaali mukaan lukien"
-      : "Nykyinen spot-hinta";
-
+    !isCompletePriceHorizon(activePoints, mode);
   useEffect(() => {
     const updateCurrentTime = () => setCurrentTime(Date.now());
     updateCurrentTime();
@@ -544,18 +581,18 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           <div className="site-header__tools flex min-w-0 items-center gap-1 sm:gap-2">
             <div
               className="current-value flex min-w-0 items-center gap-2"
-              aria-label={`${currentPriceDescription} ${currentPrice === null ? "ei saatavilla" : `${formatPrice(currentPrice)} snt/kWh`}, aikaväli ${currentPoint?.label ?? "ei saatavilla"}`}
+              aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} ${priceMargin > 0 ? "hinta marginaali mukaan lukien" : "spot-hinta"} ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
             >
               <span className="current-value__context flex min-w-0 items-baseline gap-2">
                 <span className="current-value__label text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-sky-300">
-                  Nyt
+                  {isCurrentSelection ? "Nyt" : "Valittu"}
                 </span>
                 <span className="current-value__time truncate font-mono text-xs text-slate-300">
-                  {currentPoint?.label ?? "Ei saatavilla"}
+                  {selectedPoint?.label ?? "Ei saatavilla"}
                 </span>
               </span>
               <span className="current-value__price shrink-0 font-mono text-sm font-semibold text-white">
-                {currentPrice === null ? "—" : formatPrice(currentPrice)}
+                {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
               </span>
               <span className="current-value__unit shrink-0 text-[0.65rem] text-slate-500">
                 snt/kWh
