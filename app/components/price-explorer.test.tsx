@@ -265,7 +265,7 @@ it("shows active-view minimum, average, and maximum prices in the header", async
 
   const summary = screen.getByRole("group", { name: "Hintayhteenveto" });
   expect(within(summary).getByText("Halvin")).toBeTruthy();
-  expect(within(summary).getByText("Keskiarvo")).toBeTruthy();
+  expect(within(summary).getByText("Keskihinta")).toBeTruthy();
   expect(within(summary).getByText("Kallein")).toBeTruthy();
   expect(within(summary).getByText("2,00")).toBeTruthy();
   expect(within(summary).getByText("7,00")).toBeTruthy();
@@ -349,7 +349,7 @@ it("marks the selected interval as current until a future interval is chosen", a
   const user = userEvent.setup();
   render(<PriceExplorer data={data} />);
 
-  expect(screen.getByLabelText("Nykyinen aika").textContent).toBe("Nyt");
+  expect(screen.getByLabelText("Nykyinen aikaväli").textContent).toBe("Nyt");
   expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
     "Nykyinen aikaväli",
   );
@@ -360,9 +360,9 @@ it("marks the selected interval as current until a future interval is chosen", a
     }),
   );
 
-  expect(screen.queryByLabelText("Nykyinen aika")).toBeNull();
+  expect(screen.queryByLabelText("Nykyinen aikaväli")).toBeNull();
   expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-    "Valittu jakso",
+    "Valittu aikaväli",
   );
 });
 
@@ -430,10 +430,10 @@ it("shows a friendly update message instead of a lone partial tomorrow bar", asy
   await user.click(screen.getByRole("button", { name: "Huomenna" }));
 
   const chart = screen.getByRole("region", {
-    name: "Pörssisähkön Tuntikaavio",
+    name: "Pörssisähkön tuntikaavio",
   });
   const unavailableMessage =
-    "Huomisen hinnat eivät ole vielä saatavilla, mutta ne päivitetään noin klo 15.00.";
+    "Huomisen hinnat eivät ole vielä saatavilla. Ne päivittyvät noin klo 15.";
 
   expect(chart.textContent).toContain(unavailableMessage);
   expect(screen.queryAllByText(unavailableMessage)).toHaveLength(1);
@@ -457,10 +457,10 @@ it("matches the mockup chart header and control order", () => {
   render(<PriceExplorer data={data} />);
 
   const chart = screen.getByRole("region", {
-    name: "Pörssisähkön Tuntikaavio",
+    name: "Pörssisähkön tuntikaavio",
   });
   const chartHeader = chart.querySelector(".price-chart__header");
-  const horizonControls = screen.getByRole("group", { name: "Aikahorisontti" });
+  const horizonControls = screen.getByRole("group", { name: "Tarkastelujakso" });
   const precisionControls = screen.getByRole("group", {
     name: "Hintatarkkuus",
   });
@@ -474,9 +474,33 @@ it("matches the mockup chart header and control order", () => {
   expect(
     chart.querySelector(".price-chart__frame")?.contains(chartHeader),
   ).toBe(true);
-  expect(headerGroups).toEqual(["Hintatarkkuus", "Aikahorisontti"]);
-  expect(screen.getByRole("button", { name: "Tunnittain (h)" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "15 min tarkkuus" })).toBeTruthy();
+  expect(headerGroups).toEqual(["Hintatarkkuus", "Tarkastelujakso"]);
+  expect(screen.getByRole("button", { name: "Tuntikeskiarvo" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "15 minuutin tarkkuus" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Tänään" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Huomenna" })).toBeTruthy();
+});
+
+it("shows natural Finnish copy in the calculation and source explanations", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  await user.click(screen.getByRole("button", { name: "Miten laskemme?" }));
+  const formulaDialog = screen.getByRole("dialog");
+  expect(formulaDialog.textContent).toContain(
+    "Arvio perustuu valittuun spot-hintaan ja kunkin ennalta määritellyn käyttötavan kulutukseen.",
+  );
+  expect(formulaDialog.textContent).toContain(
+    "Laskennassa säilytetään täysi tarkkuus, ja kustannus pyöristetään näytettäessä kahteen desimaaliin.",
+  );
+
+  await user.keyboard("{Escape}");
+  await user.click(screen.getByRole("button", { name: "Tietolähde" }));
+  const sourceDialog = screen.getByRole("dialog");
+  expect(sourceDialog.textContent).toContain(
+    "uusimpia Suomen alueen spot-hintoja 15 minuutin tarkkuudella",
+  );
+  expect(sourceDialog.textContent).toContain(
+    "eikä täydennä puuttuvia hintoja vanhoilla arvoilla.",
+  );
 });

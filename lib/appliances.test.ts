@@ -38,7 +38,7 @@ describe("everyday use catalog", () => {
   it("keeps each researched definition and review date with the catalog value", () => {
     expect(getEverydayUse("coffee")).toMatchObject({
       name: "Kahvinkeitin",
-      standardUse: "Yksi noin litran suodatettava pannullinen, lämpölevy enintään 30 min",
+      standardUse: "Yksi noin litran suodatinkahvipannullinen, lämpölevy enintään 30 minuuttia",
       consumptionKwh: 0.15,
       reviewedOn: "2026-08-22",
     });

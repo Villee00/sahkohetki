@@ -309,20 +309,20 @@ function getCostComparison(
   if (!estimate || !cheapestEstimate || savingCents === 0) {
     return {
       title: "Paras ajankohta",
-      detail: "Tämä on aktiivisen näkymän edullisin saatavilla oleva jakso.",
+      detail: "Tämä on aktiivisen näkymän edullisin saatavilla oleva aikaväli.",
     };
   }
 
   if (savingCents > 0 && savingCents <= 0.005) {
     return {
       title: "Säästät alle 0,01 senttiä",
-      detail: `edullisimmalla jaksolla ${cheapestPoint.label}`,
+      detail: `edullisimpana ajankohtana ${cheapestPoint.label}`,
     };
   }
 
   return {
     title: `Säästät ${comparisonFormatter.format(savingCents)} senttiä`,
-    detail: `edullisimmalla jaksolla ${cheapestPoint.label}`,
+    detail: `edullisimpana ajankohtana ${cheapestPoint.label}`,
   };
 }
 

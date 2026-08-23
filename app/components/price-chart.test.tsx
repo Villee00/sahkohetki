@@ -79,16 +79,16 @@ it("renders the mockup-style zero-based chart with a visible price scale", () =>
     />,
   );
 
-  expect(screen.getByRole("heading", { name: "Pörssisähkön Tuntikaavio" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Pörssisähkön tuntikaavio" })).toBeTruthy();
   expect(screen.queryByText("Hintajaksot")).toBeNull();
   expect(screen.getByTestId("price-chart-grid")).toBeTruthy();
   expect(screen.getByTestId("price-chart-vertical-grid").children).toHaveLength(3);
-  expect(screen.getByText("-5 c")).toBeTruthy();
-  expect(screen.getByText("0 c")).toBeTruthy();
-  expect(screen.getByText("5 c")).toBeTruthy();
-  expect(screen.getByText("10 c")).toBeTruthy();
-  expect(screen.getByText("15 c")).toBeTruthy();
-  expect(screen.getByText("20 c")).toBeTruthy();
+  expect(screen.getByText("-5 snt")).toBeTruthy();
+  expect(screen.getByText("0 snt")).toBeTruthy();
+  expect(screen.getByText("5 snt")).toBeTruthy();
+  expect(screen.getByText("10 snt")).toBeTruthy();
+  expect(screen.getByText("15 snt")).toBeTruthy();
+  expect(screen.getByText("20 snt")).toBeTruthy();
   expect(screen.getByText("10:15–10:30")).toBeTruthy();
   expect(screen.getByText("11:00–11:15")).toBeTruthy();
   expect(screen.getByTestId("price-chart-legend")).toBeTruthy();
@@ -135,8 +135,8 @@ it("keeps unavailable intervals in the chart without changing the scale", () => 
   );
 
   expect(screen.getByTestId("price-chart-grid")).toBeTruthy();
-  expect(screen.getByText("0 c")).toBeTruthy();
-  expect(screen.getByText("10 c")).toBeTruthy();
+  expect(screen.getByText("0 snt")).toBeTruthy();
+  expect(screen.getByText("10 snt")).toBeTruthy();
   expect(screen.getByRole("button", { name: /hinta ei ole saatavilla/ }).hasAttribute("disabled")).toBe(true);
 });
 

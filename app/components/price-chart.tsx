@@ -123,7 +123,7 @@ function getBarStyle(point: PricePoint, scale: ChartScale): {
 }
 
 function formatAxisValue(value: number): string {
-  return `${axisFormatter.format(value).replace("−", "-")} c`;
+  return `${axisFormatter.format(value).replace("−", "-")} snt`;
 }
 
 function getAvailablePrices(points: PricePoint[]): number[] {
@@ -146,7 +146,7 @@ function getPointTimeLabel(point: PricePoint): {
 
 function pointAccessibleLabel(point: PricePoint): string {
   if (!point.available || point.priceCentsPerKwh === null) {
-    return `Valitse aikaväli ${point.label}, hinta ei ole saatavilla`;
+    return `Aikaväli ${point.label}, hinta ei ole saatavilla`;
   }
 
   const level = point.level ? `, hintataso ${levelLabels[point.level].toLowerCase()}` : "";
@@ -178,11 +178,11 @@ export function PriceChart({
           <h2
             id="price-chart-heading"
             className="price-chart__title"
-            aria-label="Pörssisähkön Tuntikaavio"
+            aria-label="Pörssisähkön tuntikaavio"
           >
             <Icon name="chart" className="price-chart__title-icon" />
-            <span>Pörssisähkön Tuntikaavio</span>
-            <span className="price-chart__title-hint">(Klikkaa pylvästä valitaksesi ajan)</span>
+            <span>Pörssisähkön tuntikaavio</span>
+            <span className="price-chart__title-hint">(Valitse aika napsauttamalla pylvästä)</span>
           </h2>
           {headerContent ? <div className="price-chart__header-tools">{headerContent}</div> : null}
         </div>

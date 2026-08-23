@@ -66,7 +66,7 @@ export function ApplianceCard({ use, estimate, costLabel }: ApplianceCardProps) 
       >
         <div className="appliance-card__metric appliance-card__metric--cost">
           <p className="appliance-card__metric-label">
-            {costLabel ?? "ARVIOITU SPOT-KUSTANNUS"}
+            {costLabel ?? "ARVIOITU KUSTANNUS SPOT-HINNALLA"}
           </p>
           <p className="appliance-card__cost mt-1 font-mono text-2xl font-semibold tracking-tight text-white">
             {estimate.centsLabel}{" "}
@@ -95,7 +95,7 @@ export function ApplianceCard({ use, estimate, costLabel }: ApplianceCardProps) 
       <button
         type="button"
         className="appliance-card__assumption-trigger cursor-pointer font-medium text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-        aria-label={`Näytä ${use.name} oletus ja rajaus`}
+        aria-label={`${use.name}: näytä oletus ja rajaus`}
         aria-expanded={assumptionOpen}
         aria-controls={`appliance-${use.id}-assumption`}
         title="Näytä oletus ja rajaus"

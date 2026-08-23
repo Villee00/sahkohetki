@@ -51,8 +51,8 @@ const horizonLabels: Record<Horizon, string> = {
 };
 
 const modeLabels: Record<PriceMode, string> = {
-  hourly: "Tunnittain (h)",
-  quarterHour: "15 min tarkkuus",
+  hourly: "Tuntikeskiarvo",
+  quarterHour: "15 minuutin tarkkuus",
 };
 
 const priceFormatter = new Intl.NumberFormat("fi-FI", {
@@ -226,9 +226,9 @@ function getUnavailableMessage(
   }
 
   if (horizon === "tomorrow" && !isCompletePriceHorizon(activePoints)) {
-    return "Huomisen hinnat eivät ole vielä saatavilla, mutta ne päivitetään noin klo 15.00.";
+    return "Huomisen hinnat eivät ole vielä saatavilla. Ne päivittyvät noin klo 15.";
   }
-  if (!selectedPoint) return "Valittua hintajaksoa ei ole saatavilla.";
+  if (!selectedPoint) return "Valitun aikavälin hintatietoa ei ole saatavilla.";
   return null;
 }
 
@@ -464,8 +464,8 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const isCurrentSelection =
     horizon === "today" && selectedPoint?.id === currentSelectionId;
   const heading = selectedPoint
-    ? `${isCurrentSelection ? "Nykyinen aikaväli" : "Valittu jakso"} ${selectedPoint.label}`
-    : "Valittu jakso";
+    ? `${isCurrentSelection ? "Nykyinen aikaväli" : "Valittu aikaväli"} ${selectedPoint.label}`
+    : "Valittu aikaväli";
   const viewControls = (
     <div className="price-chart__controls">
       <div className="view-control-group">
@@ -493,7 +493,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         <div
           className="view-control-options"
           role="group"
-          aria-label="Aikahorisontti"
+          aria-label="Tarkastelujakso"
         >
           {(Object.keys(horizonLabels) as Horizon[]).map((option) => (
             <button
@@ -641,7 +641,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 {isCurrentSelection ? (
                   <span
                     className="price-hero__current-badge"
-                    aria-label="Nykyinen aika"
+                    aria-label="Nykyinen aikaväli"
                   >
                     Nyt
                   </span>
@@ -717,7 +717,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             >
               <div className="spectrum-scale flex items-center justify-between gap-4 text-xs text-slate-500">
                 <span className="font-mono font-semibold text-emerald-300">
-                  Min:{" "}
+                  Pienin:{" "}
                   {formatPrice(
                     Math.min(
                       ...availablePoints.map(
@@ -725,13 +725,13 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                       ),
                     ),
                   )}{" "}
-                  snt
+                  snt/kWh
                 </span>
                 <span className="hidden text-center sm:inline">
                   Sähkön hintahaarukka tarkastelujaksolla
                 </span>
                 <span className="font-mono font-semibold text-rose-300">
-                  Max:{" "}
+                  Suurin:{" "}
                   {formatPrice(
                     Math.max(
                       ...availablePoints.map(
@@ -739,7 +739,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                       ),
                     ),
                   )}{" "}
-                  snt
+                  snt/kWh
                 </span>
               </div>
               <div className="spectrum-track relative mt-3 h-2 rounded-full bg-gradient-to-r from-emerald-400 via-amber-300 to-rose-400">
@@ -754,16 +754,16 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               </div>
               <div className="spectrum-labels mt-3 flex justify-between gap-3 text-[0.68rem] text-slate-500">
                 <span>
-                  ≤ {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)} snt (Halpa)
+                  ≤ {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)} snt/kWh (Edullinen)
                 </span>
                 <span className="hidden text-center sm:inline">
                   &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)}–≤{" "}
-                  {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt
-                  (Normaali)
+                  {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt/kWh
+                  (Tavanomainen)
                 </span>
                 <span>
-                  &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt
-                  (Kallis)
+                  &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt/kWh
+                  (Korkea)
                 </span>
               </div>
             </div>
@@ -808,13 +808,13 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
-                  Yhdeksän arjen käyttöä
+                  Yhdeksän arjen sähkönkäyttökohdetta
                 </p>
                 <h2
                   id="uses-heading"
                   className="mt-2 text-3xl font-semibold tracking-tight text-white"
                 >
-                  Mitä käyttö maksaa?
+                  Mitä sähkönkäyttö maksaa?
                 </h2>
               </div>
               <p className="max-w-md text-sm leading-6 text-slate-400">
@@ -850,10 +850,12 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
             <div>
               <p className="font-medium text-slate-300">
-                Sähköhetki näyttää Pörssisähkö.netin verollisen
-                spot-energiahinnan
+                Sähköhetki näyttää Pörssisähkö.netin ilmoittaman
+                arvonlisäverollisen spot-hinnan
                 {priceMargin > 0
-                  ? " ja lisää siihen " + formatPrice(priceMargin) + " snt/kWh marginaalin."
+                  ? " ja lisää siihen " +
+                    formatPrice(priceMargin) +
+                    " snt/kWh marginaalin."
                   : "."}
               </p>
               <p>
@@ -862,7 +864,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               <span>
-                Palvelin haki tiedot: {formatFetchedAt(data.fetchedAt)}
+                Tiedot haettu: {formatFetchedAt(data.fetchedAt)}
               </span>
               <a
                 className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
@@ -896,25 +898,28 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         closeButtonRef={closeButtonRef}
       >
         <p>
-          Arvio käyttää yhtä valittua spot-hintaa koko ennalta määritellylle
-          käytölle. Hinta sisältää lähteen ilmoittaman arvonlisäveron.
+          Arvio perustuu valittuun spot-hintaan ja kunkin ennalta määritellyn
+          käyttötavan kulutukseen. Hinta sisältää lähteen ilmoittaman
+          arvonlisäveron.
         </p>
         <p className="rounded-2xl border border-sky-300/20 bg-sky-300/10 px-4 py-3 font-mono text-sm text-sky-100">
           kulutus (kWh) × (spot-hinta + marginaali) (snt/kWh) = kustannus (snt)
         </p>
         <p>
-          Esimerkiksi kahvinkeittimen tutkittu vertailuarvo on{" "}
+          Esimerkiksi kahvinkeittimen vertailukulutus on{" "}
           {coffeeUse
             ? `${consumptionFormatter.format(coffeeUse.consumptionKwh)} kWh`
-            : "katalogissa määritelty kulutus"}
-          . Näytetty kustannus säilyttää laskennan täyden tarkkuuden ja
-          pyöristää vain esityksen kahteen desimaaliin.
+            : "luettelossa määritelty kulutus"}
+          . Laskennassa säilytetään täysi tarkkuus, ja kustannus pyöristetään
+          näytettäessä kahteen desimaaliin.
         </p>
         <p>
           Sähkön siirtomaksut, sähkövero ja perusmaksut eivät sisälly tähän
-          opetukselliseen energia-arvioon.{" "}
+          suuntaa-antavaan energia-arvioon.{" "}
           {priceMargin > 0
-            ? "Asetettu " + formatPrice(priceMargin) + " snt/kWh sähkönmyyjän marginaali on mukana."
+            ? "Asetettu " +
+              formatPrice(priceMargin) +
+              " snt/kWh sähkönmyyjän marginaali on mukana."
             : "Sähkönmyyjän marginaali ei sisälly, ellet lisää sitä hinta-asetuksista."}
         </p>
       </ExplanationDialog>
@@ -928,20 +933,20 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         closeButtonRef={closeButtonRef}
       >
         <p>
-          Sähköhetki käyttää Pörssisähkö.netin viimeisimpiä Suomen 15 minuutin
-          spot-hintoja.{" "}
+          Sähköhetki käyttää Pörssisähkö.netin uusimpia Suomen alueen
+          spot-hintoja 15 minuutin tarkkuudella.{" "}
           {priceMargin > 0
             ? "Näytettyihin hintoihin on lisätty " +
               formatPrice(priceMargin) +
               " snt/kWh marginaali."
-            : "Näytetty hinta on lähteen ilmoittama spot-hinta."} Palvelin validoi
-          lähteen ja rakentaa tästä näkymään tuntikeskiarvot sekä
-          neljännestuntien tarkat arvot.
+            : "Näytetty hinta on lähteen ilmoittama spot-hinta."} Palvelin
+          tarkistaa lähteen tiedot ja muodostaa niiden perusteella näkymään
+          tuntikeskiarvot sekä 15 minuutin hinnat.
         </p>
         <p>
-          Tiedot haetaan palvelimella ja niitä säilytetään noin 12 tunnin ajan.
-          Avoin sivu ei hae hintoja uudelleen selaimessa eikä korvaa puuttuvaa
-          hintaa vanhalla arvolla.
+          Tiedot haetaan ja säilytetään palvelimella noin 12 tuntia. Sivu ei
+          hae hintoja uudelleen selaimessa eikä täydennä puuttuvia hintoja
+          vanhoilla arvoilla.
         </p>
         <div className="flex flex-wrap gap-4 text-sm">
           <a
