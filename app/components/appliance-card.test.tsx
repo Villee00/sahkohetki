@@ -84,3 +84,12 @@ it("keeps the disclosure trigger anchored while its panel opens beneath the row"
   expect(panel?.parentElement).toBe(row);
   expect(screen.getByText(/Vertailuarvo sisältää noin litran kahvin valmistuksen ja lämpölevyn käytön/)).toBeTruthy();
 });
+
+it("renders the heat-pump card with its dedicated icon", () => {
+  const use = getEverydayUse("heat-pump");
+  if (!use) throw new Error("Expected the heat-pump use to be in the catalog.");
+
+  render(<ApplianceCard use={use} estimate={estimate} />);
+
+  expect(screen.getByRole("article").querySelector(".lucide-air-vent")).toBeTruthy();
+});

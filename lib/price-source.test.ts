@@ -179,6 +179,6 @@ describe("Pörssisähkö.net source adapter", () => {
       tomorrow: { hourly: [], quarterHour: [] },
     });
     expect(result.message).toMatch(/saatavilla|varmistaa/i);
-    expect(result.uses).toHaveLength(9);
+    expect(result.uses).toHaveLength(10);
   });
 });

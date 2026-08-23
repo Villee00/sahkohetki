@@ -1,11 +1,12 @@
 export const EVERYDAY_USE_IDS = [
   "coffee",
-  "kettle",
+  "sauna",
   "oven",
+  "dishwasher",
+  "heat-pump",
   "washing",
   "dryer",
-  "dishwasher",
-  "sauna",
+  "kettle",
   "television",
   "computer",
 ] as const;
@@ -28,6 +29,20 @@ export type EverydayUse = {
 };
 
 export const EVERYDAY_USES: readonly EverydayUse[] = [
+  {
+    id: "coffee",
+    name: "Kahvinkeitin",
+    standardUse:
+      "Yksi noin litran suodatinkahvipannullinen, lämpölevy enintään 30 minuuttia",
+    consumptionKwh: 0.15,
+    assumption:
+      "Vertailuarvo sisältää noin litran kahvin valmistuksen ja lämpölevyn käytön enintään 30 minuutin ajan.",
+    reviewedOn: "2026-08-22",
+    source: {
+      label: "TTS / Doria – Kahvinkeittimien testi 2020",
+      url: "https://www.doria.fi/handle/10024/189370",
+    },
+  },
   {
     id: "sauna",
     name: "Sauna",
@@ -55,44 +70,42 @@ export const EVERYDAY_USES: readonly EverydayUse[] = [
     },
   },
   {
-    id: "coffee",
-    name: "Kahvinkeitin",
-    standardUse:
-      "Yksi noin litran suodatinkahvipannullinen, lämpölevy enintään 30 minuuttia",
-    consumptionKwh: 0.15,
+    id: "dishwasher",
+    name: "Astianpesukone",
+    standardUse: "Yksi täysi normaali astianpesu (kylmävesiliitäntä)",
+    consumptionKwh: 1.25,
     assumption:
-      "Vertailuarvo sisältää noin litran kahvin valmistuksen ja lämpölevyn käytön enintään 30 minuutin ajan.",
-    reviewedOn: "2026-08-22",
+      "Vattenfallin mukaan kylmävesiliitäntäisen astianpesun kulutus on 1,0–1,5 kWh/kerta; 1,25 kWh on vaihteluvälin keskikohta. Todellinen kulutus vaihtelee muun muassa ohjelman, täytön, liitännän ja laitteen mukaan, eikä arvo perustu Eco-ohjelman energiamerkintälukuun.",
+    reviewedOn: "2026-08-24",
     source: {
-      label: "TTS / Doria – Kahvinkeittimien testi 2020",
-      url: "https://www.doria.fi/handle/10024/189370",
+      label: "Vattenfall – kodin sähkölaitteiden energiankulutus",
+      url: "https://www.vattenfall.fi/energianeuvonta/sahkonkulutus/sahkolaitteiden-energiankulutus/",
     },
   },
   {
-    id: "kettle",
-    name: "Vedenkeitin",
-    standardUse: "Yksi litra kylmää vettä kiehuvaksi",
-    consumptionKwh: 0.12,
+    id: "heat-pump",
+    name: "Ilmalämpöpumppu",
+    standardUse: "Yksi tunti ilmalämpöpumpun lämmitystä",
+    consumptionKwh: 0.6,
     assumption:
-      "Vertailuarvo perustuu yhden litran kylmän veden kuumentamiseen kiehuvaksi.",
-    reviewedOn: "2026-08-22",
+      "Vertailuarvo on Vattenfallin suuntaa-antava 0,6 kWh/tunti. Todellinen kulutus vaihtelee laitteen, ulkolämpötilan ja lämmitystarpeen mukaan.",
+    reviewedOn: "2026-08-24",
     source: {
-      label: "Motiva – vedenkeittimen mittausesimerkki",
-      url: "https://www.motiva.fi/files/986/Pitkajarvenkoulu_laskutehtavat.pdf",
+      label: "Vattenfall – kodin sähkölaitteiden energiankulutus",
+      url: "https://www.vattenfall.fi/energianeuvonta/sahkonkulutus/sahkolaitteiden-energiankulutus/",
     },
   },
-
   {
     id: "washing",
     name: "Pyykinpesukone",
-    standardUse: "Yksi tavallinen täysi 60 °C:n puuvillapesu",
+    standardUse: "Yksi täysi 60 °C:n peruspesuohjelma",
     consumptionKwh: 1,
     assumption:
-      "Vertailuarvo vastaa yhtä tavallista 60 °C:n pesuohjelmaa ilman esipesua, lisähuuhtelua tai kuivausta.",
-    reviewedOn: "2026-08-22",
+      "Vertailuarvo perustuu Helenin keskimääräiseen 60 °C:n pesuohjelmaan, ei Eco 40–60 -ohjelman energiamerkintäarvoon.",
+    reviewedOn: "2026-08-24",
     source: {
-      label: "Helen – pyykinpesu 60 °C:ssa",
-      url: "https://www.helen.fi/artikkelit/2024/nain-ohjaat-sahkonkulutusta-edullisille-hetkille",
+      label: "Helen – pyykinpesukoneen hankinta ja energiankulutus",
+      url: "https://www.helen.fi/asiakastuki/henkiloasiakkaat/energiankayton-neuvonta/kodinkoneiden-hankinta/pyykinpesukoneet",
     },
   },
   {
@@ -109,19 +122,18 @@ export const EVERYDAY_USES: readonly EverydayUse[] = [
     },
   },
   {
-    id: "dishwasher",
-    name: "Astianpesukone",
-    standardUse: "Yksi täysi Eco-ohjelma",
-    consumptionKwh: 0.75,
+    id: "kettle",
+    name: "Vedenkeitin",
+    standardUse: "Yksi litra kylmää vettä kiehuvaksi",
+    consumptionKwh: 0.12,
     assumption:
-      "Vertailuarvo vastaa modernin täysikokoisen astianpesukoneen Eco-ohjelman pyöristettyä kulutusta.",
+      "Vertailuarvo perustuu yhden litran kylmän veden kuumentamiseen kiehuvaksi.",
     reviewedOn: "2026-08-22",
     source: {
-      label: "Siemens – astianpesukoneen Eco-kulutus",
-      url: "https://www.siemens-home.bsh-group.com/be/nl/toestellen/vaatwassen/de-juiste-vaatwasser-kiezen",
+      label: "Motiva – vedenkeittimen mittausesimerkki",
+      url: "https://www.motiva.fi/files/986/Pitkajarvenkoulu_laskutehtavat.pdf",
     },
   },
-
   {
     id: "television",
     name: "Televisio",

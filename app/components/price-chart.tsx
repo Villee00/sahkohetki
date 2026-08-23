@@ -15,7 +15,7 @@ type PriceChartProps = {
 
 const levelLabels: Record<PriceLevel, string> = {
   cheap: "Edullinen",
-  normal: "Tavanomainen",
+  normal: "Normaali",
   high: "Korkea",
 };
 
@@ -448,7 +448,7 @@ export function PriceChart({
                   Keltainen
                 </span>
                 <span className="price-chart__legend-detail">
-                  = Tavanomainen
+                  = Normaali
                 </span>
               </span>
               <span className="price-chart__legend-item">
