@@ -89,6 +89,60 @@ it("shows the price tooltip when an interval receives keyboard focus", async () 
   expect(screen.getByRole("tooltip").textContent).toContain("4,50 snt/kWh");
 });
 
+it("keeps the focused interval highlighted after the pointer leaves another interval", async () => {
+  const user = userEvent.setup();
+  render(
+    <PriceChart
+      points={[point, higherPoint]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  const firstButton = screen.getByRole("button", { name: /10:15/ });
+  const secondItem = screen.getByRole("button", { name: /10:30–10:45/ }).parentElement;
+  expect(secondItem).not.toBeNull();
+
+  await user.click(firstButton);
+  await user.hover(secondItem!);
+  await user.unhover(secondItem!);
+
+  expect(screen.getByRole("tooltip").textContent).toContain("4,50 snt/kWh");
+  expect(firstButton.parentElement?.classList.contains("price-chart__item--hovered")).toBe(true);
+});
+
+it("highlights an unavailable interval when its cell is hovered", async () => {
+  const user = userEvent.setup();
+  render(
+    <PriceChart
+      points={[
+        point,
+        {
+          ...higherPoint,
+          id: "quarter-unavailable-hover",
+          label: "10:30–10:45",
+          priceCentsPerKwh: null,
+          available: false,
+        },
+      ]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  const unavailableButton = screen.getByRole("button", {
+    name: /hinta ei ole saatavilla/,
+  });
+  const unavailableItem = unavailableButton.parentElement;
+  expect(unavailableItem).not.toBeNull();
+
+  await user.hover(unavailableItem!);
+
+  expect(
+    unavailableItem?.classList.contains("price-chart__item--hovered"),
+  ).toBe(true);
+});
+
 it("renders the mockup-style zero-based chart with a visible price scale", () => {
   render(
     <PriceChart

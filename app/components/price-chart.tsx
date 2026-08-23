@@ -178,6 +178,8 @@ export function PriceChart({
   emptyMessage,
 }: PriceChartProps) {
   const [hoveredPointId, setHoveredPointId] = useState<string | null>(null);
+  const [focusedPointId, setFocusedPointId] = useState<string | null>(null);
+  const activePointId = hoveredPointId ?? focusedPointId;
   const availablePrices = getAvailablePrices(points);
   const chartScale = getChartScale(availablePrices);
   const zeroPosition = getScalePosition(0, chartScale);
@@ -271,7 +273,7 @@ export function PriceChart({
                 <div className="price-chart__bars grid" style={chartGridStyle}>
                   {points.map((point) => {
                     const isSelected = point.id === selectedId;
-                    const isHovered = point.id === hoveredPointId;
+                    const isHovered = point.id === activePointId;
                     const pointPrice = getAvailablePointPrice(point);
                     const levelClass = point.level ?? "unavailable";
                     const barClass = point.available
@@ -281,6 +283,8 @@ export function PriceChart({
                       <div
                         key={point.id}
                         className={`price-chart__item${isHovered ? " price-chart__item--hovered" : ""}`}
+                        onMouseEnter={() => setHoveredPointId(point.id)}
+                        onMouseLeave={() => setHoveredPointId(null)}
                       >
                         <button
                           type="button"
@@ -291,13 +295,11 @@ export function PriceChart({
                           aria-pressed={isSelected}
                           data-level={levelClass}
                           disabled={!point.available}
-                          onBlur={() => setHoveredPointId(null)}
+                          onBlur={() => setFocusedPointId(null)}
                           onClick={() => {
                             if (point.available) onSelect(point.id);
                           }}
-                          onFocus={() => setHoveredPointId(point.id)}
-                          onMouseEnter={() => setHoveredPointId(point.id)}
-                          onMouseLeave={() => setHoveredPointId(null)}
+                          onFocus={() => setFocusedPointId(point.id)}
                         >
                           <span
                             aria-hidden="true"

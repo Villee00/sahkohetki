@@ -833,6 +833,7 @@ button:disabled {
 
 .price-chart__bar-button--unavailable {
   opacity: 0.82 !important;
+  pointer-events: none;
 }
 
 .price-chart__axis {
