@@ -60,14 +60,33 @@ it("lets a keyboard-accessible chart button select an available interval", async
   expect(onSelect).toHaveBeenCalledWith(point.id);
 });
 
-it("shows the exact price when hovering an available interval", async () => {
+it("shows a fast styled tooltip and highlights the hovered interval", async () => {
   const user = userEvent.setup();
   render(<PriceChart points={[point]} selectedId={point.id} onSelect={vi.fn()} />);
 
   const button = screen.getByRole("button", { name: /10:15/ });
+  expect(screen.queryByRole("tooltip")).toBeNull();
   await user.hover(button);
 
-  expect(button.getAttribute("title")).toBe("4,50 snt/kWh");
+  const tooltip = screen.getByRole("tooltip");
+  expect(tooltip.textContent).toContain("10:15–10:30");
+  expect(tooltip.textContent).toContain("4,50 snt/kWh");
+  expect(button.getAttribute("title")).toBeNull();
+  expect(
+    button.parentElement?.classList.contains("price-chart__item--hovered"),
+  ).toBe(true);
+
+  await user.unhover(button);
+  expect(screen.queryByRole("tooltip")).toBeNull();
+});
+
+it("shows the price tooltip when an interval receives keyboard focus", async () => {
+  const user = userEvent.setup();
+  render(<PriceChart points={[point]} selectedId={point.id} onSelect={vi.fn()} />);
+
+  await user.tab();
+
+  expect(screen.getByRole("tooltip").textContent).toContain("4,50 snt/kWh");
 });
 
 it("renders the mockup-style zero-based chart with a visible price scale", () => {

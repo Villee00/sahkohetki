@@ -627,8 +627,23 @@ button:disabled {
 }
 
 .price-chart__item {
+  position: relative;
   min-width: 0;
   height: 100%;
+  border-radius: 0.8rem;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.price-chart__item--hovered {
+  background: linear-gradient(
+    180deg,
+    rgba(56, 189, 248, 0.14),
+    rgba(56, 189, 248, 0.025) 78%,
+    transparent
+  );
+  box-shadow:
+    inset 0 0 0 1px rgba(125, 211, 252, 0.28),
+    0 0 1.2rem rgba(56, 189, 248, 0.12);
 }
 
 .price-chart__bar-button {
@@ -661,6 +676,7 @@ button:disabled {
   border-radius: 0.42rem;
   box-shadow: none;
   transform: translateX(50%);
+  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
 }
 
 .price-chart__bar--cheap {
@@ -679,6 +695,133 @@ button:disabled {
   border: 2px solid #f8fafc;
   background: var(--sky) !important;
   box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.24), 0 0 16px rgba(56, 189, 248, 0.18);
+}
+
+.price-chart__bar--hovered {
+  filter: brightness(1.12) saturate(1.08);
+  box-shadow:
+    0 0 0 2px rgba(186, 230, 253, 0.2),
+    0 0 1.1rem rgba(56, 189, 248, 0.3);
+  transform: translateX(50%) translateY(-0.08rem) scaleX(1.08);
+}
+
+.price-chart__tooltip {
+  --tooltip-accent: var(--sky);
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.18rem;
+  min-width: max-content;
+  border: 1px solid rgba(125, 211, 252, 0.48);
+  border-radius: 0.72rem;
+  padding: 0.42rem 0.62rem 0.46rem;
+  background: rgba(7, 17, 30, 0.96);
+  box-shadow:
+    0 0.6rem 1.4rem rgba(2, 8, 23, 0.38),
+    0 0 1rem rgba(56, 189, 248, 0.18);
+  color: #f8fafc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  pointer-events: none;
+  transform: translate(-50%, 0);
+  white-space: nowrap;
+  animation: price-chart-tooltip-in 90ms ease-out both;
+}
+
+.price-chart__tooltip::before {
+  position: absolute;
+  top: -1px;
+  right: 0.65rem;
+  left: 0.65rem;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--tooltip-accent);
+  content: "";
+}
+
+.price-chart__tooltip::after {
+  position: absolute;
+  bottom: -0.28rem;
+  left: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 1px solid var(--tooltip-accent);
+  border-bottom: 1px solid var(--tooltip-accent);
+  background: rgba(7, 17, 30, 0.96);
+  content: "";
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.price-chart__tooltip[data-level="cheap"] {
+  --tooltip-accent: var(--cheap);
+  border-color: rgba(79, 195, 154, 0.62);
+}
+
+.price-chart__tooltip[data-level="normal"] {
+  --tooltip-accent: var(--normal);
+  border-color: rgba(243, 170, 38, 0.68);
+}
+
+.price-chart__tooltip[data-level="high"] {
+  --tooltip-accent: var(--high);
+  border-color: rgba(233, 91, 79, 0.7);
+}
+
+.price-chart__tooltip-time {
+  color: #bae6fd;
+  font-size: 0.56rem;
+  font-weight: 600;
+}
+
+.price-chart__tooltip-price {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.price-chart__tooltip-unit {
+  color: #94a3b8;
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.price-chart__item:first-child .price-chart__tooltip {
+  left: 0.35rem;
+  transform: translateY(0);
+}
+
+.price-chart__item:first-child .price-chart__tooltip::after {
+  left: 1.1rem;
+}
+
+.price-chart__item:last-child .price-chart__tooltip {
+  right: 0.35rem;
+  left: auto;
+  transform: translateY(0);
+}
+
+.price-chart__item:last-child .price-chart__tooltip::after {
+  right: 1.1rem;
+  left: auto;
+}
+
+@keyframes price-chart-tooltip-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .price-chart__bar--unavailable,

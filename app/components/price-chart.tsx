@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { PriceLevel, PricePoint } from "@/lib/price-types";
 import { Icon } from "./ui-icon";
 
@@ -126,10 +126,17 @@ function formatAxisValue(value: number): string {
   return axisFormatter.format(value).replace("−", "-");
 }
 
+function getAvailablePointPrice(point: PricePoint): number | null {
+  return point.available && point.priceCentsPerKwh !== null
+    ? point.priceCentsPerKwh
+    : null;
+}
+
 function getAvailablePrices(points: PricePoint[]): number[] {
-  return points.flatMap((point) =>
-    point.available && point.priceCentsPerKwh !== null ? [point.priceCentsPerKwh] : [],
-  );
+  return points.flatMap((point) => {
+    const price = getAvailablePointPrice(point);
+    return price === null ? [] : [price];
+  });
 }
 
 function getAveragePrice(points: PricePoint[]): number | null {
@@ -151,13 +158,14 @@ function getPointTimeLabel(point: PricePoint): {
 }
 
 function pointAccessibleLabel(point: PricePoint): string {
-  if (!point.available || point.priceCentsPerKwh === null) {
+  const price = getAvailablePointPrice(point);
+  if (price === null) {
     return `Aikaväli ${point.label}, hinta ei ole saatavilla`;
   }
 
   const level = point.level ? `, hintataso ${levelLabels[point.level].toLowerCase()}` : "";
   return `Valitse aikaväli ${point.label}, hinta ${formatPrice(
-    point.priceCentsPerKwh,
+    price,
   )} senttiä kilowattitunnilta${level}`;
 }
 
@@ -169,6 +177,7 @@ export function PriceChart({
   headerContent,
   emptyMessage,
 }: PriceChartProps) {
+  const [hoveredPointId, setHoveredPointId] = useState<string | null>(null);
   const availablePrices = getAvailablePrices(points);
   const chartScale = getChartScale(availablePrices);
   const zeroPosition = getScalePosition(0, chartScale);
@@ -262,36 +271,57 @@ export function PriceChart({
                 <div className="price-chart__bars grid" style={chartGridStyle}>
                   {points.map((point) => {
                     const isSelected = point.id === selectedId;
+                    const isHovered = point.id === hoveredPointId;
+                    const pointPrice = getAvailablePointPrice(point);
                     const levelClass = point.level ?? "unavailable";
                     const barClass = point.available
                       ? `price-chart__bar--${point.level ?? "normal"}`
                       : "price-chart__bar--unavailable";
                     return (
-                      <div key={point.id} className="price-chart__item">
+                      <div
+                        key={point.id}
+                        className={`price-chart__item${isHovered ? " price-chart__item--hovered" : ""}`}
+                      >
                         <button
                           type="button"
                           className={`price-chart__bar-button group flex w-full items-end justify-center rounded-xl px-1 pt-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 disabled:cursor-not-allowed disabled:opacity-50 ${
                             !point.available ? "price-chart__bar-button--unavailable" : ""
                           } ${isSelected ? "price-chart__bar-button--selected" : ""}`}
                           aria-label={pointAccessibleLabel(point)}
-                          title={
-                            point.available && point.priceCentsPerKwh !== null
-                              ? `${formatPrice(point.priceCentsPerKwh)} snt/kWh`
-                              : undefined
-                          }
                           aria-pressed={isSelected}
                           data-level={levelClass}
                           disabled={!point.available}
+                          onBlur={() => setHoveredPointId(null)}
                           onClick={() => {
                             if (point.available) onSelect(point.id);
                           }}
+                          onFocus={() => setHoveredPointId(point.id)}
+                          onMouseEnter={() => setHoveredPointId(point.id)}
+                          onMouseLeave={() => setHoveredPointId(null)}
                         >
                           <span
                             aria-hidden="true"
-                            className={`price-chart__bar ${barClass}${isSelected ? " price-chart__bar--selected" : ""} block w-full rounded-t-lg transition group-focus-visible:bg-sky-200`}
+                            className={`price-chart__bar ${barClass}${isSelected ? " price-chart__bar--selected" : ""}${isHovered ? " price-chart__bar--hovered" : ""} block w-full rounded-t-lg transition group-focus-visible:bg-sky-200`}
                             style={getBarStyle(point, chartScale)}
                           />
                         </button>
+                        {isHovered && pointPrice !== null ? (
+                          <span
+                            className="price-chart__tooltip"
+                            data-level={levelClass}
+                            role="tooltip"
+                          >
+                            <span className="price-chart__tooltip-time">
+                              {point.label}
+                            </span>{" "}
+                            <span className="price-chart__tooltip-price">
+                              {formatPrice(pointPrice)}{" "}
+                              <span className="price-chart__tooltip-unit">
+                                snt/kWh
+                              </span>
+                            </span>
+                          </span>
+                        ) : null}
                       </div>
                     );
                   })}
