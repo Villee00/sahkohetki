@@ -60,6 +60,16 @@ it("lets a keyboard-accessible chart button select an available interval", async
   expect(onSelect).toHaveBeenCalledWith(point.id);
 });
 
+it("shows the exact price when hovering an available interval", async () => {
+  const user = userEvent.setup();
+  render(<PriceChart points={[point]} selectedId={point.id} onSelect={vi.fn()} />);
+
+  const button = screen.getByRole("button", { name: /10:15/ });
+  await user.hover(button);
+
+  expect(button.getAttribute("title")).toBe("4,50 snt/kWh");
+});
+
 it("renders the mockup-style zero-based chart with a visible price scale", () => {
   render(
     <PriceChart

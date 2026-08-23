@@ -274,6 +274,11 @@ export function PriceChart({
                             !point.available ? "price-chart__bar-button--unavailable" : ""
                           } ${isSelected ? "price-chart__bar-button--selected" : ""}`}
                           aria-label={pointAccessibleLabel(point)}
+                          title={
+                            point.available && point.priceCentsPerKwh !== null
+                              ? `${formatPrice(point.priceCentsPerKwh)} snt/kWh`
+                              : undefined
+                          }
                           aria-pressed={isSelected}
                           data-level={levelClass}
                           disabled={!point.available}
