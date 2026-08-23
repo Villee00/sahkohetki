@@ -191,8 +191,10 @@ export function PriceChart({
   emptyMessage,
 }: PriceChartProps) {
   const [hoveredPointId, setHoveredPointId] = useState<string | null>(null);
+  const [pressedPointId, setPressedPointId] = useState<string | null>(null);
   const [focusedPointId, setFocusedPointId] = useState<string | null>(null);
-  const activePointId = hoveredPointId ?? focusedPointId;
+  const activePointId = pressedPointId ?? hoveredPointId ?? focusedPointId;
+  const clearPressedPoint = () => setPressedPointId(null);
   const availablePrices = getAvailablePrices(points);
   const chartScale = getChartScale(availablePrices);
   const zeroPosition = getScalePosition(0, chartScale);
@@ -308,8 +310,8 @@ export function PriceChart({
                   >
                     {points.map((point) => {
                       const isSelected = point.id === selectedId;
-                      const isHovered = point.id === activePointId;
-                      const showSelectedBar = isSelected && !isHovered;
+                      const isActive = point.id === activePointId;
+                      const showSelectedBar = isSelected && !isActive;
                       const pointPrice = getAvailablePointPrice(point);
                       const levelClass = point.level ?? "unavailable";
                       const barClass = point.available
@@ -319,10 +321,14 @@ export function PriceChart({
                         <div
                           key={point.id}
                           className={`price-chart__item${
-                            isHovered ? " price-chart__item--hovered" : ""
+                            isActive ? " price-chart__item--hovered" : ""
                           }`}
                           onMouseEnter={() => setHoveredPointId(point.id)}
                           onMouseLeave={() => setHoveredPointId(null)}
+                          onPointerDown={() => setPressedPointId(point.id)}
+                          onPointerLeave={clearPressedPoint}
+                          onPointerUp={clearPressedPoint}
+                          onPointerCancel={clearPressedPoint}
                         >
                           <button
                             type="button"
@@ -348,12 +354,12 @@ export function PriceChart({
                                   ? " price-chart__bar--selected"
                                   : ""
                               }${
-                                isHovered ? " price-chart__bar--hovered" : ""
+                                isActive ? " price-chart__bar--hovered" : ""
                               } block w-full rounded-t-lg transition group-focus-visible:bg-sky-200`}
                               style={getBarStyle(point, chartScale)}
                             />
                           </button>
-                          {isHovered && pointPrice !== null ? (
+                          {isActive && pointPrice !== null ? (
                             <span
                               className="price-chart__tooltip"
                               data-level={levelClass}

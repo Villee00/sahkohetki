@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { PriceChart } from "./price-chart";
@@ -92,6 +92,19 @@ it("shows the price tooltip when an interval receives keyboard focus", async () 
   await user.tab();
 
   expect(screen.getByRole("tooltip").textContent).toContain("4,50 snt/kWh");
+});
+
+it("shows the price tooltip while an interval is pressed on a touch device", () => {
+  render(<PriceChart points={[point]} selectedId={point.id} onSelect={vi.fn()} />);
+
+  const button = screen.getByRole("button", { name: /10:15/ });
+  fireEvent.pointerDown(button, { pointerType: "touch" });
+
+  expect(screen.getByRole("tooltip").textContent).toContain("4,50 snt/kWh");
+
+  fireEvent.pointerUp(button, { pointerType: "touch" });
+
+  expect(screen.queryByRole("tooltip")).toBeNull();
 });
 
 it("keeps hover presentation dominant while selecting a different interval", async () => {
