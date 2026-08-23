@@ -692,14 +692,15 @@ button:disabled {
 
 .price-chart__bar {
   position: absolute;
-  right: 40%;
+  right: auto;
+  left: 50%;
   display: block !important;
   width: min(72%, 2.15rem);
   min-height: 0.15rem;
   border: 0 solid transparent;
   border-radius: 0.42rem;
   box-shadow: none;
-  transform: translateX(50%);
+  transform: translateX(-50%);
   transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
 }
 
@@ -726,7 +727,7 @@ button:disabled {
   box-shadow:
     0 0 0 2px rgba(186, 230, 253, 0.2),
     0 0 1.1rem rgba(56, 189, 248, 0.3);
-  transform: translateX(50%) translateY(-0.08rem) scaleX(1.08);
+  transform: translateX(-50%) translateY(-0.08rem) scaleX(1.08);
 }
 
 .price-chart__tooltip {
