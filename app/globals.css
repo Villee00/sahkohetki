@@ -631,8 +631,13 @@ button:disabled {
   position: relative;
   min-width: 0;
   height: 100%;
+  margin-right: calc(var(--price-chart-column-gap) * -1);
   border-radius: 0.8rem;
   transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.price-chart__item:last-child {
+  margin-right: 0;
 }
 
 .price-chart__item--hovered {
@@ -643,7 +648,7 @@ button:disabled {
 .price-chart__item--hovered::before {
   position: absolute;
   top: 0;
-  right: calc(var(--price-chart-column-gap) * -1);
+  right: 0;
   bottom: 0;
   left: 0;
   border-radius: inherit;
