@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
 import {
   cleanup,
   render,
@@ -340,6 +341,38 @@ it("keeps a just-over-one-cent price in the low part of the price scale", () => 
   expect(marker).not.toBeNull();
   expect(Number.parseFloat(marker?.style.left ?? "100")).toBeLessThan(50);
   expect(screen.getByText("Edullinen hinta")).toBeTruthy();
+});
+
+it("places a sub-cent price near the start of the price scale", () => {
+  const nearZeroPoint: PricePoint = {
+    ...cheapestPoint,
+    id: "hour-near-zero",
+    label: "13:00–14:00",
+    priceCentsPerKwh: 0.59,
+  };
+  const nearZeroData: ExplorerData = {
+    ...data,
+    currentQuarterId: nearZeroPoint.id,
+    currentHourId: nearZeroPoint.id,
+    today: { hourly: [nearZeroPoint], quarterHour: [nearZeroPoint] },
+  };
+
+  render(<PriceExplorer data={nearZeroData} />);
+
+  const marker = document.querySelector<HTMLElement>(".spectrum-marker");
+  expect(marker).not.toBeNull();
+  expect(Number.parseFloat(marker?.style.left ?? "100")).toBeCloseTo(2.95, 4);
+});
+
+it("aligns spectrum colors with the absolute price cutoffs", () => {
+  const styles = readFileSync(`${process.cwd()}/app/globals.css`, "utf8");
+  const spectrumRule =
+    styles.match(/\.spectrum-track\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+
+  expect(spectrumRule).toMatch(/var\(--cheap\)\s+25%/);
+  expect(spectrumRule).toMatch(/var\(--normal\)\s+25%/);
+  expect(spectrumRule).toMatch(/var\(--normal\)\s+70%/);
+  expect(spectrumRule).toMatch(/var\(--high\)\s+70%/);
 });
 
 it("renders the project logo in the site header", () => {

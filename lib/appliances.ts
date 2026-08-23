@@ -29,6 +29,32 @@ export type EverydayUse = {
 
 export const EVERYDAY_USES: readonly EverydayUse[] = [
   {
+    id: "sauna",
+    name: "Sauna",
+    standardUse: "Yksi noin 1,5 tunnin saunomiskerta lämmityksineen",
+    consumptionKwh: 8,
+    assumption:
+      "Vertailuarvo sisältää noin 1,5 tuntia sähkökiukaan käyttöä, esilämmityksen ja tavanomaisen saunomisen.",
+    reviewedOn: "2026-08-22",
+    source: {
+      label: "Helen – saunan lämmittäminen",
+      url: "https://www.helen.fi/asiakastuki/henkiloasiakkaat/energiankayton-neuvonta/usein-kysyttya",
+    },
+  },
+  {
+    id: "oven",
+    name: "Uuni",
+    standardUse: "Esilämmitys ja yksi tunti ruoanlaittoa 200 °C:ssa",
+    consumptionKwh: 1.2,
+    assumption:
+      "Vertailuarvo koostuu noin 0,50 kWh:n esilämmityksestä ja 0,70 kWh:n kulutuksesta lämpötilan ylläpitoon yhden tunnin ajan 200 °C:ssa.",
+    reviewedOn: "2026-08-22",
+    source: {
+      label: "Helen – uunin kulutus 200 °C:ssa",
+      url: "https://www.helen.fi/asiakastuki/henkiloasiakkaat/energiankayton-neuvonta/kodinkoneiden-hankinta/lattia-ja-kalusteliedet",
+    },
+  },
+  {
     id: "coffee",
     name: "Kahvinkeitin",
     standardUse:
@@ -55,19 +81,7 @@ export const EVERYDAY_USES: readonly EverydayUse[] = [
       url: "https://www.motiva.fi/files/986/Pitkajarvenkoulu_laskutehtavat.pdf",
     },
   },
-  {
-    id: "oven",
-    name: "Uuni",
-    standardUse: "Esilämmitys ja yksi tunti ruoanlaittoa 200 °C:ssa",
-    consumptionKwh: 1.2,
-    assumption:
-      "Vertailuarvo koostuu noin 0,50 kWh:n esilämmityksestä ja 0,70 kWh:n kulutuksesta lämpötilan ylläpitoon yhden tunnin ajan 200 °C:ssa.",
-    reviewedOn: "2026-08-22",
-    source: {
-      label: "Helen – uunin kulutus 200 °C:ssa",
-      url: "https://www.helen.fi/asiakastuki/henkiloasiakkaat/energiankayton-neuvonta/kodinkoneiden-hankinta/lattia-ja-kalusteliedet",
-    },
-  },
+
   {
     id: "washing",
     name: "Pyykinpesukone",
@@ -107,23 +121,12 @@ export const EVERYDAY_USES: readonly EverydayUse[] = [
       url: "https://www.siemens-home.bsh-group.com/be/nl/toestellen/vaatwassen/de-juiste-vaatwasser-kiezen",
     },
   },
-  {
-    id: "sauna",
-    name: "Sauna",
-    standardUse: "Yksi noin 1,5 tunnin saunomiskerta lämmityksineen",
-    consumptionKwh: 8,
-    assumption:
-      "Vertailuarvo sisältää noin 1,5 tuntia sähkökiukaan käyttöä, esilämmityksen ja tavanomaisen saunomisen.",
-    reviewedOn: "2026-08-22",
-    source: {
-      label: "Helen – saunan lämmittäminen",
-      url: "https://www.helen.fi/asiakastuki/henkiloasiakkaat/energiankayton-neuvonta/usein-kysyttya",
-    },
-  },
+
   {
     id: "television",
     name: "Televisio",
-    standardUse: "Yksi tunti 55-tuumaisen LED-television katselua SDR-kuvatilassa",
+    standardUse:
+      "Yksi tunti 55-tuumaisen LED-television katselua SDR-kuvatilassa",
     consumptionKwh: 0.11,
     assumption:
       "Vertailuarvo on 55-tuumaisen LED-television tavanomaisen SDR-katselun kulutusvaihteluvälin keskikohta.",
