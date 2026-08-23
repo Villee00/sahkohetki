@@ -274,6 +274,7 @@ export function PriceChart({
                   {points.map((point) => {
                     const isSelected = point.id === selectedId;
                     const isHovered = point.id === activePointId;
+                    const showSelectedBar = isSelected && !isHovered;
                     const pointPrice = getAvailablePointPrice(point);
                     const levelClass = point.level ?? "unavailable";
                     const barClass = point.available
@@ -303,7 +304,7 @@ export function PriceChart({
                         >
                           <span
                             aria-hidden="true"
-                            className={`price-chart__bar ${barClass}${isSelected ? " price-chart__bar--selected" : ""}${isHovered ? " price-chart__bar--hovered" : ""} block w-full rounded-t-lg transition group-focus-visible:bg-sky-200`}
+                            className={`price-chart__bar ${barClass}${showSelectedBar ? " price-chart__bar--selected" : ""}${isHovered ? " price-chart__bar--hovered" : ""} block w-full rounded-t-lg transition group-focus-visible:bg-sky-200`}
                             style={getBarStyle(point, chartScale)}
                           />
                         </button>

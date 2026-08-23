@@ -89,6 +89,40 @@ it("shows the price tooltip when an interval receives keyboard focus", async () 
   expect(screen.getByRole("tooltip").textContent).toContain("4,50 snt/kWh");
 });
 
+it("keeps hover presentation dominant while selecting a different interval", async () => {
+  const user = userEvent.setup();
+  const { rerender } = render(
+    <PriceChart
+      points={[point, higherPoint]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  const nextButton = screen.getByRole("button", { name: /10:30–10:45/ });
+  await user.hover(nextButton);
+  await user.click(nextButton);
+  rerender(
+    <PriceChart
+      points={[point, higherPoint]}
+      selectedId={higherPoint.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  expect(nextButton.getAttribute("aria-pressed")).toBe("true");
+  expect(
+    nextButton
+      .querySelector(".price-chart__bar")
+      ?.classList.contains("price-chart__bar--hovered"),
+  ).toBe(true);
+  expect(
+    nextButton
+      .querySelector(".price-chart__bar")
+      ?.classList.contains("price-chart__bar--selected"),
+  ).toBe(false);
+});
+
 it("keeps the focused interval highlighted after the pointer leaves another interval", async () => {
   const user = userEvent.setup();
   render(
