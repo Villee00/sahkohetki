@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
@@ -53,11 +54,132 @@ const nextHourPoint = {
 it("lets a keyboard-accessible chart button select an available interval", async () => {
   const user = userEvent.setup();
   const onSelect = vi.fn();
-  render(<PriceChart points={[point]} selectedId={point.id} onSelect={onSelect} />);
+  render(
+    <PriceChart points={[point]} selectedId={point.id} onSelect={onSelect} />,
+  );
   const button = screen.getByRole("button", { name: /10:15/ });
   expect(button.getAttribute("aria-pressed")).toBe("true");
   await user.click(button);
   expect(onSelect).toHaveBeenCalledWith(point.id);
+});
+
+it("shows a fast styled tooltip and highlights the hovered interval", async () => {
+  const user = userEvent.setup();
+  render(
+    <PriceChart points={[point]} selectedId={point.id} onSelect={vi.fn()} />,
+  );
+
+  const button = screen.getByRole("button", { name: /10:15/ });
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  await user.hover(button);
+
+  const tooltip = screen.getByRole("tooltip");
+  expect(tooltip.textContent).toContain("10:15–10:30");
+  expect(tooltip.textContent).toContain("4,50 snt/kWh");
+  expect(button.getAttribute("title")).toBeNull();
+  expect(
+    button.parentElement?.classList.contains("price-chart__item--hovered"),
+  ).toBe(true);
+
+  await user.unhover(button);
+  expect(screen.queryByRole("tooltip")).toBeNull();
+});
+
+it("shows the price tooltip when an interval receives keyboard focus", async () => {
+  const user = userEvent.setup();
+  render(<PriceChart points={[point]} selectedId={point.id} onSelect={vi.fn()} />);
+
+  await user.tab();
+
+  expect(screen.getByRole("tooltip").textContent).toContain("4,50 snt/kWh");
+});
+
+it("keeps hover presentation dominant while selecting a different interval", async () => {
+  const user = userEvent.setup();
+  const { rerender } = render(
+    <PriceChart
+      points={[point, higherPoint]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  const nextButton = screen.getByRole("button", { name: /10:30–10:45/ });
+  await user.hover(nextButton);
+  await user.click(nextButton);
+  rerender(
+    <PriceChart
+      points={[point, higherPoint]}
+      selectedId={higherPoint.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  expect(nextButton.getAttribute("aria-pressed")).toBe("true");
+  expect(
+    nextButton
+      .querySelector(".price-chart__bar")
+      ?.classList.contains("price-chart__bar--hovered"),
+  ).toBe(true);
+  expect(
+    nextButton
+      .querySelector(".price-chart__bar")
+      ?.classList.contains("price-chart__bar--selected"),
+  ).toBe(false);
+});
+
+it("keeps the focused interval highlighted after the pointer leaves another interval", async () => {
+  const user = userEvent.setup();
+  render(
+    <PriceChart
+      points={[point, higherPoint]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  const firstButton = screen.getByRole("button", { name: /10:15/ });
+  const secondItem = screen.getByRole("button", { name: /10:30–10:45/ }).parentElement;
+  expect(secondItem).not.toBeNull();
+
+  await user.click(firstButton);
+  await user.hover(secondItem!);
+  await user.unhover(secondItem!);
+
+  expect(screen.getByRole("tooltip").textContent).toContain("4,50 snt/kWh");
+  expect(firstButton.parentElement?.classList.contains("price-chart__item--hovered")).toBe(true);
+});
+
+it("highlights an unavailable interval when its cell is hovered", async () => {
+  const user = userEvent.setup();
+  render(
+    <PriceChart
+      points={[
+        point,
+        {
+          ...higherPoint,
+          id: "quarter-unavailable-hover",
+          label: "10:30–10:45",
+          priceCentsPerKwh: null,
+          available: false,
+        },
+      ]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  const unavailableButton = screen.getByRole("button", {
+    name: /hinta ei ole saatavilla/,
+  });
+  const unavailableItem = unavailableButton.parentElement;
+  expect(unavailableItem).not.toBeNull();
+
+  await user.hover(unavailableItem!);
+
+  expect(
+    unavailableItem?.classList.contains("price-chart__item--hovered"),
+  ).toBe(true);
 });
 
 it("renders the mockup-style zero-based chart with a visible price scale", () => {
@@ -79,10 +201,14 @@ it("renders the mockup-style zero-based chart with a visible price scale", () =>
     />,
   );
 
-  expect(screen.getByRole("heading", { name: "Pörssisähkön tuntikaavio" })).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { name: "Pörssisähkön hinta" }),
+  ).toBeTruthy();
   expect(screen.queryByText("Hintajaksot")).toBeNull();
   expect(screen.getByTestId("price-chart-grid")).toBeTruthy();
-  expect(screen.getByTestId("price-chart-vertical-grid").children).toHaveLength(3);
+  expect(screen.getByTestId("price-chart-vertical-grid").children).toHaveLength(
+    3,
+  );
   expect(screen.getByText("-5")).toBeTruthy();
   expect(screen.getByText("0")).toBeTruthy();
   expect(screen.getByText("5")).toBeTruthy();
@@ -106,7 +232,21 @@ it("renders the mockup-style zero-based chart with a visible price scale", () =>
 
   const selectedButton = screen.getByRole("button", { name: /11:00/ });
   expect(selectedButton.getAttribute("aria-pressed")).toBe("true");
-  expect(selectedButton.querySelector(".price-chart__bar--selected")).toBeTruthy();
+  expect(
+    selectedButton.querySelector(".price-chart__bar--selected"),
+  ).toBeTruthy();
+});
+
+it("centers each price bar within its chart cell", () => {
+  const styles = readFileSync(`${process.cwd()}/app/globals.css`, "utf8");
+  const barRule = styles.match(/\.price-chart__bar\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+  const hoveredRule =
+    styles.match(/\.price-chart__bar--hovered\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+
+  expect(barRule).toMatch(/left:\s*50%;/);
+  expect(barRule).toMatch(/right:\s*auto;/);
+  expect(barRule).toMatch(/transform:\s*translateX\(-50%\);/);
+  expect(hoveredRule).toMatch(/transform:\s*translateX\(-50%\)/);
 });
 
 it("places the current-time line exactly within the current interval", () => {
@@ -145,7 +285,11 @@ it("keeps unavailable intervals in the chart without changing the scale", () => 
   expect(screen.getByText("0")).toBeTruthy();
   expect(screen.getByText("10")).toBeTruthy();
   expect(screen.getByText("snt/kWh")).toBeTruthy();
-  expect(screen.getByRole("button", { name: /hinta ei ole saatavilla/ }).hasAttribute("disabled")).toBe(true);
+  expect(
+    screen
+      .getByRole("button", { name: /hinta ei ole saatavilla/ })
+      .hasAttribute("disabled"),
+  ).toBe(true);
 });
 
 it("calculates the daily average from available intervals only", () => {

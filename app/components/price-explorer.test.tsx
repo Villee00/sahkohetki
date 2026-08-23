@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { EVERYDAY_USES } from "../../lib/appliances";
@@ -96,15 +102,17 @@ function createCompleteTomorrowPoints(
   });
 }
 
-const lowRangePoints: PricePoint[] = [0.2, 0.4, 0.7, 1.1].map((price, index) => ({
-  id: `low-range-${index}`,
-  startAt: new Date(Date.UTC(2026, 7, 22, index)).toISOString(),
-  endAt: new Date(Date.UTC(2026, 7, 22, index + 1)).toISOString(),
-  label: `${index + 10}:00–${index + 11}:00`,
-  priceCentsPerKwh: price,
-  available: true,
-  level: "cheap",
-}));
+const lowRangePoints: PricePoint[] = [0.2, 0.4, 0.7, 1.1].map(
+  (price, index) => ({
+    id: `low-range-${index}`,
+    startAt: new Date(Date.UTC(2026, 7, 22, index)).toISOString(),
+    endAt: new Date(Date.UTC(2026, 7, 22, index + 1)).toISOString(),
+    label: `${index + 10}:00–${index + 11}:00`,
+    priceCentsPerKwh: price,
+    available: true,
+    level: "cheap",
+  }),
+);
 
 const lowRangeData: ExplorerData = {
   ...data,
@@ -238,9 +246,7 @@ it("associates an invalid margin with its validation message", async () => {
 
   await user.click(screen.getByRole("button", { name: "Hinta-asetukset" }));
   const dialog = screen.getByRole("dialog", { name: "Hinta-asetukset" });
-  const marginInput = within(dialog).getByLabelText(
-    "Sähköyhtiön marginaali",
-  );
+  const marginInput = within(dialog).getByLabelText("Sähköyhtiön marginaali");
 
   await user.clear(marginInput);
   await user.type(marginInput, "-1");
@@ -315,6 +321,16 @@ it("shows active-view minimum, average, and maximum prices in the header", async
   expect(within(summary).getByText("20,00")).toBeTruthy();
   expect(within(summary).getByText("25,00")).toBeTruthy();
   expect(within(summary).getByText("30,00")).toBeTruthy();
+});
+
+it("does not repeat the summary prices in the spectrum labels", () => {
+  render(<PriceExplorer data={data} />);
+
+  expect(screen.queryByText(/^Pienin:/)).toBeNull();
+  expect(
+    screen.queryByText("Sähkön hintahaarukka tarkastelujaksolla"),
+  ).toBeNull();
+  expect(screen.queryByText(/^Suurin:/)).toBeNull();
 });
 
 it("keeps a just-over-one-cent price in the low part of the price scale", () => {
@@ -414,9 +430,7 @@ it("defaults to today's calendar-day horizon", () => {
 });
 
 it("shows the current-time line only on today's horizon", async () => {
-  vi.spyOn(Date, "now").mockReturnValue(
-    Date.parse("2026-08-22T10:30:00.000Z"),
-  );
+  vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-08-22T10:30:00.000Z"));
   const user = userEvent.setup();
   const dataWithTomorrowPoints: ExplorerData = {
     ...data,
@@ -468,7 +482,7 @@ it("shows a friendly update message instead of a lone partial tomorrow bar", asy
   await user.click(screen.getByRole("button", { name: "Huomenna" }));
 
   const chart = screen.getByRole("region", {
-    name: "Pörssisähkön tuntikaavio",
+    name: "Pörssisähkön hinta",
   });
   const unavailableMessage =
     "Huomisen hinnat eivät ole vielä saatavilla. Ne päivittyvät noin klo 15.";
@@ -481,9 +495,7 @@ it("shows a friendly update message instead of a lone partial tomorrow bar", asy
       .getByRole("button", { name: "Huomenna" })
       .getAttribute("aria-pressed"),
   ).toBe("true");
-  expect(
-    screen.queryByRole("group", { name: "Hintayhteenveto" }),
-  ).toBeNull();
+  expect(screen.queryByRole("group", { name: "Hintayhteenveto" })).toBeNull();
   expect(
     screen.queryByRole("button", {
       name: /Valitse aikaväli 00:00–01:00/,
@@ -531,19 +543,19 @@ it("hides the summary for a truncated tomorrow horizon", async () => {
   render(<PriceExplorer data={truncatedTomorrowData} />);
   await user.click(screen.getByRole("button", { name: "Huomenna" }));
 
-  expect(
-    screen.queryByRole("group", { name: "Hintayhteenveto" }),
-  ).toBeNull();
+  expect(screen.queryByRole("group", { name: "Hintayhteenveto" })).toBeNull();
 });
 
 it("matches the mockup chart header and control order", () => {
   render(<PriceExplorer data={data} />);
 
   const chart = screen.getByRole("region", {
-    name: "Pörssisähkön tuntikaavio",
+    name: "Pörssisähkön hinta",
   });
   const chartHeader = chart.querySelector(".price-chart__header");
-  const horizonControls = screen.getByRole("group", { name: "Tarkastelujakso" });
+  const horizonControls = screen.getByRole("group", {
+    name: "Tarkastelujakso",
+  });
   const precisionControls = screen.getByRole("group", {
     name: "Hintatarkkuus",
   });
@@ -559,7 +571,9 @@ it("matches the mockup chart header and control order", () => {
   ).toBe(true);
   expect(headerGroups).toEqual(["Hintatarkkuus", "Tarkastelujakso"]);
   expect(screen.getByRole("button", { name: "Tuntikeskiarvo" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "15 minuutin tarkkuus" })).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "15 minuutin tarkkuus" }),
+  ).toBeTruthy();
   expect(screen.getByRole("button", { name: "Tänään" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Huomenna" })).toBeTruthy();
 });

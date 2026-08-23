@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Sähköhetki – sähkön hinta arjessa",
+  title: "Sähköhetki – pörssisähkön hinta helpoksi",
   description:
-    "Katso pörssisähkön hinta ja yhdeksän arjen sähkönkäytön kustannusarviota.",
+    "Tarkista Suomen pörssisähkön hinta tänään tunti- ja 15 minuutin tarkkuudella sekä arvioi kodinkoneiden sähkönkulutuksen kustannus.",
 };
 
 export default function RootLayout({

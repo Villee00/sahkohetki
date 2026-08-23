@@ -1,10 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type {
-  FormEvent,
-  MouseEvent as ReactMouseEvent,
-} from "react";
+import type { FormEvent, MouseEvent as ReactMouseEvent } from "react";
 import Image from "next/image";
 import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
@@ -324,13 +321,6 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
       ) ?? null,
     [activePoints, selectedId],
   );
-  const availablePoints = useMemo(
-    () =>
-      activePoints.filter(
-        (point) => point.available && point.priceCentsPerKwh !== null,
-      ),
-    [activePoints],
-  );
   const priceSummary = useMemo(
     () => getPriceSummary(activePoints),
     [activePoints],
@@ -485,9 +475,9 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   };
 
   const changeHorizon = (nextHorizon: Horizon) => {
-    const nextPoints = (nextHorizon === "today"
-      ? adjustedToday
-      : adjustedTomorrow)[mode];
+    const nextPoints = (
+      nextHorizon === "today" ? adjustedToday : adjustedTomorrow
+    )[mode];
     setHorizon(nextHorizon);
     setSelectedId((currentId) =>
       getSelectionForPoints(nextPoints, currentId, null),
@@ -574,7 +564,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 Sähköhetki
               </span>
               <span className="block text-[0.65rem] uppercase tracking-[0.2em] text-slate-500">
-                Pörssisähkö arjessa
+                Pörssisähkön hinta
               </span>
             </span>
           </a>
@@ -752,33 +742,6 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               aria-label="Valitun hinnan sijainti hintatasoasteikolla"
               role="img"
             >
-              <div className="spectrum-scale flex items-center justify-between gap-4 text-xs text-slate-500">
-                <span className="font-mono font-semibold text-emerald-300">
-                  Pienin:{" "}
-                  {formatPrice(
-                    Math.min(
-                      ...availablePoints.map(
-                        (point) => point.priceCentsPerKwh!,
-                      ),
-                    ),
-                  )}{" "}
-                  snt/kWh
-                </span>
-                <span className="hidden text-center sm:inline">
-                  Sähkön hintahaarukka tarkastelujaksolla
-                </span>
-                <span className="font-mono font-semibold text-rose-300">
-                  Suurin:{" "}
-                  {formatPrice(
-                    Math.max(
-                      ...availablePoints.map(
-                        (point) => point.priceCentsPerKwh!,
-                      ),
-                    ),
-                  )}{" "}
-                  snt/kWh
-                </span>
-              </div>
               <div className="spectrum-track relative mt-3 h-2 rounded-full bg-gradient-to-r from-emerald-400 via-amber-300 to-rose-400">
                 <span
                   className="spectrum-marker absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-slate-950 bg-white shadow-lg shadow-white/25"
@@ -791,7 +754,8 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               </div>
               <div className="spectrum-labels mt-3 flex justify-between gap-3 text-[0.68rem] text-slate-500">
                 <span>
-                  ≤ {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)} snt/kWh (Edullinen)
+                  ≤ {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)} snt/kWh
+                  (Edullinen)
                 </span>
                 <span className="hidden text-center sm:inline">
                   &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)}–≤{" "}
@@ -900,9 +864,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               </p>
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
-              <span>
-                Tiedot haettu: {formatFetchedAt(data.fetchedAt)}
-              </span>
+              <span>Tiedot haettu: {formatFetchedAt(data.fetchedAt)}</span>
               <a
                 className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
                 href={data.source.pricesUrl}
@@ -976,14 +938,14 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             ? "Näytettyihin hintoihin on lisätty " +
               formatPrice(priceMargin) +
               " snt/kWh marginaali."
-            : "Näytetty hinta on lähteen ilmoittama spot-hinta."} Palvelin
-          tarkistaa lähteen tiedot ja muodostaa niiden perusteella näkymään
-          tuntikeskiarvot sekä 15 minuutin hinnat.
+            : "Näytetty hinta on lähteen ilmoittama spot-hinta."}{" "}
+          Palvelin tarkistaa lähteen tiedot ja muodostaa niiden perusteella
+          näkymään tuntikeskiarvot sekä 15 minuutin hinnat.
         </p>
         <p>
-          Tiedot haetaan ja säilytetään palvelimella noin 12 tuntia. Sivu ei
-          hae hintoja uudelleen selaimessa eikä täydennä puuttuvia hintoja
-          vanhoilla arvoilla.
+          Tiedot haetaan ja säilytetään palvelimella noin 12 tuntia. Sivu ei hae
+          hintoja uudelleen selaimessa eikä täydennä puuttuvia hintoja vanhoilla
+          arvoilla.
         </p>
         <div className="flex flex-wrap gap-4 text-sm">
           <a
@@ -1058,7 +1020,10 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               />
               <span className="font-mono text-sm text-slate-400">snt/kWh</span>
             </div>
-            <p id="price-margin-help" className="mt-2 text-xs leading-5 text-slate-500">
+            <p
+              id="price-margin-help"
+              className="mt-2 text-xs leading-5 text-slate-500"
+            >
               Käytä desimaalierottimena pilkkua tai pistettä. Nolla palauttaa
               pelkän markkinahinnan.
             </p>
