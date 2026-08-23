@@ -351,7 +351,6 @@ button:disabled {
   background: rgba(52, 211, 153, 0.14) !important;
 }
 
-.spectrum-scale,
 .spectrum-labels {
   font-variant-numeric: tabular-nums;
 }

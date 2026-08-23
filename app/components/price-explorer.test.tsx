@@ -317,6 +317,16 @@ it("shows active-view minimum, average, and maximum prices in the header", async
   expect(within(summary).getByText("30,00")).toBeTruthy();
 });
 
+it("does not repeat the summary prices in the spectrum labels", () => {
+  render(<PriceExplorer data={data} />);
+
+  expect(screen.queryByText(/^Pienin:/)).toBeNull();
+  expect(
+    screen.queryByText("Sähkön hintahaarukka tarkastelujaksolla"),
+  ).toBeNull();
+  expect(screen.queryByText(/^Suurin:/)).toBeNull();
+});
+
 it("keeps a just-over-one-cent price in the low part of the price scale", () => {
   render(<PriceExplorer data={lowRangeData} />);
 

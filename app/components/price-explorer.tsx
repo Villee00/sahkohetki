@@ -324,13 +324,6 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
       ) ?? null,
     [activePoints, selectedId],
   );
-  const availablePoints = useMemo(
-    () =>
-      activePoints.filter(
-        (point) => point.available && point.priceCentsPerKwh !== null,
-      ),
-    [activePoints],
-  );
   const priceSummary = useMemo(
     () => getPriceSummary(activePoints),
     [activePoints],
@@ -752,33 +745,6 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               aria-label="Valitun hinnan sijainti hintatasoasteikolla"
               role="img"
             >
-              <div className="spectrum-scale flex items-center justify-between gap-4 text-xs text-slate-500">
-                <span className="font-mono font-semibold text-emerald-300">
-                  Pienin:{" "}
-                  {formatPrice(
-                    Math.min(
-                      ...availablePoints.map(
-                        (point) => point.priceCentsPerKwh!,
-                      ),
-                    ),
-                  )}{" "}
-                  snt/kWh
-                </span>
-                <span className="hidden text-center sm:inline">
-                  Sähkön hintahaarukka tarkastelujaksolla
-                </span>
-                <span className="font-mono font-semibold text-rose-300">
-                  Suurin:{" "}
-                  {formatPrice(
-                    Math.max(
-                      ...availablePoints.map(
-                        (point) => point.priceCentsPerKwh!,
-                      ),
-                    ),
-                  )}{" "}
-                  snt/kWh
-                </span>
-              </div>
               <div className="spectrum-track relative mt-3 h-2 rounded-full bg-gradient-to-r from-emerald-400 via-amber-300 to-rose-400">
                 <span
                   className="spectrum-marker absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-slate-950 bg-white shadow-lg shadow-white/25"
