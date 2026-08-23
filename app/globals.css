@@ -501,6 +501,7 @@ button:disabled {
 
 .price-chart__plot-layout {
   min-width: 0;
+  --price-chart-column-gap: clamp(0.08rem, 0.35vw, 0.35rem);
 }
 
 .price-chart__plot {
@@ -572,7 +573,7 @@ button:disabled {
   inset: 0;
   z-index: 0;
   display: grid;
-  gap: clamp(0.08rem, 0.35vw, 0.35rem);
+  gap: var(--price-chart-column-gap);
   pointer-events: none;
 }
 
@@ -616,7 +617,7 @@ button:disabled {
 .price-chart__bars,
 .price-chart__axis {
   display: grid;
-  gap: clamp(0.08rem, 0.35vw, 0.35rem);
+  gap: var(--price-chart-column-gap);
 }
 
 .price-chart__bars {
@@ -635,7 +636,19 @@ button:disabled {
 }
 
 .price-chart__item--hovered {
-  background: linear-gradient(
+  background: none;
+  box-shadow: none;
+}
+
+.price-chart__item--hovered::before {
+  position: absolute;
+  top: 0;
+  right: calc(var(--price-chart-column-gap) * -1);
+  bottom: 0;
+  left: 0;
+  border-radius: inherit;
+  background-color: rgba(56, 189, 248, 0.045);
+  background-image: linear-gradient(
     180deg,
     rgba(56, 189, 248, 0.14),
     rgba(56, 189, 248, 0.025) 78%,
@@ -644,6 +657,12 @@ button:disabled {
   box-shadow:
     inset 0 0 0 1px rgba(125, 211, 252, 0.28),
     0 0 1.2rem rgba(56, 189, 248, 0.12);
+  content: "";
+  pointer-events: none;
+}
+
+.price-chart__item--hovered:last-child::before {
+  right: 0;
 }
 
 .price-chart__bar-button {
