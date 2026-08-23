@@ -103,11 +103,11 @@ describe("ExplorerData horizons", () => {
 
     expect(cheapestEstimate?.comparison).toEqual({
       title: "Paras ajankohta",
-      detail: "Tämä on aktiivisen näkymän edullisin saatavilla oleva jakso.",
+      detail: "Tämä on aktiivisen näkymän edullisin saatavilla oleva aikaväli.",
     });
     expect(laterEstimate?.comparison).toEqual({
       title: "Säästät 0,04 senttiä",
-      detail: "edullisimmalla jaksolla 00:00–01:00",
+      detail: "edullisimpana ajankohtana 00:00–01:00",
     });
   });
 
@@ -130,7 +130,7 @@ describe("ExplorerData horizons", () => {
 
     expect(comparison).toEqual({
       title: "Säästät alle 0,01 senttiä",
-      detail: "edullisimmalla jaksolla 00:00–01:00",
+      detail: "edullisimpana ajankohtana 00:00–01:00",
     });
   });
 });

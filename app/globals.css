@@ -118,6 +118,12 @@ button:disabled {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.site-nav-button--active {
+  border-color: rgba(125, 211, 252, 0.28);
+  background: rgba(56, 189, 248, 0.12);
+  color: #e0f2fe;
+}
+
 .current-value {
   min-width: 0;
   border-left: 1px solid rgba(148, 163, 184, 0.18);

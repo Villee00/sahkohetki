@@ -19,7 +19,7 @@ const estimateWithComparison: CostEstimate = {
   ...estimate,
   comparison: {
     title: "Säästät 0,04 senttiä",
-    detail: "edullisimmalla jaksolla 12:00–13:00",
+    detail: "edullisimpana ajankohtana 12:00–13:00",
   },
 };
 
@@ -31,11 +31,11 @@ it("shows the researched assumption and its source", async () => {
   render(<ApplianceCard use={use} estimate={estimate} />);
 
   const disclosure = screen.getByLabelText(
-    "Näytä Kahvinkeitin oletus ja rajaus",
+    "Kahvinkeitin: näytä oletus ja rajaus",
   );
   await user.click(disclosure);
 
-  expect(screen.getByText(/Vertailuarvo sisältää noin litran kahvin valmistuksen/)).toBeTruthy();
+  expect(screen.getByText(/Vertailuarvo sisältää noin litran kahvin valmistuksen ja lämpölevyn käytön/)).toBeTruthy();
   const sourceLink = screen.getByRole("link", {
     name: "TTS / Doria – Kahvinkeittimien testi 2020",
   });
@@ -54,7 +54,7 @@ it("renders a compact appliance row with adjacent cost and saving metrics", () =
 
   expect(row.className).toContain("appliance-card--row");
   expect(row.querySelector(".appliance-card__icon")).toBeTruthy();
-  expect(metrics?.textContent).toContain("ARVIOITU SPOT-KUSTANNUS");
+  expect(metrics?.textContent).toContain("ARVIOITU KUSTANNUS SPOT-HINNALLA");
   expect(metrics?.textContent).toContain("Säästät");
   expect(metrics?.textContent).toContain("0,04 senttiä");
   expect(row.querySelector(".appliance-card__assumption-trigger")).toBeTruthy();
@@ -69,7 +69,7 @@ it("keeps the disclosure trigger anchored while its panel opens beneath the row"
 
   const row = screen.getByRole("article");
   const chevron = screen.getByRole("button", {
-    name: "Näytä Kahvinkeitin oletus ja rajaus",
+    name: "Kahvinkeitin: näytä oletus ja rajaus",
   });
 
   expect(chevron.tagName).toBe("BUTTON");
@@ -82,5 +82,5 @@ it("keeps the disclosure trigger anchored while its panel opens beneath the row"
   expect(chevron.getAttribute("aria-expanded")).toBe("true");
   expect(panel).toBeTruthy();
   expect(panel?.parentElement).toBe(row);
-  expect(screen.getByText(/Vertailuarvo sisältää noin litran kahvin valmistuksen/)).toBeTruthy();
+  expect(screen.getByText(/Vertailuarvo sisältää noin litran kahvin valmistuksen ja lämpölevyn käytön/)).toBeTruthy();
 });

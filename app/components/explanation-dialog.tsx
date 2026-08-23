@@ -8,6 +8,7 @@ type ExplanationDialogProps = {
   onClose: () => void;
   dialogRef: RefObject<HTMLDivElement | null>;
   closeButtonRef: RefObject<HTMLButtonElement | null>;
+  closeButtonLabel?: string;
   children: ReactNode;
 };
 
@@ -18,6 +19,7 @@ export function ExplanationDialog({
   onClose,
   dialogRef,
   closeButtonRef,
+  closeButtonLabel = "Sulje selite",
   children,
 }: ExplanationDialogProps) {
   if (!open) return null;
@@ -57,7 +59,7 @@ export function ExplanationDialog({
             type="button"
             ref={closeButtonRef}
             className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-full border border-slate-700 text-slate-300 transition hover:border-slate-500 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-            aria-label="Sulje selite"
+            aria-label={closeButtonLabel}
             onClick={onClose}
           >
             <Icon name="close" className="h-5 w-5" />

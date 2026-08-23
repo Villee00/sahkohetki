@@ -1,12 +1,29 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { EVERYDAY_USES } from "../../lib/appliances";
 import { PriceExplorer } from "./price-explorer";
 import type { ExplorerData, PricePoint } from "@/lib/price-types";
 
+const storage = new Map<string, string>();
+const localStorageMock = {
+  getItem: (key: string) => storage.get(key) ?? null,
+  setItem: (key: string, value: string) => storage.set(key, value),
+  removeItem: (key: string) => storage.delete(key),
+  clear: () => storage.clear(),
+};
+
+beforeEach(() => {
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: localStorageMock,
+  });
+});
+
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
   vi.restoreAllMocks();
 });
 
@@ -47,6 +64,11 @@ const data: ExplorerData = {
   tomorrow: { hourly: [], quarterHour: [] },
   uses: [],
   status: "ready",
+};
+
+const dataWithUses: ExplorerData = {
+  ...data,
+  uses: EVERYDAY_USES,
 };
 
 function createCompleteTomorrowPoints(
@@ -123,6 +145,116 @@ it("keeps explanation controls explicitly named at every breakpoint", () => {
   expect(sourceButton.getAttribute("aria-label")).toBe("Tietolähde");
 });
 
+it("applies the supplier margin to displayed prices and appliance estimates", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithUses} />);
+
+  await user.click(screen.getByRole("button", { name: "Hinta-asetukset" }));
+
+  const dialog = screen.getByRole("dialog", { name: "Hinta-asetukset" });
+  const marginInput = within(dialog).getByLabelText("Sähköyhtiön marginaali");
+  await user.clear(marginInput);
+  await user.type(marginInput, "3");
+  await user.click(
+    within(dialog).getByRole("button", { name: "Käytä marginaalia" }),
+  );
+
+  expect(screen.queryByRole("dialog", { name: "Hinta-asetukset" })).toBeNull();
+  expect(screen.getByRole("banner").textContent).toContain("15,00");
+  expect(document.querySelector(".hero-price")?.textContent).toBe("15,00");
+  expect(
+    screen.getByRole("heading", { name: "Kahvinkeitin" }).closest("article")
+      ?.textContent,
+  ).toContain("2.25");
+  expect(
+    screen.getAllByText("ARVIOITU KUSTANNUS SPOT + MARGINAALI").length,
+  ).toBe(9);
+  expect(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 13:00–14:00, hinta 15,00 senttiä kilowattitunnilta/,
+    }),
+  ).toBeTruthy();
+});
+
+it("restores a saved margin and clears it when returning to market price", async () => {
+  const user = userEvent.setup();
+  window.localStorage.setItem("sahkohetki.price-margin", "3.5");
+
+  render(<PriceExplorer data={dataWithUses} />);
+
+  await waitFor(() => {
+    expect(document.querySelector(".hero-price")?.textContent).toBe("15,50");
+  });
+
+  await user.click(screen.getByRole("button", { name: "Hinta-asetukset" }));
+  const dialog = screen.getByRole("dialog", { name: "Hinta-asetukset" });
+  const marginInput = within(dialog).getByLabelText(
+    "Sähköyhtiön marginaali",
+  ) as HTMLInputElement;
+  expect(marginInput.value).toBe("3.5");
+
+  await user.click(
+    within(dialog).getByRole("button", { name: "Palauta spot-hintaan" }),
+  );
+
+  expect(document.querySelector(".hero-price")?.textContent).toBe("12,00");
+  expect(window.localStorage.getItem("sahkohetki.price-margin")).toBeNull();
+});
+
+it("keeps the settings form controls inside the keyboard focus trap", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithUses} />);
+
+  await user.click(screen.getByRole("button", { name: "Hinta-asetukset" }));
+
+  const dialog = screen.getByRole("dialog", { name: "Hinta-asetukset" });
+  const closeButton = within(dialog).getByRole("button", {
+    name: "Sulje hinta-asetukset",
+  });
+  const marginInput = within(dialog).getByLabelText("Sähköyhtiön marginaali");
+  const applyButton = within(dialog).getByRole("button", {
+    name: "Käytä marginaalia",
+  });
+  const resetButton = within(dialog).getByRole("button", {
+    name: "Palauta spot-hintaan",
+  });
+
+  expect(document.activeElement).toBe(closeButton);
+  await user.tab();
+  expect(document.activeElement).toBe(marginInput);
+  await user.tab();
+  expect(document.activeElement).toBe(applyButton);
+  await user.tab();
+  expect(document.activeElement).toBe(resetButton);
+  await user.tab();
+  expect(document.activeElement).toBe(closeButton);
+  await user.tab({ shift: true });
+  expect(document.activeElement).toBe(resetButton);
+});
+
+it("associates an invalid margin with its validation message", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithUses} />);
+
+  await user.click(screen.getByRole("button", { name: "Hinta-asetukset" }));
+  const dialog = screen.getByRole("dialog", { name: "Hinta-asetukset" });
+  const marginInput = within(dialog).getByLabelText(
+    "Sähköyhtiön marginaali",
+  );
+
+  await user.clear(marginInput);
+  await user.type(marginInput, "-1");
+  await user.click(
+    within(dialog).getByRole("button", { name: "Käytä marginaalia" }),
+  );
+
+  expect(marginInput.getAttribute("aria-invalid")).toBe("true");
+  expect(marginInput.getAttribute("aria-describedby")).toContain(
+    "price-margin-error",
+  );
+  expect(within(dialog).getByRole("alert").id).toBe("price-margin-error");
+});
+
 it("keeps the current interval and spot value visible in the top header", () => {
   render(<PriceExplorer data={data} />);
 
@@ -171,7 +303,7 @@ it("shows active-view minimum, average, and maximum prices in the header", async
 
   const summary = screen.getByRole("group", { name: "Hintayhteenveto" });
   expect(within(summary).getByText("Halvin")).toBeTruthy();
-  expect(within(summary).getByText("Keskiarvo")).toBeTruthy();
+  expect(within(summary).getByText("Keskihinta")).toBeTruthy();
   expect(within(summary).getByText("Kallein")).toBeTruthy();
   expect(within(summary).getByText("2,00")).toBeTruthy();
   expect(within(summary).getByText("7,00")).toBeTruthy();
@@ -220,11 +352,42 @@ it("keeps the selected interval as compact calculation context", () => {
   );
 });
 
+it("shows the selected date above the selected interval", async () => {
+  const user = userEvent.setup();
+  const tomorrowPoint: PricePoint = {
+    ...cheapestPoint,
+    id: "tomorrow-midnight",
+    startAt: "2026-08-22T21:00:00.000Z",
+    endAt: "2026-08-22T22:00:00.000Z",
+    label: "00:00–01:00",
+  };
+  const dataWithTomorrow: ExplorerData = {
+    ...data,
+    tomorrow: {
+      hourly: [tomorrowPoint],
+      quarterHour: [tomorrowPoint],
+    },
+  };
+
+  render(<PriceExplorer data={dataWithTomorrow} />);
+
+  const selectedDate = screen.getByText("22.8.2026");
+  const selectedInterval = screen.getByText("Valittu aikaväli:");
+  expect(
+    selectedDate.compareDocumentPosition(selectedInterval) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+
+  await user.click(screen.getByRole("button", { name: "Huomenna" }));
+
+  expect(screen.getByText("23.8.2026")).toBeTruthy();
+});
+
 it("marks the selected interval as current until a future interval is chosen", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={data} />);
 
-  expect(screen.getByLabelText("Nykyinen aika").textContent).toBe("Nyt");
+  expect(screen.getByLabelText("Nykyinen aikaväli").textContent).toBe("Nyt");
   expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
     "Nykyinen aikaväli",
   );
@@ -235,9 +398,9 @@ it("marks the selected interval as current until a future interval is chosen", a
     }),
   );
 
-  expect(screen.queryByLabelText("Nykyinen aika")).toBeNull();
+  expect(screen.queryByLabelText("Nykyinen aikaväli")).toBeNull();
   expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-    "Valittu jakso",
+    "Valittu aikaväli",
   );
 });
 
@@ -305,10 +468,10 @@ it("shows a friendly update message instead of a lone partial tomorrow bar", asy
   await user.click(screen.getByRole("button", { name: "Huomenna" }));
 
   const chart = screen.getByRole("region", {
-    name: "Pörssisähkön Tuntikaavio",
+    name: "Pörssisähkön tuntikaavio",
   });
   const unavailableMessage =
-    "Huomisen hinnat eivät ole vielä saatavilla, mutta ne päivitetään noin klo 15.00.";
+    "Huomisen hinnat eivät ole vielä saatavilla. Ne päivittyvät noin klo 15.";
 
   expect(chart.textContent).toContain(unavailableMessage);
   expect(screen.queryAllByText(unavailableMessage)).toHaveLength(1);
@@ -377,10 +540,10 @@ it("matches the mockup chart header and control order", () => {
   render(<PriceExplorer data={data} />);
 
   const chart = screen.getByRole("region", {
-    name: "Pörssisähkön Tuntikaavio",
+    name: "Pörssisähkön tuntikaavio",
   });
   const chartHeader = chart.querySelector(".price-chart__header");
-  const horizonControls = screen.getByRole("group", { name: "Aikahorisontti" });
+  const horizonControls = screen.getByRole("group", { name: "Tarkastelujakso" });
   const precisionControls = screen.getByRole("group", {
     name: "Hintatarkkuus",
   });
@@ -394,9 +557,33 @@ it("matches the mockup chart header and control order", () => {
   expect(
     chart.querySelector(".price-chart__frame")?.contains(chartHeader),
   ).toBe(true);
-  expect(headerGroups).toEqual(["Hintatarkkuus", "Aikahorisontti"]);
-  expect(screen.getByRole("button", { name: "Tunnittain (h)" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "15 min tarkkuus" })).toBeTruthy();
+  expect(headerGroups).toEqual(["Hintatarkkuus", "Tarkastelujakso"]);
+  expect(screen.getByRole("button", { name: "Tuntikeskiarvo" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "15 minuutin tarkkuus" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Tänään" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Huomenna" })).toBeTruthy();
+});
+
+it("shows natural Finnish copy in the calculation and source explanations", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  await user.click(screen.getByRole("button", { name: "Miten laskemme?" }));
+  const formulaDialog = screen.getByRole("dialog");
+  expect(formulaDialog.textContent).toContain(
+    "Arvio perustuu valittuun spot-hintaan ja kunkin ennalta määritellyn käyttötavan kulutukseen.",
+  );
+  expect(formulaDialog.textContent).toContain(
+    "Laskennassa säilytetään täysi tarkkuus, ja kustannus pyöristetään näytettäessä kahteen desimaaliin.",
+  );
+
+  await user.keyboard("{Escape}");
+  await user.click(screen.getByRole("button", { name: "Tietolähde" }));
+  const sourceDialog = screen.getByRole("dialog");
+  expect(sourceDialog.textContent).toContain(
+    "uusimpia Suomen alueen spot-hintoja 15 minuutin tarkkuudella",
+  );
+  expect(sourceDialog.textContent).toContain(
+    "eikä täydennä puuttuvia hintoja vanhoilla arvoilla.",
+  );
 });

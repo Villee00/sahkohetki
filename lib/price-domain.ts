@@ -309,20 +309,20 @@ function getCostComparison(
   if (!estimate || !cheapestEstimate || savingCents === 0) {
     return {
       title: "Paras ajankohta",
-      detail: "Tämä on aktiivisen näkymän edullisin saatavilla oleva jakso.",
+      detail: "Tämä on aktiivisen näkymän edullisin saatavilla oleva aikaväli.",
     };
   }
 
   if (savingCents > 0 && savingCents <= 0.005) {
     return {
       title: "Säästät alle 0,01 senttiä",
-      detail: `edullisimmalla jaksolla ${cheapestPoint.label}`,
+      detail: `edullisimpana ajankohtana ${cheapestPoint.label}`,
     };
   }
 
   return {
     title: `Säästät ${comparisonFormatter.format(savingCents)} senttiä`,
-    detail: `edullisimmalla jaksolla ${cheapestPoint.label}`,
+    detail: `edullisimpana ajankohtana ${cheapestPoint.label}`,
   };
 }
 
@@ -393,6 +393,27 @@ function estimatePoint(point: PricePoint): PricePoint {
     ]),
   ) as Record<EverydayUseId, CostEstimate>;
   return { ...point, estimates };
+}
+
+export function applyPriceMargin(
+  points: PricePoint[],
+  marginCentsPerKwh: number,
+): PricePoint[] {
+  if (!Number.isFinite(marginCentsPerKwh)) {
+    throw new RangeError("Price margin must be a finite number.");
+  }
+
+  const adjusted = points.map((point) => {
+    if (!point.available || point.priceCentsPerKwh === null) return point;
+    return {
+      ...point,
+      priceCentsPerKwh: point.priceCentsPerKwh + marginCentsPerKwh,
+    };
+  });
+
+  return attachComparisons(
+    classifyPriceLevels(adjusted.map((point) => estimatePoint(point))),
+  );
 }
 
 function createQuarterPoint(

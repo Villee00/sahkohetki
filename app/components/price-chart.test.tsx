@@ -79,7 +79,7 @@ it("renders the mockup-style zero-based chart with a visible price scale", () =>
     />,
   );
 
-  expect(screen.getByRole("heading", { name: "Pörssisähkön Tuntikaavio" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Pörssisähkön tuntikaavio" })).toBeTruthy();
   expect(screen.queryByText("Hintajaksot")).toBeNull();
   expect(screen.getByTestId("price-chart-grid")).toBeTruthy();
   expect(screen.getByTestId("price-chart-vertical-grid").children).toHaveLength(3);

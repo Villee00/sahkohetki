@@ -1,12 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import type {
+  FormEvent,
+  MouseEvent as ReactMouseEvent,
+} from "react";
 import Image from "next/image";
 import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
 import { Icon } from "./ui-icon";
 import { PriceChart } from "./price-chart";
+import { applyPriceMargin } from "../../lib/price-domain";
 import { getHelsinkiDateBounds, getHelsinkiDateKey } from "../../lib/time";
 import { PRICE_LEVEL_CUTOFFS, PRICE_SCALE_BOUNDS } from "../../lib/price-types";
 import type {
@@ -18,7 +22,9 @@ import type {
 
 type PriceMode = "hourly" | "quarterHour";
 type Horizon = "today" | "tomorrow";
-type DialogName = "formula" | "source" | null;
+type DialogName = "formula" | "source" | "settings" | null;
+
+const PRICE_MARGIN_STORAGE_KEY = "sahkohetki.price-margin";
 
 type LevelCopy = {
   label: string;
@@ -46,8 +52,8 @@ const horizonLabels: Record<Horizon, string> = {
 };
 
 const modeLabels: Record<PriceMode, string> = {
-  hourly: "Tunnittain (h)",
-  quarterHour: "15 min tarkkuus",
+  hourly: "Tuntikeskiarvo",
+  quarterHour: "15 minuutin tarkkuus",
 };
 
 const priceFormatter = new Intl.NumberFormat("fi-FI", {
@@ -66,11 +72,41 @@ const fetchedAtFormatter = new Intl.DateTimeFormat("fi-FI", {
   timeZone: "Europe/Helsinki",
 });
 
+const selectedDateFormatter = new Intl.DateTimeFormat("fi-FI", {
+  day: "numeric",
+  month: "numeric",
+  year: "numeric",
+  timeZone: "Europe/Helsinki",
+});
 const QUARTER_HOUR_MILLISECONDS = 15 * 60 * 1000;
 const HOUR_MILLISECONDS = 60 * 60 * 1000;
 
 function formatPrice(price: number): string {
   return priceFormatter.format(price);
+}
+
+function parsePriceMargin(value: string): number | null {
+  const normalized = value.trim().replace(",", ".");
+  if (!normalized) return null;
+
+  const margin = Number(normalized);
+  return Number.isFinite(margin) && margin >= 0 ? margin : null;
+}
+
+function formatMarginInput(margin: number): string {
+  return String(margin);
+}
+
+function savePriceMargin(margin: number): void {
+  try {
+    if (margin === 0) {
+      window.localStorage.removeItem(PRICE_MARGIN_STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(PRICE_MARGIN_STORAGE_KEY, String(margin));
+  } catch {
+    // Settings still apply for the current page when storage is unavailable.
+  }
 }
 
 function formatFetchedAt(fetchedAt: string | null): string {
@@ -79,6 +115,13 @@ function formatFetchedAt(fetchedAt: string | null): string {
   return Number.isFinite(date.getTime())
     ? fetchedAtFormatter.format(date)
     : "ei tiedossa";
+}
+
+function formatSelectedDate(startAt: string): string {
+  const date = new Date(startAt);
+  return Number.isFinite(date.getTime())
+    ? selectedDateFormatter.format(date)
+    : "Ei saatavilla";
 }
 
 function firstAvailable(points: PricePoint[]): PricePoint | undefined {
@@ -230,13 +273,10 @@ function getUnavailableMessage(
     return data.message ?? "Hintatiedot eivät ole saatavilla juuri nyt.";
   }
 
-  if (
-    horizon === "tomorrow" &&
-    !isCompletePriceHorizon(activePoints, mode)
-  ) {
-    return "Huomisen hinnat eivät ole vielä saatavilla, mutta ne päivitetään noin klo 15.00.";
+  if (horizon === "tomorrow" && !isCompletePriceHorizon(activePoints, mode)) {
+    return "Huomisen hinnat eivät ole vielä saatavilla. Ne päivittyvät noin klo 15.";
   }
-  if (!selectedPoint) return "Valittua hintajaksoa ei ole saatavilla.";
+  if (!selectedPoint) return "Valitun aikavälin hintatietoa ei ole saatavilla.";
   return null;
 }
 
@@ -248,13 +288,31 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   );
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [openDialog, setOpenDialog] = useState<DialogName>(null);
+  const [priceMargin, setPriceMargin] = useState(0);
+  const [marginInput, setMarginInput] = useState("0");
+  const [marginError, setMarginError] = useState<string | null>(null);
   const coffeeUse = data.uses.find((use) => use.id === "coffee");
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const dialogWasOpenRef = useRef(false);
 
-  const activeHorizon: HorizonPoints = data[horizon];
+  const adjustedToday = useMemo<HorizonPoints>(
+    () => ({
+      hourly: applyPriceMargin(data.today.hourly, priceMargin),
+      quarterHour: applyPriceMargin(data.today.quarterHour, priceMargin),
+    }),
+    [data.today.hourly, data.today.quarterHour, priceMargin],
+  );
+  const adjustedTomorrow = useMemo<HorizonPoints>(
+    () => ({
+      hourly: applyPriceMargin(data.tomorrow.hourly, priceMargin),
+      quarterHour: applyPriceMargin(data.tomorrow.quarterHour, priceMargin),
+    }),
+    [data.tomorrow.hourly, data.tomorrow.quarterHour, priceMargin],
+  );
+  const activeHorizon: HorizonPoints =
+    horizon === "today" ? adjustedToday : adjustedTomorrow;
   const activePoints = useMemo(
     () => activeHorizon[mode],
     [activeHorizon, mode],
@@ -303,9 +361,56 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     return () => window.clearInterval(intervalId);
   }, []);
 
+  useEffect(() => {
+    let restoreTimeout: number | undefined;
+
+    try {
+      const storedMargin = window.localStorage.getItem(
+        PRICE_MARGIN_STORAGE_KEY,
+      );
+      const parsedMargin =
+        storedMargin === null ? null : parsePriceMargin(storedMargin);
+      if (parsedMargin !== null) {
+        restoreTimeout = window.setTimeout(() => {
+          setPriceMargin(parsedMargin);
+          setMarginInput(formatMarginInput(parsedMargin));
+        }, 0);
+      }
+    } catch {
+      // The default market price remains available when storage is unavailable.
+    }
+
+    return () => {
+      if (restoreTimeout !== undefined) window.clearTimeout(restoreTimeout);
+    };
+  }, []);
+
   const closeDialog = useCallback(() => {
     setOpenDialog(null);
   }, []);
+
+  const applyMargin = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const parsedMargin = parsePriceMargin(marginInput);
+    if (parsedMargin === null) {
+      setMarginError("Anna vähintään nollaa suurempi tai nolla snt/kWh.");
+      return;
+    }
+
+    setPriceMargin(parsedMargin);
+    setMarginInput(formatMarginInput(parsedMargin));
+    setMarginError(null);
+    savePriceMargin(parsedMargin);
+    closeDialog();
+  };
+
+  const resetMargin = () => {
+    setPriceMargin(0);
+    setMarginInput("0");
+    setMarginError(null);
+    savePriceMargin(0);
+    closeDialog();
+  };
 
   useEffect(() => {
     if (!openDialog) {
@@ -330,7 +435,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
       const focusable = Array.from(
         dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+          'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ),
       );
       if (focusable.length === 0) return;
@@ -360,11 +465,17 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     event: ReactMouseEvent<HTMLButtonElement>,
   ) => {
     openerRef.current = event.currentTarget;
+    if (name === "settings") {
+      setMarginInput(formatMarginInput(priceMargin));
+      setMarginError(null);
+    }
     setOpenDialog(name);
   };
 
   const changeMode = (nextMode: PriceMode) => {
-    const nextPoints = data[horizon][nextMode];
+    const nextPoints = (horizon === "today" ? adjustedToday : adjustedTomorrow)[
+      nextMode
+    ];
     setMode(nextMode);
     setSelectedId((currentId) => {
       const preferredId =
@@ -374,7 +485,9 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   };
 
   const changeHorizon = (nextHorizon: Horizon) => {
-    const nextPoints = data[nextHorizon][mode];
+    const nextPoints = (nextHorizon === "today"
+      ? adjustedToday
+      : adjustedTomorrow)[mode];
     setHorizon(nextHorizon);
     setSelectedId((currentId) =>
       getSelectionForPoints(nextPoints, currentId, null),
@@ -388,8 +501,8 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const isCurrentSelection =
     horizon === "today" && selectedPoint?.id === currentSelectionId;
   const heading = selectedPoint
-    ? `${isCurrentSelection ? "Nykyinen aikaväli" : "Valittu jakso"} ${selectedPoint.label}`
-    : "Valittu jakso";
+    ? `${isCurrentSelection ? "Nykyinen aikaväli" : "Valittu aikaväli"} ${selectedPoint.label}`
+    : "Valittu aikaväli";
   const viewControls = (
     <div className="price-chart__controls">
       <div className="view-control-group">
@@ -417,7 +530,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         <div
           className="view-control-options"
           role="group"
-          aria-label="Aikahorisontti"
+          aria-label="Tarkastelujakso"
         >
           {(Object.keys(horizonLabels) as Horizon[]).map((option) => (
             <button
@@ -461,14 +574,14 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 Sähköhetki
               </span>
               <span className="block text-[0.65rem] uppercase tracking-[0.2em] text-slate-500">
-                Spot-hinta arjessa
+                Pörssisähkö arjessa
               </span>
             </span>
           </a>
           <div className="site-header__tools flex min-w-0 items-center gap-1 sm:gap-2">
             <div
               className="current-value flex min-w-0 items-center gap-2"
-              aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} spot-hinta ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
+              aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} ${priceMargin > 0 ? "hinta marginaali mukaan lukien" : "spot-hinta"} ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
             >
               <span className="current-value__context flex min-w-0 items-baseline gap-2">
                 <span className="current-value__label text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-sky-300">
@@ -513,6 +626,26 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 </span>
                 <span className="sr-only sm:hidden">Tietolähde</span>
               </button>
+              <button
+                type="button"
+                aria-label="Hinta-asetukset"
+                aria-describedby={
+                  priceMargin > 0 ? "price-margin-status" : undefined
+                }
+                className={`site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3 ${priceMargin > 0 ? "site-nav-button--active" : ""}`}
+                onClick={(event) => openExplanation("settings", event)}
+              >
+                <Icon name="settings" className="h-4 w-4" />
+                <span aria-hidden="true" className="hidden sm:inline">
+                  Hinta-asetukset
+                </span>
+                <span className="sr-only sm:hidden">Hinta-asetukset</span>
+              </button>
+              {priceMargin > 0 ? (
+                <span id="price-margin-status" className="sr-only">
+                  Marginaali {formatPrice(priceMargin)} snt/kWh käytössä
+                </span>
+              ) : null}
             </nav>
           </div>
         </div>
@@ -531,13 +664,21 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           </h1>
           <div className="price-hero__top flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
             <div className="min-w-0">
+              {selectedPoint ? (
+                <time
+                  className="price-hero__selected-date mb-2 block font-mono text-xs font-medium tracking-wide text-slate-500"
+                  dateTime={selectedPoint.startAt}
+                >
+                  {formatSelectedDate(selectedPoint.startAt)}
+                </time>
+              ) : null}
               <div className="price-hero__interval flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                 <span className="price-hero__clock-dot" aria-hidden="true" />
                 <span>Valittu aikaväli:</span>
                 {isCurrentSelection ? (
                   <span
                     className="price-hero__current-badge"
-                    aria-label="Nykyinen aika"
+                    aria-label="Nykyinen aikaväli"
                   >
                     Nyt
                   </span>
@@ -553,9 +694,11 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 <span className="font-mono text-base text-slate-400">
                   snt / kWh
                 </span>
-                <span className="font-mono text-xs text-slate-500">
-                  (sis. ALV)
-                </span>
+                {priceMargin > 0 ? (
+                  <span className="rounded-full border border-sky-300/20 bg-sky-300/10 px-2.5 py-1 font-mono text-xs text-sky-100">
+                    + {formatPrice(priceMargin)} snt marginaali
+                  </span>
+                ) : null}
               </div>
             </div>
 
@@ -585,7 +728,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                     <span className="price-summary__unit">snt/kWh</span>
                   </div>
                   <div className="price-summary__item price-summary__item--average">
-                    <span className="price-summary__label">Keskiarvo</span>
+                    <span className="price-summary__label">Keskihinta</span>
                     <span className="price-summary__value">
                       {formatPrice(priceSummary.average)}
                     </span>
@@ -611,7 +754,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             >
               <div className="spectrum-scale flex items-center justify-between gap-4 text-xs text-slate-500">
                 <span className="font-mono font-semibold text-emerald-300">
-                  Min:{" "}
+                  Pienin:{" "}
                   {formatPrice(
                     Math.min(
                       ...availablePoints.map(
@@ -619,13 +762,13 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                       ),
                     ),
                   )}{" "}
-                  snt
+                  snt/kWh
                 </span>
                 <span className="hidden text-center sm:inline">
                   Sähkön hintahaarukka tarkastelujaksolla
                 </span>
                 <span className="font-mono font-semibold text-rose-300">
-                  Max:{" "}
+                  Suurin:{" "}
                   {formatPrice(
                     Math.max(
                       ...availablePoints.map(
@@ -633,7 +776,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                       ),
                     ),
                   )}{" "}
-                  snt
+                  snt/kWh
                 </span>
               </div>
               <div className="spectrum-track relative mt-3 h-2 rounded-full bg-gradient-to-r from-emerald-400 via-amber-300 to-rose-400">
@@ -648,16 +791,16 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               </div>
               <div className="spectrum-labels mt-3 flex justify-between gap-3 text-[0.68rem] text-slate-500">
                 <span>
-                  ≤ {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)} snt (Halpa)
+                  ≤ {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)} snt/kWh (Edullinen)
                 </span>
                 <span className="hidden text-center sm:inline">
                   &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)}–≤{" "}
-                  {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt
-                  (Normaali)
+                  {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt/kWh
+                  (Tavanomainen)
                 </span>
                 <span>
-                  &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt
-                  (Kallis)
+                  &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt/kWh
+                  (Korkea)
                 </span>
               </div>
             </div>
@@ -702,25 +845,38 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
-                  Yhdeksän arjen käyttöä
+                  Yhdeksän arjen sähkönkäyttökohdetta
                 </p>
                 <h2
                   id="uses-heading"
                   className="mt-2 text-3xl font-semibold tracking-tight text-white"
                 >
-                  Mitä käyttö maksaa?
+                  Mitä sähkönkäyttö maksaa?
                 </h2>
               </div>
               <p className="max-w-md text-sm leading-6 text-slate-400">
-                Arvio käyttää vain valittua spot-energiahintaa. Verkkopalvelu,
-                myyjän marginaali, sähkövero ja perusmaksut eivät sisälly.
+                Arvio perustuu valittuun spot-hintaan
+                {priceMargin > 0 ? " ja asetettuun myyjän marginaaliin" : ""}.
+                Sähkön siirtomaksut, sähkövero ja perusmaksut eivät sisälly.
+                {priceMargin > 0
+                  ? ` Marginaali on ${formatPrice(priceMargin)} snt/kWh.`
+                  : " Lisää myyjän marginaali hinta-asetuksista, jos haluat sen mukaan arvioon."}
               </p>
             </div>
             <div className="appliance-grid">
               {data.uses.map((use) => {
                 const estimate = selectedPoint.estimates?.[use.id];
                 return estimate ? (
-                  <ApplianceCard key={use.id} use={use} estimate={estimate} />
+                  <ApplianceCard
+                    key={use.id}
+                    use={use}
+                    estimate={estimate}
+                    costLabel={
+                      priceMargin > 0
+                        ? "ARVIOITU KUSTANNUS SPOT + MARGINAALI"
+                        : undefined
+                    }
+                  />
                 ) : null;
               })}
             </div>
@@ -731,8 +887,13 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
             <div>
               <p className="font-medium text-slate-300">
-                Sähköhetki näyttää Pörssisähkö.netin verollisen
-                spot-energiahinnan.
+                Sähköhetki näyttää Pörssisähkö.netin ilmoittaman
+                arvonlisäverollisen spot-hinnan
+                {priceMargin > 0
+                  ? " ja lisää siihen " +
+                    formatPrice(priceMargin) +
+                    " snt/kWh marginaalin."
+                  : "."}
               </p>
               <p>
                 Palvelu on suuntaa-antava kustannusarvio, ei tarkka sähkölasku.
@@ -740,7 +901,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               <span>
-                Palvelin haki tiedot: {formatFetchedAt(data.fetchedAt)}
+                Tiedot haettu: {formatFetchedAt(data.fetchedAt)}
               </span>
               <a
                 className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
@@ -774,23 +935,29 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         closeButtonRef={closeButtonRef}
       >
         <p>
-          Arvio käyttää yhtä valittua spot-hintaa koko ennalta määritellylle
-          käytölle. Hinta sisältää lähteen ilmoittaman arvonlisäveron.
+          Arvio perustuu valittuun spot-hintaan ja kunkin ennalta määritellyn
+          käyttötavan kulutukseen. Hinta sisältää lähteen ilmoittaman
+          arvonlisäveron.
         </p>
         <p className="rounded-2xl border border-sky-300/20 bg-sky-300/10 px-4 py-3 font-mono text-sm text-sky-100">
-          kulutus (kWh) × spot-hinta (snt/kWh) = kustannus (snt)
+          kulutus (kWh) × (spot-hinta + marginaali) (snt/kWh) = kustannus (snt)
         </p>
         <p>
-          Esimerkiksi kahvinkeittimen tutkittu vertailuarvo on{" "}
+          Esimerkiksi kahvinkeittimen vertailukulutus on{" "}
           {coffeeUse
             ? `${consumptionFormatter.format(coffeeUse.consumptionKwh)} kWh`
-            : "katalogissa määritelty kulutus"}
-          . Näytetty kustannus säilyttää laskennan täyden tarkkuuden ja
-          pyöristää vain esityksen kahteen desimaaliin.
+            : "luettelossa määritelty kulutus"}
+          . Laskennassa säilytetään täysi tarkkuus, ja kustannus pyöristetään
+          näytettäessä kahteen desimaaliin.
         </p>
         <p>
-          Verkkopalvelumaksut, sähkövero, sähkönmyyjän marginaali ja perusmaksut
-          eivät sisälly tähän opetukselliseen energia-arvioon.
+          Sähkön siirtomaksut, sähkövero ja perusmaksut eivät sisälly tähän
+          suuntaa-antavaan energia-arvioon.{" "}
+          {priceMargin > 0
+            ? "Asetettu " +
+              formatPrice(priceMargin) +
+              " snt/kWh sähkönmyyjän marginaali on mukana."
+            : "Sähkönmyyjän marginaali ei sisälly, ellet lisää sitä hinta-asetuksista."}
         </p>
       </ExplanationDialog>
 
@@ -803,14 +970,20 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         closeButtonRef={closeButtonRef}
       >
         <p>
-          Sähköhetki käyttää Pörssisähkö.netin viimeisimpiä Suomen 15 minuutin
-          spot-hintoja. Palvelin validoi lähteen ja rakentaa tästä näkymään
-          tuntikeskiarvot sekä neljännestuntien tarkat arvot.
+          Sähköhetki käyttää Pörssisähkö.netin uusimpia Suomen alueen
+          spot-hintoja 15 minuutin tarkkuudella.{" "}
+          {priceMargin > 0
+            ? "Näytettyihin hintoihin on lisätty " +
+              formatPrice(priceMargin) +
+              " snt/kWh marginaali."
+            : "Näytetty hinta on lähteen ilmoittama spot-hinta."} Palvelin
+          tarkistaa lähteen tiedot ja muodostaa niiden perusteella näkymään
+          tuntikeskiarvot sekä 15 minuutin hinnat.
         </p>
         <p>
-          Tiedot haetaan palvelimella ja niitä säilytetään noin 12 tunnin ajan.
-          Avoin sivu ei hae hintoja uudelleen selaimessa eikä korvaa puuttuvaa
-          hintaa vanhalla arvolla.
+          Tiedot haetaan ja säilytetään palvelimella noin 12 tuntia. Sivu ei
+          hae hintoja uudelleen selaimessa eikä täydennä puuttuvia hintoja
+          vanhoilla arvoilla.
         </p>
         <div className="flex flex-wrap gap-4 text-sm">
           <a
@@ -841,6 +1014,80 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             <Icon name="arrow-up-right" className="h-4 w-4" />
           </a>
         </div>
+      </ExplanationDialog>
+
+      <ExplanationDialog
+        id="settings-dialog"
+        title="Hinta-asetukset"
+        open={openDialog === "settings"}
+        onClose={closeDialog}
+        dialogRef={dialogRef}
+        closeButtonRef={closeButtonRef}
+        closeButtonLabel="Sulje hinta-asetukset"
+      >
+        <form className="space-y-5" onSubmit={applyMargin}>
+          <p>
+            Lisää sähköyhtiösi snt/kWh-marginaali, niin se lasketaan mukaan
+            jokaiseen markkinahintaan ja kustannusarvioon.
+          </p>
+          <div>
+            <label
+              htmlFor="price-margin"
+              className="text-sm font-semibold text-white"
+            >
+              Sähköyhtiön marginaali
+            </label>
+            <div className="mt-2 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 focus-within:border-sky-300/60 focus-within:ring-2 focus-within:ring-sky-300/20">
+              <input
+                id="price-margin"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                value={marginInput}
+                aria-describedby={
+                  marginError
+                    ? "price-margin-help price-margin-error"
+                    : "price-margin-help"
+                }
+                aria-invalid={marginError ? true : undefined}
+                className="min-w-0 flex-1 bg-transparent font-mono text-xl text-white outline-none placeholder:text-slate-600"
+                onChange={(event) => {
+                  setMarginInput(event.target.value);
+                  if (marginError) setMarginError(null);
+                }}
+              />
+              <span className="font-mono text-sm text-slate-400">snt/kWh</span>
+            </div>
+            <p id="price-margin-help" className="mt-2 text-xs leading-5 text-slate-500">
+              Käytä desimaalierottimena pilkkua tai pistettä. Nolla palauttaa
+              pelkän markkinahinnan.
+            </p>
+            {marginError ? (
+              <p
+                id="price-margin-error"
+                role="alert"
+                className="mt-2 text-sm text-rose-300"
+              >
+                {marginError}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="submit"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-sky-300 px-4 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+            >
+              Käytä marginaalia
+            </button>
+            <button
+              type="button"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+              onClick={resetMargin}
+            >
+              Palauta spot-hintaan
+            </button>
+          </div>
+        </form>
       </ExplanationDialog>
     </main>
   );
