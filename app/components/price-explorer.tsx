@@ -34,7 +34,7 @@ const levelCopy: Record<PriceLevel, LevelCopy> = {
     className: "text-emerald-300",
   },
   normal: {
-    label: "Tavanomainen",
+    label: "Normaali",
     className: "text-amber-200",
   },
   high: {
@@ -618,7 +618,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               </button>
               <button
                 type="button"
-                aria-label="Hinta-asetukset"
+                aria-label="Lisää marginaali"
                 aria-describedby={
                   priceMargin > 0 ? "price-margin-status" : undefined
                 }
@@ -627,9 +627,9 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               >
                 <Icon name="settings" className="h-4 w-4" />
                 <span aria-hidden="true" className="hidden sm:inline">
-                  Hinta-asetukset
+                  Lisää marginaali
                 </span>
-                <span className="sr-only sm:hidden">Hinta-asetukset</span>
+                <span className="sr-only sm:hidden">Lisää marginaali</span>
               </button>
               {priceMargin > 0 ? (
                 <span id="price-margin-status" className="sr-only">
@@ -760,7 +760,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 <span className="hidden text-center sm:inline">
                   &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)}–≤{" "}
                   {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt/kWh
-                  (Tavanomainen)
+                  (Normaali)
                 </span>
                 <span>
                   &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt/kWh
@@ -809,7 +809,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
-                  Yhdeksän arjen sähkönkäyttökohdetta
+                  Kymmenen arjen sähkönkäyttökohdetta
                 </p>
                 <h2
                   id="uses-heading"
@@ -980,12 +980,12 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
       <ExplanationDialog
         id="settings-dialog"
-        title="Hinta-asetukset"
+        title="Lisää marginaali"
         open={openDialog === "settings"}
         onClose={closeDialog}
         dialogRef={dialogRef}
         closeButtonRef={closeButtonRef}
-        closeButtonLabel="Sulje hinta-asetukset"
+        closeButtonLabel="Sulje lisää marginaali"
       >
         <form className="space-y-5" onSubmit={applyMargin}>
           <p>

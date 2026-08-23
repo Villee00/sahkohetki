@@ -29,6 +29,7 @@ const applianceIcons: Record<EverydayUse["id"], IconName> = {
   washing: "washing",
   dryer: "dryer",
   dishwasher: "dishwasher",
+  "heat-pump": "heat-pump",
   television: "television",
   computer: "computer",
 };

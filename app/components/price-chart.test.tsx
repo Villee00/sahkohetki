@@ -209,16 +209,20 @@ it("renders the mockup-style zero-based chart with a visible price scale", () =>
   expect(screen.getByTestId("price-chart-vertical-grid").children).toHaveLength(
     3,
   );
-  expect(screen.getByText("-5")).toBeTruthy();
-  expect(screen.getByText("0")).toBeTruthy();
-  expect(screen.getByText("5")).toBeTruthy();
-  expect(screen.getByText("10")).toBeTruthy();
-  expect(screen.getByText("15")).toBeTruthy();
-  expect(screen.getByText("20")).toBeTruthy();
+  expect(
+    Array.from(document.querySelectorAll(".price-chart__y-tick")).map(
+      (tick) => tick.textContent,
+    ),
+  ).toEqual(["-5", "0", "5", "10", "15", "20"]);
   expect(screen.queryByText("-5 c")).toBeNull();
   expect(screen.getByText("snt/kWh")).toBeTruthy();
-  expect(screen.getByText("10:15–10:30")).toBeTruthy();
-  expect(screen.getByText("11:00–11:15")).toBeTruthy();
+  expect(
+    Array.from(document.querySelectorAll(".price-chart__time-label-main")).map(
+      (label) => label.textContent,
+    ),
+  ).toEqual(["10", "10", "11"]);
+  expect(screen.queryByText("10:15–10:30")).toBeNull();
+  expect(screen.queryByText("11:00–11:15")).toBeNull();
   expect(screen.queryByText(/Päivän keskihinta/)).toBeNull();
   expect(
     Number.parseFloat(
@@ -235,6 +239,50 @@ it("renders the mockup-style zero-based chart with a visible price scale", () =>
   expect(
     selectedButton.querySelector(".price-chart__bar--selected"),
   ).toBeTruthy();
+});
+
+it("renders numeric hour ticks and marks every other hour for mobile", () => {
+  const styles = readFileSync(`${process.cwd()}/app/globals.css`, "utf8");
+  const hourPoints = [0, 1, 2, 3].map((hour) => ({
+    ...point,
+    id: `hour-${hour}`,
+    startAt: `2026-08-22T${String(hour).padStart(2, "0")}:00:00.000Z`,
+    endAt: `2026-08-22T${String(hour + 1).padStart(2, "0")}:00:00.000Z`,
+    label: `${String(hour).padStart(2, "0")}:00–${String(hour + 1).padStart(2, "0")}:00`,
+  }));
+
+  render(
+    <PriceChart points={hourPoints} selectedId={hourPoints[0].id} onSelect={vi.fn()} />,
+  );
+
+  const labels = Array.from(
+    document.querySelectorAll(".price-chart__time-label"),
+  );
+  expect(
+    labels.map((label) => label.querySelector(".price-chart__time-label-main")?.textContent),
+  ).toEqual(["0", "1", "2", "3"]);
+  expect(
+    labels.map((label) => label.getAttribute("data-mobile-hidden")),
+  ).toEqual([null, "true", null, "true"]);
+  expect(screen.queryByText("00:00–01:00")).toBeNull();
+  expect(screen.getByRole("button", { name: /00:00–01:00/ })).toBeTruthy();
+  expect(styles).toMatch(
+    /@media \(max-width: 47\.999rem\)[\s\S]*\.price-chart__time-label\[data-mobile-hidden="true"\][\s\S]*visibility: hidden;/,
+  );
+});
+
+it("anchors hour labels to the grid line at desktop and mobile sizes", () => {
+  const styles = readFileSync(`${process.cwd()}/app/globals.css`, "utf8");
+  const labelRule = styles.match(
+    /\.price-chart__time-label\s*\{([\s\S]*?)\n\}/,
+  )?.[1] ?? "";
+  const narrowLabelRule = styles.match(
+    /@media \(max-width: 30rem\)[\s\S]*?\.price-chart__time-label\s*\{([\s\S]*?)\n  \}/,
+  )?.[1] ?? "";
+
+  expect(labelRule).toMatch(/justify-self:\s*start;/);
+  expect(labelRule).toMatch(/transform:\s*translateX\(-50%\);/);
+  expect(narrowLabelRule).toMatch(/transform:\s*translateX\(-50%\);/);
 });
 
 it("centers each price bar within its chart cell", () => {
@@ -282,8 +330,11 @@ it("keeps unavailable intervals in the chart without changing the scale", () => 
   );
 
   expect(screen.getByTestId("price-chart-grid")).toBeTruthy();
-  expect(screen.getByText("0")).toBeTruthy();
-  expect(screen.getByText("10")).toBeTruthy();
+  expect(
+    Array.from(document.querySelectorAll(".price-chart__y-tick")).map(
+      (tick) => tick.textContent,
+    ),
+  ).toEqual(["-5", "0", "5", "10", "15", "20"]);
   expect(screen.getByText("snt/kWh")).toBeTruthy();
   expect(
     screen

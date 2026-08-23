@@ -8,7 +8,7 @@ export const PRICE_LEVEL_CUTOFFS = {
 } as const;
 
 export const PRICE_SCALE_BOUNDS = {
-  minimumCents: -5,
+  minimumCents: 0,
   maximumCents: 20,
 } as const;
 

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
 import {
   cleanup,
   render,
@@ -157,9 +158,9 @@ it("applies the supplier margin to displayed prices and appliance estimates", as
   const user = userEvent.setup();
   render(<PriceExplorer data={dataWithUses} />);
 
-  await user.click(screen.getByRole("button", { name: "Hinta-asetukset" }));
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
 
-  const dialog = screen.getByRole("dialog", { name: "Hinta-asetukset" });
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
   const marginInput = within(dialog).getByLabelText("Sähköyhtiön marginaali");
   await user.clear(marginInput);
   await user.type(marginInput, "3");
@@ -167,7 +168,7 @@ it("applies the supplier margin to displayed prices and appliance estimates", as
     within(dialog).getByRole("button", { name: "Käytä marginaalia" }),
   );
 
-  expect(screen.queryByRole("dialog", { name: "Hinta-asetukset" })).toBeNull();
+  expect(screen.queryByRole("dialog", { name: "Lisää marginaali" })).toBeNull();
   expect(screen.getByRole("banner").textContent).toContain("15,00");
   expect(document.querySelector(".hero-price")?.textContent).toBe("15,00");
   expect(
@@ -176,7 +177,7 @@ it("applies the supplier margin to displayed prices and appliance estimates", as
   ).toContain("2.25");
   expect(
     screen.getAllByText("ARVIOITU KUSTANNUS SPOT + MARGINAALI").length,
-  ).toBe(9);
+  ).toBe(10);
   expect(
     screen.getByRole("button", {
       name: /Valitse aikaväli 13:00–14:00, hinta 15,00 senttiä kilowattitunnilta/,
@@ -194,8 +195,8 @@ it("restores a saved margin and clears it when returning to market price", async
     expect(document.querySelector(".hero-price")?.textContent).toBe("15,50");
   });
 
-  await user.click(screen.getByRole("button", { name: "Hinta-asetukset" }));
-  const dialog = screen.getByRole("dialog", { name: "Hinta-asetukset" });
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
   const marginInput = within(dialog).getByLabelText(
     "Sähköyhtiön marginaali",
   ) as HTMLInputElement;
@@ -213,11 +214,11 @@ it("keeps the settings form controls inside the keyboard focus trap", async () =
   const user = userEvent.setup();
   render(<PriceExplorer data={dataWithUses} />);
 
-  await user.click(screen.getByRole("button", { name: "Hinta-asetukset" }));
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
 
-  const dialog = screen.getByRole("dialog", { name: "Hinta-asetukset" });
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
   const closeButton = within(dialog).getByRole("button", {
-    name: "Sulje hinta-asetukset",
+    name: "Sulje lisää marginaali",
   });
   const marginInput = within(dialog).getByLabelText("Sähköyhtiön marginaali");
   const applyButton = within(dialog).getByRole("button", {
@@ -244,8 +245,8 @@ it("associates an invalid margin with its validation message", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={dataWithUses} />);
 
-  await user.click(screen.getByRole("button", { name: "Hinta-asetukset" }));
-  const dialog = screen.getByRole("dialog", { name: "Hinta-asetukset" });
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
   const marginInput = within(dialog).getByLabelText("Sähköyhtiön marginaali");
 
   await user.clear(marginInput);
@@ -340,6 +341,38 @@ it("keeps a just-over-one-cent price in the low part of the price scale", () => 
   expect(marker).not.toBeNull();
   expect(Number.parseFloat(marker?.style.left ?? "100")).toBeLessThan(50);
   expect(screen.getByText("Edullinen hinta")).toBeTruthy();
+});
+
+it("places a sub-cent price near the start of the price scale", () => {
+  const nearZeroPoint: PricePoint = {
+    ...cheapestPoint,
+    id: "hour-near-zero",
+    label: "13:00–14:00",
+    priceCentsPerKwh: 0.59,
+  };
+  const nearZeroData: ExplorerData = {
+    ...data,
+    currentQuarterId: nearZeroPoint.id,
+    currentHourId: nearZeroPoint.id,
+    today: { hourly: [nearZeroPoint], quarterHour: [nearZeroPoint] },
+  };
+
+  render(<PriceExplorer data={nearZeroData} />);
+
+  const marker = document.querySelector<HTMLElement>(".spectrum-marker");
+  expect(marker).not.toBeNull();
+  expect(Number.parseFloat(marker?.style.left ?? "100")).toBeCloseTo(2.95, 4);
+});
+
+it("aligns spectrum colors with the absolute price cutoffs", () => {
+  const styles = readFileSync(`${process.cwd()}/app/globals.css`, "utf8");
+  const spectrumRule =
+    styles.match(/\.spectrum-track\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+
+  expect(spectrumRule).toMatch(/var\(--cheap\)\s+25%/);
+  expect(spectrumRule).toMatch(/var\(--normal\)\s+25%/);
+  expect(spectrumRule).toMatch(/var\(--normal\)\s+70%/);
+  expect(spectrumRule).toMatch(/var\(--high\)\s+70%/);
 });
 
 it("renders the project logo in the site header", () => {

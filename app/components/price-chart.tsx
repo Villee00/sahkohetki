@@ -15,7 +15,7 @@ type PriceChartProps = {
 
 const levelLabels: Record<PriceLevel, string> = {
   cheap: "Edullinen",
-  normal: "Tavanomainen",
+  normal: "Normaali",
   high: "Korkea",
 };
 
@@ -166,6 +166,20 @@ function getPointTimeLabel(point: PricePoint): {
   const [hour = startLabel, minute = ""] = startLabel.split(":");
   const offset = offsetLabel?.replace(")", "").replace(/UTC/g, "") ?? null;
   return { hour, minute, offset };
+}
+
+function formatPointHour(hour: string): string {
+  const numericHour = Number.parseInt(hour, 10);
+  return Number.isNaN(numericHour) ? hour : String(numericHour);
+}
+
+function shouldHidePointLabelOnMobile(hour: string, minute: string): boolean {
+  const numericHour = Number.parseInt(hour, 10);
+  return (
+    minute !== "00" ||
+    !Number.isInteger(numericHour) ||
+    numericHour % 2 !== 0
+  );
 }
 
 function pointAccessibleLabel(point: PricePoint): string {
@@ -384,15 +398,19 @@ export function PriceChart({
               >
                 {points.map((point) => {
                   const { hour, minute, offset } = getPointTimeLabel(point);
-                  const [timeRange] = point.label.split(" (");
+                  const hideOnMobile = shouldHidePointLabelOnMobile(
+                    hour,
+                    minute,
+                  );
                   return (
                     <span
                       key={point.id}
                       className="price-chart__time-label"
                       data-minute={minute}
+                      data-mobile-hidden={hideOnMobile ? "true" : undefined}
                     >
                       <span className="price-chart__time-label-main">
-                        {timeRange ?? `${hour}:${minute}`}
+                        {formatPointHour(hour)}
                       </span>
                       {offset ? (
                         <span className="price-chart__time-label-offset">
@@ -430,7 +448,7 @@ export function PriceChart({
                   Keltainen
                 </span>
                 <span className="price-chart__legend-detail">
-                  = Tavanomainen
+                  = Normaali
                 </span>
               </span>
               <span className="price-chart__legend-item">

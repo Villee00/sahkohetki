@@ -362,10 +362,10 @@ button:disabled {
   background: linear-gradient(
     90deg,
     var(--cheap) 0%,
-    var(--cheap) 40%,
-    var(--normal) 40%,
-    var(--normal) 76%,
-    var(--high) 76%,
+    var(--cheap) 25%,
+    var(--normal) 25%,
+    var(--normal) 70%,
+    var(--high) 70%,
     var(--high) 100%
   ) !important;
   box-shadow: 0 0 22px rgba(56, 189, 248, 0.11), inset 0 1px 2px rgba(2, 8, 23, 0.4);
@@ -537,6 +537,7 @@ button:disabled {
   position: absolute;
   top: -1.25rem;
   right: 0;
+  left: 1px;
   color: #7dd3fc;
   font-size: 0.52rem;
   font-weight: 700;
@@ -878,8 +879,9 @@ button:disabled {
   line-height: 1.1;
   text-align: center;
   white-space: nowrap;
-  transform: rotate(45deg);
-  transform-origin: top center;
+  justify-self: start;
+  transform: translateX(-50%);
+  transform-origin: center;
 }
 
 .price-chart__time-label-main {
@@ -1266,6 +1268,10 @@ body:has(.dialog-backdrop) {
     grid-template-columns: 1fr;
   }
 
+  .price-chart__axis .price-chart__time-label[data-mobile-hidden="true"] {
+    visibility: hidden;
+  }
+
   .spectrum-labels {
     gap: 0.75rem;
     line-height: 1.35;
@@ -1288,16 +1294,11 @@ body:has(.dialog-backdrop) {
 
   .price-chart__axis {
     height: 4.75rem;
-    margin-left: 3.25rem;
-  }
-
-  .price-chart__axis:not(.price-chart__axis--dense) .price-chart__time-label:nth-child(even) {
-    visibility: hidden;
   }
 
   .price-chart__time-label {
     font-size: 0.48rem;
-    transform: rotate(45deg);
+    transform: translateX(-50%);
   }
 
   .current-value {

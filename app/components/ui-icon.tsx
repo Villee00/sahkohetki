@@ -1,4 +1,5 @@
 import {
+  AirVent,
   ArrowUpRight,
   ChartLine,
   ChevronDown,
@@ -28,6 +29,7 @@ export type IconName =
   | "info"
   | "dishwasher"
   | "dryer"
+  | "heat-pump"
   | "kettle"
   | "oven"
   | "sauna"
@@ -50,6 +52,7 @@ const iconComponents: Record<IconName, LucideIcon> = {
   info: Info,
   dishwasher: WashingMachine,
   dryer: Wind,
+  "heat-pump": AirVent,
   kettle: CookingPot,
   oven: Microwave,
   sauna: Heater,
