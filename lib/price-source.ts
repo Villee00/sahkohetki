@@ -202,6 +202,7 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
   const addPrice = (
     priceStartMilliseconds: number,
     priceInMegawattHours: number,
+    carriedForward = false,
   ): boolean => {
     if (pricesByStart.has(priceStartMilliseconds)) return false;
 
@@ -212,6 +213,7 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
       endAt: canonicalTimestamp(priceStartMilliseconds + QUARTER_MILLISECONDS),
       priceCentsPerKwh:
         (priceInMegawattHours / 10) * (1 + FINNISH_GENERAL_VAT_RATE),
+      carriedForward,
     });
     return true;
   };
@@ -229,7 +231,7 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
         slotStart < period.startMilliseconds;
         slotStart += QUARTER_MILLISECONDS
       ) {
-        if (!addPrice(slotStart, lastPriceInMegawattHours)) {
+        if (!addPrice(slotStart, lastPriceInMegawattHours, true)) {
           return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
         }
       }
@@ -250,7 +252,13 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
 
       const priceStartMilliseconds =
         period.startMilliseconds + (position - 1) * QUARTER_MILLISECONDS;
-      if (!addPrice(priceStartMilliseconds, lastPriceInMegawattHours)) {
+      if (
+        !addPrice(
+          priceStartMilliseconds,
+          lastPriceInMegawattHours,
+          !period.pricesByPosition.has(position),
+        )
+      ) {
         return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
       }
     }

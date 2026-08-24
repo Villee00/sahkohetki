@@ -17,6 +17,7 @@ export type QuarterPrice = {
   startAt: string;
   endAt: string;
   priceCentsPerKwh: number;
+  carriedForward?: boolean;
 };
 
 export type CostComparison = {
@@ -39,6 +40,7 @@ export type PricePoint = {
   label: string;
   priceCentsPerKwh: number | null;
   available: boolean;
+  carriedForward?: boolean;
   unavailableReason?: "missing-quarter" | "source-gap";
   level?: PriceLevel;
   estimates?: Record<EverydayUseId, CostEstimate>;

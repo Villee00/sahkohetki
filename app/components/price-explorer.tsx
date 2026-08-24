@@ -791,6 +791,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             points={isTomorrowUnavailable ? [] : activePoints}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            showCarriedForwardMarker={mode === "quarterHour"}
             currentTime={horizon === "today" ? currentTime : null}
             headerContent={viewControls}
             emptyMessage={
@@ -945,8 +946,9 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         </p>
         <p>
           Tiedot haetaan ja säilytetään palvelimella noin 12 tuntia. Sivu ei hae
-          hintoja uudelleen selaimessa eikä täydennä puuttuvia hintoja vanhoilla
-          arvoilla.
+          hintoja uudelleen selaimessa. Puuttuvan hinnan tilalla käytetään 15
+          minuutin näkymässä viimeisintä saatavilla olevaa hintaa, ja se
+          merkitään kaaviossa viivoituksella.
         </p>
         <div className="flex flex-wrap gap-4 text-sm">
           <a

@@ -8,6 +8,7 @@ type PriceChartProps = {
   points: PricePoint[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  showCarriedForwardMarker?: boolean;
   currentTime?: number | null;
   headerContent?: ReactNode;
   emptyMessage?: string;
@@ -182,7 +183,10 @@ function shouldHidePointLabelOnMobile(hour: string, minute: string): boolean {
   );
 }
 
-function pointAccessibleLabel(point: PricePoint): string {
+function pointAccessibleLabel(
+  point: PricePoint,
+  showCarriedForwardMarker: boolean,
+): string {
   const price = getAvailablePointPrice(point);
   if (price === null) {
     return `Aikaväli ${point.label}, hinta ei ole saatavilla`;
@@ -191,15 +195,20 @@ function pointAccessibleLabel(point: PricePoint): string {
   const level = point.level
     ? `, hintataso ${levelLabels[point.level].toLowerCase()}`
     : "";
+  const carriedForward =
+    showCarriedForwardMarker && point.carriedForward === true
+      ? ", lähdearvo puuttui ja hinta on täydennetty viimeisimmällä julkaistulla hinnalla"
+      : "";
   return `Valitse aikaväli ${point.label}, hinta ${formatPrice(
     price,
-  )} senttiä kilowattitunnilta${level}`;
+  )} senttiä kilowattitunnilta${level}${carriedForward}`;
 }
 
 export function PriceChart({
   points,
   selectedId,
   onSelect,
+  showCarriedForwardMarker = false,
   currentTime,
   headerContent,
   emptyMessage,
@@ -218,6 +227,8 @@ export function PriceChart({
       ? null
       : `Päivän keskihinta: ${formatPrice(averagePrice)} snt/kWh`;
   const currentTimePosition = getCurrentTimePosition(points, currentTime);
+  const hasCarriedForwardPoint =
+    showCarriedForwardMarker && points.some((point) => point.carriedForward);
   const chartGridStyle = {
     gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))`,
   };
@@ -325,6 +336,8 @@ export function PriceChart({
                       const isHovered = point.id === activePointId;
                       const showSelectedBar = isSelected && !isHovered;
                       const pointPrice = getAvailablePointPrice(point);
+                      const isCarriedForward =
+                        showCarriedForwardMarker && point.carriedForward === true;
                       const levelClass = point.level ?? "unavailable";
                       const barClass = point.available
                         ? `price-chart__bar--${point.level ?? "normal"}`
@@ -345,9 +358,15 @@ export function PriceChart({
                                 ? "price-chart__bar-button--unavailable"
                                 : ""
                             } ${isSelected ? "price-chart__bar-button--selected" : ""}`}
-                            aria-label={pointAccessibleLabel(point)}
+                            aria-label={pointAccessibleLabel(
+                              point,
+                              showCarriedForwardMarker,
+                            )}
                             aria-pressed={isSelected}
                             data-level={levelClass}
+                            data-carried-forward={
+                              isCarriedForward ? "true" : undefined
+                            }
                             disabled={!point.available}
                             onBlur={() => setFocusedPointId(null)}
                             onClick={() => {
@@ -363,6 +382,10 @@ export function PriceChart({
                                   : ""
                               }${
                                 isHovered ? " price-chart__bar--hovered" : ""
+                              }${
+                                isCarriedForward
+                                  ? " price-chart__bar--carried"
+                                  : ""
                               } block w-full rounded-t-lg transition group-focus-visible:bg-sky-200`}
                               style={getBarStyle(point, chartScale)}
                             />
@@ -382,6 +405,11 @@ export function PriceChart({
                                   snt/kWh
                                 </span>
                               </span>
+                              {isCarriedForward ? (
+                                <span className="price-chart__tooltip-note">
+                                  Puuttunut lähdearvo – käytetty viimeisin julkaistu hinta
+                                </span>
+                              ) : null}
                             </span>
                           ) : null}
                         </div>
@@ -461,6 +489,20 @@ export function PriceChart({
                 </span>
                 <span className="price-chart__legend-detail">= Korkea</span>
               </span>
+              {hasCarriedForwardPoint ? (
+                <span className="price-chart__legend-item">
+                  <span
+                    className="price-chart__legend-swatch price-chart__legend-swatch--carried"
+                    aria-hidden="true"
+                  />
+                  <span className="price-chart__legend-name price-chart__legend-name--carried">
+                    Viivoitettu
+                  </span>
+                  <span className="price-chart__legend-detail">
+                    = viimeisin julkaistu hinta puuttuneen tilalla
+                  </span>
+                </span>
+              ) : null}
             </div>
           </>
         ) : (

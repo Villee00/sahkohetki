@@ -461,6 +461,30 @@ it("defaults to today's calendar-day horizon", () => {
   expect(screen.getByRole("button", { name: "Huomenna" })).toBeTruthy();
 });
 
+it("shows carried-forward markers only in the 15-minute chart", async () => {
+  const user = userEvent.setup();
+  const dataWithCarriedPoint: ExplorerData = {
+    ...data,
+    today: {
+      hourly: data.today.hourly,
+      quarterHour: [
+        { ...expensivePoint, carriedForward: true },
+        cheapestPoint,
+      ],
+    },
+  };
+
+  render(<PriceExplorer data={dataWithCarriedPoint} />);
+
+  expect(document.querySelector(".price-chart__bar--carried")).toBeNull();
+
+  await user.click(
+    screen.getByRole("button", { name: "15 minuutin tarkkuus" }),
+  );
+
+  expect(document.querySelector(".price-chart__bar--carried")).not.toBeNull();
+});
+
 it("shows the current-time line only on today's horizon", async () => {
   vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-08-22T10:30:00.000Z"));
   const user = userEvent.setup();
@@ -633,6 +657,6 @@ it("shows natural Finnish copy in the calculation and source explanations", asyn
     "Suomen yleisen 25,5 %:n arvonlisäveron",
   );
   expect(sourceDialog.textContent).toContain(
-    "eikä täydennä puuttuvia hintoja vanhoilla arvoilla.",
+    "Puuttuvan hinnan tilalla käytetään 15 minuutin näkymässä viimeisintä saatavilla olevaa hintaa",
   );
 });

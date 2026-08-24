@@ -168,6 +168,9 @@ export function deriveHourlyPoint(
     label: formatIntervalLabel(startAt, canonicalTimestamp(endMilliseconds)),
     priceCentsPerKwh: prices.reduce((sum, price) => sum + price, 0) / prices.length,
     available: true,
+    carriedForward: matchingQuarters.some(
+      (quarter) => quarter!.carriedForward === true,
+    ),
   };
 }
 
@@ -366,6 +369,7 @@ function createQuarterPoint(
     label: formatIntervalLabel(startAt, endAt),
     priceCentsPerKwh: source.priceCentsPerKwh,
     available: true,
+    carriedForward: source.carriedForward === true,
   };
 }
 

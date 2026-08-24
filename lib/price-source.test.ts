@@ -130,6 +130,7 @@ describe("ENTSO-E source adapter", () => {
       endAt: "2026-08-23T21:45:00.000Z",
     });
     expect(result.prices[2].priceCentsPerKwh).toBeCloseTo(-0.69025, 10);
+    expect(result.prices[2]).toHaveProperty("carriedForward", true);
     expect(result.prices[3]).toMatchObject({
       id: String(Date.parse("2026-08-23T21:45:00.000Z")),
       startAt: "2026-08-23T21:45:00.000Z",
@@ -193,6 +194,9 @@ describe("ENTSO-E source adapter", () => {
     expect(result.prices[5].startAt).toBe("2026-08-23T22:15:00.000Z");
     expect(result.prices[4].priceCentsPerKwh).toBeCloseTo(17.57, 10);
     expect(result.prices[5].priceCentsPerKwh).toBeCloseTo(17.57, 10);
+    expect(result.prices[4]).toHaveProperty("carriedForward", true);
+    expect(result.prices[5]).toHaveProperty("carriedForward", true);
+    expect(result.prices[6]).not.toHaveProperty("carriedForward", true);
   });
 
   it("does not call ENTSO-E when the access token is missing", async () => {
