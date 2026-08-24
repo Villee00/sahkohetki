@@ -5,7 +5,7 @@ import {
   getHelsinkiDateKey,
   getNextHelsinkiDateKey,
 } from "./time";
-import { PRICE_LEVEL_CUTOFFS } from "./price-types";
+import { EXPLORER_SOURCE, PRICE_LEVEL_CUTOFFS } from "./price-types";
 import type {
   CostComparison,
   CostEstimate,
@@ -350,13 +350,6 @@ type BuildExplorerDataInput = {
   fetchedAt: string | null;
 };
 
-const SOURCE = {
-  name: "Pörssisähkö.net",
-  pricesUrl: "https://porssisahko.net/",
-  apiUrl: "https://api.porssisahko.net/v2/latest-prices.json",
-  documentationUrl: "https://porssisahko.net/api",
-} as const;
-
 function validQuarterStartMilliseconds(quarter: QuarterPrice): number | undefined {
   const startMilliseconds = parseIsoTimestamp(quarter.startAt);
   const endMilliseconds = parseIsoTimestamp(quarter.endAt);
@@ -522,7 +515,7 @@ export function buildExplorerData({
 
   return {
     fetchedAt,
-    source: SOURCE,
+    source: EXPLORER_SOURCE,
     currentQuarterId: currentQuarterPoint?.available ? currentQuarterPoint.id : null,
     currentHourId: currentHourPoint?.available ? currentHourPoint.id : null,
     today,

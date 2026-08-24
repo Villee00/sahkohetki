@@ -56,6 +56,14 @@ export type ExplorerSource = {
   documentationUrl: string;
 };
 
+export const EXPLORER_SOURCE: ExplorerSource = {
+  name: "ENTSO-E",
+  pricesUrl: "https://transparency.entsoe.eu/",
+  apiUrl: "https://web-api.tp.entsoe.eu/api",
+  documentationUrl:
+    "https://transparency.entsoe.eu/content/static_content/download?path=%2FStatic+content%2Fweb+api%2FRestfulAPI_IG.pdf",
+};
+
 export type ExplorerData = {
   fetchedAt: string | null;
   source: ExplorerSource;

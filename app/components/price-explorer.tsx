@@ -851,7 +851,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
             <div>
               <p className="font-medium text-slate-300">
-                Sähköhetki näyttää Pörssisähkö.netin ilmoittaman
+                Sähköhetki näyttää ENTSO-E:n ilmoittaman
                 arvonlisäverollisen spot-hinnan
                 {priceMargin > 0
                   ? " ja lisää siihen " +
@@ -932,7 +932,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         closeButtonRef={closeButtonRef}
       >
         <p>
-          Sähköhetki käyttää Pörssisähkö.netin uusimpia Suomen alueen
+          Sähköhetki käyttää ENTSO-E:n uusimpia Suomen tarjousalueen
           spot-hintoja 15 minuutin tarkkuudella.{" "}
           {priceMargin > 0
             ? "Näytettyihin hintoihin on lisätty " +
@@ -954,7 +954,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             target="_blank"
             rel="noreferrer"
           >
-            Pörssisähkö.net
+            ENTSO-E
             <Icon name="arrow-up-right" className="h-4 w-4" />
           </a>
           <a
@@ -972,7 +972,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             target="_blank"
             rel="noreferrer"
           >
-            Raakadata (JSON)
+            Raakadata (XML)
             <Icon name="arrow-up-right" className="h-4 w-4" />
           </a>
         </div>

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- The source URL is https://api.porssisahko.net/v2/latest-prices.json.
+- The source URL is https://web-api.tp.entsoe.eu/api; the server uses ENTSOE_TOKEN and the Finnish bidding-zone EIC 10YFI-1--------U.
 - Source retrieval is server-only and cached/revalidated for 43,200 seconds; the page is dynamically rendered so a later server request can use a newer cached source snapshot.
 - No fallback, stale substitution, invented price, browser-side API request, or manual price input is allowed.
 - Quarter-hour values are canonical; hourly values require exactly four valid quarter-hour values and use their arithmetic average.
@@ -583,7 +583,7 @@ git add lib/time.ts lib/time.test.ts lib/price-types.ts lib/price-domain.ts lib/
 git commit -m "feat: build Finnish price horizons"
 ~~~
 
-### Task 4: Add the revalidated Pörssisähkö.net server adapter
+### Task 4: Add the revalidated ENTSO-E server adapter
 
 **Files:**
 - Create: lib/price-source.ts
@@ -601,7 +601,7 @@ Create lib/price-source.test.ts:
 import { describe, expect, it, vi } from "vitest";
 import { fetchLatestPrices } from "./price-source";
 
-describe("Pörssisähkö.net source adapter", () => {
+describe("ENTSO-E source adapter", () => {
   it("returns source records from a successful response", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(
@@ -620,7 +620,7 @@ describe("Pörssisähkö.net source adapter", () => {
     const result = await fetchLatestPrices(fetchImpl);
     expect(result.status).toBe("ready");
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://api.porssisahko.net/v2/latest-prices.json",
+      "https://web-api.tp.entsoe.eu/api",
       { cache: "no-store" },
     );
   });
@@ -657,7 +657,7 @@ const getCachedSourceSnapshot = unstable_cache(
       fetchedAt: result.status === "ready" ? new Date().toISOString() : null,
     };
   },
-  ["sahkohetki-porssisahko-latest-prices"],
+  ["sahkohetki-entsoe-latest-prices"],
   { revalidate: 43200 },
 );
 ~~~

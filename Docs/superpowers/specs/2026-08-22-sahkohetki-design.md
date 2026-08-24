@@ -11,7 +11,7 @@ The central interaction is: select a price interval, then see the same selected 
 
 ## Product decisions
 
-- The source of truth is `https://api.porssisahko.net/v2/latest-prices.json`.
+- The source of truth is the ENTSO-E Transparency Platform API at `https://web-api.tp.entsoe.eu/api`, queried for Finland’s `10YFI-1--------U` bidding zone with the server-only `ENTSOE_TOKEN`.
 - Price retrieval and the calculation dataset are server-owned. The server fetches the source with roughly 12-hour revalidation and passes a validated snapshot to the page.
 - The browser never fetches the price API, accepts manually entered prices, or substitutes a stale/demo value when source data is unavailable.
 - Source values remain canonical at 15-minute resolution. The default view is hourly; an hour is available only when all four quarter-hour values exist, and its value is their arithmetic average.
@@ -72,7 +72,7 @@ Timestamps are kept as ISO instants for computation. Finnish labels are produced
 
 `lib/price-domain.ts` is a pure domain module. Its public functions validate source records, normalize timestamps, derive hourly points, build the two horizons, classify relative price levels, and calculate the cost table. It has no network, React, or browser dependencies.
 
-`lib/price-source.ts` is the server-only adapter for Pörssisähkö.net. It applies the framework’s supported revalidation mechanism, validates the response shape and finite numeric values, records the server fetch timestamp, and returns an unavailable result when the source cannot be verified. It never generates fallback prices.
+`lib/price-source.ts` is the server-only adapter for ENTSO-E. It applies the framework’s supported revalidation mechanism, validates the XML response, converts EUR/MWh to cents per kWh, records the server fetch timestamp, and returns an unavailable result when the source cannot be verified. It never generates fallback prices.
 
 `app/page.tsx` loads the snapshot and renders the interactive explorer. It is responsible for the initial server-rendered state and metadata, not for client-side data fetching.
 
