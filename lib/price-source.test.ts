@@ -98,6 +98,7 @@ describe("ENTSO-E source adapter", () => {
     expect(request.searchParams.get("documentType")).toBe("A44");
     expect(request.searchParams.get("in_Domain")).toBe("10YFI-1--------U");
     expect(request.searchParams.get("out_Domain")).toBe("10YFI-1--------U");
+    expect(request.searchParams.get("contract_MarketAgreement.type")).toBe("A01");
     expect(request.searchParams.get("securityToken")).toBe("test-token");
     expect(request.searchParams.get("periodStart")).toMatch(/^\d{12}$/);
     expect(request.searchParams.get("periodEnd")).toMatch(/^\d{12}$/);
