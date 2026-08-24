@@ -40,6 +40,12 @@ type EntsoeParseResult =
   | { status: "ready"; prices: QuarterPrice[] }
   | { status: "unavailable"; message: string };
 
+type ParsedPeriod = {
+  startMilliseconds: number;
+  endMilliseconds: number;
+  pricesByPosition: Map<number, number>;
+};
+
 function asArray(value: unknown): unknown[] {
   if (value === undefined || value === null) return [];
   return Array.isArray(value) ? value : [value];
@@ -102,7 +108,7 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
     return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
   }
 
-  const pricesByStart = new Map<number, QuarterPrice>();
+  const periodsToExpand: ParsedPeriod[] = [];
   const timeSeries = asArray(document.TimeSeries);
   if (timeSeries.length === 0) {
     return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
@@ -153,12 +159,14 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
         return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
       }
 
-      const periodSlots = (endMilliseconds - startMilliseconds) / QUARTER_MILLISECONDS;
+      const periodSlots =
+        (endMilliseconds - startMilliseconds) / QUARTER_MILLISECONDS;
       const points = asArray(periodValue.Point);
       if (points.length === 0) {
         return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
       }
 
+      const pricesByPosition = new Map<number, number>();
       for (const pointValue of points) {
         if (!isRecord(pointValue)) {
           return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
@@ -174,22 +182,83 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
           return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
         }
 
-        const priceStartMilliseconds =
-          startMilliseconds + (position - 1) * QUARTER_MILLISECONDS;
-        if (pricesByStart.has(priceStartMilliseconds)) {
+        if (pricesByPosition.has(position)) {
           return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
         }
+        pricesByPosition.set(position, priceInMegawattHours);
+      }
 
-        const priceStartAt = canonicalTimestamp(priceStartMilliseconds);
-        pricesByStart.set(priceStartMilliseconds, {
-          id: String(priceStartMilliseconds),
-          startAt: priceStartAt,
-          endAt: canonicalTimestamp(priceStartMilliseconds + QUARTER_MILLISECONDS),
-          priceCentsPerKwh:
-            (priceInMegawattHours / 10) * (1 + FINNISH_GENERAL_VAT_RATE),
-        });
+      periodsToExpand.push({
+        startMilliseconds,
+        endMilliseconds,
+        pricesByPosition,
+      });
+    }
+  }
+
+  const pricesByStart = new Map<number, QuarterPrice>();
+  let lastPriceInMegawattHours: number | undefined;
+  let previousPeriodEndMilliseconds: number | undefined;
+  const addPrice = (
+    priceStartMilliseconds: number,
+    priceInMegawattHours: number,
+  ): boolean => {
+    if (pricesByStart.has(priceStartMilliseconds)) return false;
+
+    const priceStartAt = canonicalTimestamp(priceStartMilliseconds);
+    pricesByStart.set(priceStartMilliseconds, {
+      id: String(priceStartMilliseconds),
+      startAt: priceStartAt,
+      endAt: canonicalTimestamp(priceStartMilliseconds + QUARTER_MILLISECONDS),
+      priceCentsPerKwh:
+        (priceInMegawattHours / 10) * (1 + FINNISH_GENERAL_VAT_RATE),
+    });
+    return true;
+  };
+
+  for (const period of periodsToExpand.sort(
+    (left, right) => left.startMilliseconds - right.startMilliseconds,
+  )) {
+    if (
+      lastPriceInMegawattHours !== undefined &&
+      previousPeriodEndMilliseconds !== undefined &&
+      period.startMilliseconds > previousPeriodEndMilliseconds
+    ) {
+      for (
+        let slotStart = previousPeriodEndMilliseconds;
+        slotStart < period.startMilliseconds;
+        slotStart += QUARTER_MILLISECONDS
+      ) {
+        if (!addPrice(slotStart, lastPriceInMegawattHours)) {
+          return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+        }
       }
     }
+
+    const periodSlots =
+      (period.endMilliseconds - period.startMilliseconds) /
+      QUARTER_MILLISECONDS;
+
+    for (let position = 1; position <= periodSlots; position += 1) {
+      if (period.pricesByPosition.has(position)) {
+        lastPriceInMegawattHours = period.pricesByPosition.get(position);
+      }
+
+      if (lastPriceInMegawattHours === undefined) {
+        continue;
+      }
+
+      const priceStartMilliseconds =
+        period.startMilliseconds + (position - 1) * QUARTER_MILLISECONDS;
+      if (!addPrice(priceStartMilliseconds, lastPriceInMegawattHours)) {
+        return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+      }
+    }
+
+    previousPeriodEndMilliseconds =
+      previousPeriodEndMilliseconds === undefined
+        ? period.endMilliseconds
+        : Math.max(previousPeriodEndMilliseconds, period.endMilliseconds);
   }
 
   const prices = [...pricesByStart.entries()]

@@ -51,6 +51,31 @@ const ENTSOE_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </TimeSeries>
 </Publication_MarketDocument>`;
 
+const ENTSOE_A03_XML = ENTSOE_XML.replace(
+  "    <Period>",
+  "    <Period>\n      <curveType>A03</curveType>",
+);
+
+const ENTSOE_DISJOINT_XML = ENTSOE_XML.replace(
+  "  </TimeSeries>",
+  `    <Period>
+      <timeInterval>
+        <start>2026-08-23T22:30Z</start>
+        <end>2026-08-23T23:00Z</end>
+      </timeInterval>
+      <resolution>PT15M</resolution>
+      <Point>
+        <position>1</position>
+        <price.amount>10</price.amount>
+      </Point>
+      <Point>
+        <position>2</position>
+        <price.amount>20</price.amount>
+      </Point>
+    </Period>
+  </TimeSeries>`,
+);
+
 function response(body: string, status = 200): Response {
   return new Response(body, {
     status,
@@ -86,7 +111,7 @@ describe("ENTSO-E source adapter", () => {
 
     expect(result.status).toBe("ready");
     if (result.status !== "ready") throw new Error(result.message);
-    expect(result.prices).toHaveLength(3);
+    expect(result.prices).toHaveLength(4);
     expect(result.prices[0]).toMatchObject({
       id: String(Date.parse("2026-08-23T21:00:00.000Z")),
       startAt: "2026-08-23T21:00:00.000Z",
@@ -100,11 +125,17 @@ describe("ENTSO-E source adapter", () => {
     });
     expect(result.prices[1].priceCentsPerKwh).toBeCloseTo(-0.69025, 10);
     expect(result.prices[2]).toMatchObject({
+      id: String(Date.parse("2026-08-23T21:30:00.000Z")),
+      startAt: "2026-08-23T21:30:00.000Z",
+      endAt: "2026-08-23T21:45:00.000Z",
+    });
+    expect(result.prices[2].priceCentsPerKwh).toBeCloseTo(-0.69025, 10);
+    expect(result.prices[3]).toMatchObject({
       id: String(Date.parse("2026-08-23T21:45:00.000Z")),
       startAt: "2026-08-23T21:45:00.000Z",
       endAt: "2026-08-23T22:00:00.000Z",
     });
-    expect(result.prices[2].priceCentsPerKwh).toBeCloseTo(17.57, 10);
+    expect(result.prices[3].priceCentsPerKwh).toBeCloseTo(17.57, 10);
 
     const request = new URL(String(fetchImpl.mock.calls[0]?.[0]));
     expect(request.origin + request.pathname).toBe(
@@ -120,6 +151,48 @@ describe("ENTSO-E source adapter", () => {
     expect(fetchImpl).toHaveBeenCalledWith(request.toString(), {
       cache: "no-store",
     });
+  });
+
+  it("expands A03 blocks across the quarter-hours until the next position", async () => {
+    vi.stubEnv("ENTSOE_TOKEN", "test-token");
+    const fetchImpl = vi.fn().mockResolvedValue(response(ENTSOE_A03_XML));
+
+    const result = await fetchLatestPrices(
+      fetchImpl,
+      new Date("2026-08-24T12:30:00.000Z"),
+    );
+
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") throw new Error(result.message);
+    expect(result.prices).toHaveLength(4);
+    expect(result.prices.map((price) => price.startAt)).toEqual([
+      "2026-08-23T21:00:00.000Z",
+      "2026-08-23T21:15:00.000Z",
+      "2026-08-23T21:30:00.000Z",
+      "2026-08-23T21:45:00.000Z",
+    ]);
+    expect(result.prices[0].priceCentsPerKwh).toBeCloseTo(3.1375, 10);
+    expect(result.prices[1].priceCentsPerKwh).toBeCloseTo(-0.69025, 10);
+    expect(result.prices[2].priceCentsPerKwh).toBeCloseTo(-0.69025, 10);
+    expect(result.prices[3].priceCentsPerKwh).toBeCloseTo(17.57, 10);
+  });
+
+  it("carries the last price across a gap between published periods", async () => {
+    vi.stubEnv("ENTSOE_TOKEN", "test-token");
+    const fetchImpl = vi.fn().mockResolvedValue(response(ENTSOE_DISJOINT_XML));
+
+    const result = await fetchLatestPrices(
+      fetchImpl,
+      new Date("2026-08-24T12:30:00.000Z"),
+    );
+
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") throw new Error(result.message);
+    expect(result.prices).toHaveLength(8);
+    expect(result.prices[4].startAt).toBe("2026-08-23T22:00:00.000Z");
+    expect(result.prices[5].startAt).toBe("2026-08-23T22:15:00.000Z");
+    expect(result.prices[4].priceCentsPerKwh).toBeCloseTo(17.57, 10);
+    expect(result.prices[5].priceCentsPerKwh).toBeCloseTo(17.57, 10);
   });
 
   it("does not call ENTSO-E when the access token is missing", async () => {
