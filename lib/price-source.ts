@@ -294,7 +294,7 @@ const getCachedSourceSnapshot = unstable_cache(
       fetchedAt: result.status === "ready" ? new Date().toISOString() : null,
     };
   },
-  ["sahkohetki-entsoe-latest-prices"],
+  ["sahkohetki-entsoe-latest-prices-vat-inclusive-v1"],
   { revalidate: 43200 },
 );
 

@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchLatestPrices, getExplorerData } from "./price-source";
 
-const serverOnlyBoundary = vi.hoisted(() => ({ imported: false }));
+const serverOnlyBoundary = vi.hoisted(() => ({
+  imported: false,
+  cacheKey: [] as string[],
+}));
 
 vi.mock("server-only", () => {
   serverOnlyBoundary.imported = true;
@@ -9,7 +12,13 @@ vi.mock("server-only", () => {
 });
 
 vi.mock("next/cache", () => ({
-  unstable_cache: (loader: () => Promise<unknown>) => loader,
+  unstable_cache: (
+    loader: () => Promise<unknown>,
+    keyParts: string[],
+  ) => {
+    serverOnlyBoundary.cacheKey = keyParts;
+    return loader;
+  },
 }));
 
 const ENTSOE_XML = `<?xml version="1.0" encoding="UTF-8"?>
@@ -58,6 +67,12 @@ afterEach(() => {
 describe("ENTSO-E source adapter", () => {
   it("declares the source adapter as server-only", () => {
     expect(serverOnlyBoundary.imported).toBe(true);
+  });
+
+  it("uses a cache namespace for VAT-inclusive ENTSO-E prices", () => {
+    expect(serverOnlyBoundary.cacheKey).toEqual([
+      "sahkohetki-entsoe-latest-prices-vat-inclusive-v1",
+    ]);
   });
 
   it("requests Finnish day-ahead prices and converts EUR/MWh to VAT-inclusive cents per kWh", async () => {
