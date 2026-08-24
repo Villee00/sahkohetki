@@ -15,6 +15,7 @@ const API_URL = EXPLORER_SOURCE.apiUrl;
 const FINNISH_BIDDING_ZONE = "10YFI-1--------U";
 const ENTSOE_DOCUMENT_TYPE = "A44";
 const DAY_AHEAD_MARKET = "A01";
+const FINNISH_GENERAL_VAT_RATE = 0.255;
 const QUARTER_MILLISECONDS = 15 * 60 * 1000;
 const REQUEST_UNAVAILABLE_MESSAGE =
   "Hintatietoja ei voitu hakea tai varmistaa juuri nyt.";
@@ -184,7 +185,8 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
           id: String(priceStartMilliseconds),
           startAt: priceStartAt,
           endAt: canonicalTimestamp(priceStartMilliseconds + QUARTER_MILLISECONDS),
-          priceCentsPerKwh: priceInMegawattHours / 10,
+          priceCentsPerKwh:
+            (priceInMegawattHours / 10) * (1 + FINNISH_GENERAL_VAT_RATE),
         });
       }
     }

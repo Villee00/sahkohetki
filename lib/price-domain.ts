@@ -18,22 +18,7 @@ import type {
 import type { EverydayUseId } from "./appliances";
 
 const QUARTER_MILLISECONDS = 15 * 60 * 1000;
-const TRUNCATED_QUARTER_MILLISECONDS = QUARTER_MILLISECONDS - 1;
 const HOUR_MILLISECONDS = 60 * 60 * 1000;
-
-type ParsePricePayloadSuccess = {
-  ok: true;
-  prices: QuarterPrice[];
-};
-
-type ParsePricePayloadFailure = {
-  ok: false;
-  message: string;
-};
-
-export type ParsePricePayloadResult =
-  | ParsePricePayloadSuccess
-  | ParsePricePayloadFailure;
 
 type IsoTimestampParts = {
   year: number;
@@ -99,60 +84,6 @@ function canonicalTimestamp(milliseconds: number): string {
   return new Date(milliseconds).toISOString();
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-export function parsePricePayload(payload: unknown): ParsePricePayloadResult {
-  if (!isRecord(payload) || !Array.isArray(payload.prices) || payload.prices.length === 0) {
-    return { ok: false, message: "Price payload must contain a non-empty prices array." };
-  }
-
-  const normalized: Array<{ price: QuarterPrice; startMilliseconds: number; index: number }> = [];
-
-  for (const [index, source] of payload.prices.entries()) {
-    if (!isRecord(source)) {
-      return { ok: false, message: `Price record ${index} is not an object.` };
-    }
-
-    if (typeof source.price !== "number" || !Number.isFinite(source.price)) {
-      return { ok: false, message: `Price record ${index} has a non-finite numeric price.` };
-    }
-
-    const startMilliseconds = parseIsoTimestamp(source.startDate);
-    const endMilliseconds = parseIsoTimestamp(source.endDate);
-    if (startMilliseconds === undefined || endMilliseconds === undefined) {
-      return { ok: false, message: `Price record ${index} has invalid ISO timestamps.` };
-    }
-
-    const durationMilliseconds = endMilliseconds - startMilliseconds;
-    if (
-      startMilliseconds % QUARTER_MILLISECONDS !== 0 ||
-      (durationMilliseconds !== QUARTER_MILLISECONDS &&
-        durationMilliseconds !== TRUNCATED_QUARTER_MILLISECONDS)
-    ) {
-      return { ok: false, message: `Price record ${index} is not a 15-minute interval.` };
-    }
-
-    normalized.push({
-      price: {
-        id: String(startMilliseconds),
-        startAt: canonicalTimestamp(startMilliseconds),
-        endAt: canonicalTimestamp(startMilliseconds + QUARTER_MILLISECONDS),
-        priceCentsPerKwh: source.price,
-      },
-      startMilliseconds,
-      index,
-    });
-  }
-
-  normalized.sort(
-    (left, right) =>
-      left.startMilliseconds - right.startMilliseconds || left.index - right.index,
-  );
-
-  return { ok: true, prices: normalized.map(({ price }) => price) };
-}
 
 export function calculateUseCost(
   consumptionKwh: number,

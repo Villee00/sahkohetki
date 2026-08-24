@@ -60,7 +60,7 @@ describe("ENTSO-E source adapter", () => {
     expect(serverOnlyBoundary.imported).toBe(true);
   });
 
-  it("requests Finnish day-ahead prices and converts EUR/MWh to cents per kWh", async () => {
+  it("requests Finnish day-ahead prices and converts EUR/MWh to VAT-inclusive cents per kWh", async () => {
     vi.stubEnv("ENTSOE_TOKEN", "test-token");
     const fetchImpl = vi.fn().mockResolvedValue(response(ENTSOE_XML));
 
@@ -69,29 +69,27 @@ describe("ENTSO-E source adapter", () => {
       new Date("2026-08-24T12:30:00.000Z"),
     );
 
-    expect(result).toEqual({
-      status: "ready",
-      prices: [
-        {
-          id: String(Date.parse("2026-08-23T21:00:00.000Z")),
-          startAt: "2026-08-23T21:00:00.000Z",
-          endAt: "2026-08-23T21:15:00.000Z",
-          priceCentsPerKwh: 2.5,
-        },
-        {
-          id: String(Date.parse("2026-08-23T21:15:00.000Z")),
-          startAt: "2026-08-23T21:15:00.000Z",
-          endAt: "2026-08-23T21:30:00.000Z",
-          priceCentsPerKwh: -0.55,
-        },
-        {
-          id: String(Date.parse("2026-08-23T21:45:00.000Z")),
-          startAt: "2026-08-23T21:45:00.000Z",
-          endAt: "2026-08-23T22:00:00.000Z",
-          priceCentsPerKwh: 14,
-        },
-      ],
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") throw new Error(result.message);
+    expect(result.prices).toHaveLength(3);
+    expect(result.prices[0]).toMatchObject({
+      id: String(Date.parse("2026-08-23T21:00:00.000Z")),
+      startAt: "2026-08-23T21:00:00.000Z",
+      endAt: "2026-08-23T21:15:00.000Z",
     });
+    expect(result.prices[0].priceCentsPerKwh).toBeCloseTo(3.1375, 10);
+    expect(result.prices[1]).toMatchObject({
+      id: String(Date.parse("2026-08-23T21:15:00.000Z")),
+      startAt: "2026-08-23T21:15:00.000Z",
+      endAt: "2026-08-23T21:30:00.000Z",
+    });
+    expect(result.prices[1].priceCentsPerKwh).toBeCloseTo(-0.69025, 10);
+    expect(result.prices[2]).toMatchObject({
+      id: String(Date.parse("2026-08-23T21:45:00.000Z")),
+      startAt: "2026-08-23T21:45:00.000Z",
+      endAt: "2026-08-23T22:00:00.000Z",
+    });
+    expect(result.prices[2].priceCentsPerKwh).toBeCloseTo(17.57, 10);
 
     const request = new URL(String(fetchImpl.mock.calls[0]?.[0]));
     expect(request.origin + request.pathname).toBe(

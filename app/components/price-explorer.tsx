@@ -851,7 +851,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
             <div>
               <p className="font-medium text-slate-300">
-                Sähköhetki näyttää ENTSO-E:n ilmoittaman
+                Sähköhetki näyttää ENTSO-E:n markkinahinnasta muodostetun
                 arvonlisäverollisen spot-hinnan
                 {priceMargin > 0
                   ? " ja lisää siihen " +
@@ -898,8 +898,8 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
       >
         <p>
           Arvio perustuu valittuun spot-hintaan ja kunkin ennalta määritellyn
-          käyttötavan kulutukseen. Hinta sisältää lähteen ilmoittaman
-          arvonlisäveron.
+          käyttötavan kulutukseen. Hinta sisältää Suomen yleisen 25,5 %:n
+          arvonlisäveron, joka lisätään ENTSO-E:n markkinahintaan.
         </p>
         <p className="rounded-2xl border border-sky-300/20 bg-sky-300/10 px-4 py-3 font-mono text-sm text-sky-100">
           kulutus (kWh) × (spot-hinta + marginaali) (snt/kWh) = kustannus (snt)
@@ -933,12 +933,13 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
       >
         <p>
           Sähköhetki käyttää ENTSO-E:n uusimpia Suomen tarjousalueen
-          spot-hintoja 15 minuutin tarkkuudella.{" "}
+          spot-hintoja 15 minuutin tarkkuudella. Näytetty hinta sisältää
+          Suomen yleisen 25,5 %:n arvonlisäveron.{" "}
           {priceMargin > 0
             ? "Näytettyihin hintoihin on lisätty " +
               formatPrice(priceMargin) +
               " snt/kWh marginaali."
-            : "Näytetty hinta on lähteen ilmoittama spot-hinta."}{" "}
+            : "ENTSO-E:n markkinahinta muunnetaan senttiä/kWh-yksikköön ja verolliseksi hinnaksi."}{" "}
           Palvelin tarkistaa lähteen tiedot ja muodostaa niiden perusteella
           näkymään tuntikeskiarvot sekä 15 minuutin hinnat.
         </p>
@@ -964,15 +965,6 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             rel="noreferrer"
           >
             API-dokumentaatio
-            <Icon name="arrow-up-right" className="h-4 w-4" />
-          </a>
-          <a
-            className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-            href={data.source.apiUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Raakadata (XML)
             <Icon name="arrow-up-right" className="h-4 w-4" />
           </a>
         </div>

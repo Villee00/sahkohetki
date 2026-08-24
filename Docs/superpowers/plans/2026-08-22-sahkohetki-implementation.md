@@ -18,7 +18,7 @@
 - Quarter-hour values are canonical; hourly values require exactly four valid quarter-hour values and use their arithmetic average.
 - All Finnish labels use the Europe/Helsinki timezone, including DST transition days with 23, 24, or 25 local hours.
 - Price levels use stable absolute 5/14 c/kWh thresholds so a narrow active horizon cannot make a low price appear high.
-- Displayed prices are VAT-inclusive cents per kWh; network charges, supplier margins, electricity tax, and fixed fees are excluded.
+- Displayed prices are VAT-inclusive cents per kWh; the ENTSO-E adapter adds Finland's general 25.5% VAT. Network charges, supplier margins, electricity tax, and fixed fees are excluded.
 - The nine provisional consumption values are the values approved from Docs/MOCKUP.html and must remain centralized and replaceable.
 - The site is Finnish only, responsive, keyboard-accessible, focus-visible, and readable with assistive technology.
 - Run a focused test after each domain slice, typecheck regularly, and run the full test/lint/build/browser verification before the final commit.
@@ -250,7 +250,7 @@ git commit -m "feat: add provisional everyday use catalog"
 - Test: lib/price-domain.test.ts
 
 **Interfaces:**
-- parsePricePayload(payload) returns an explicit success or failure result.
+- `QuarterPrice` is the normalized server-adapter output consumed by the pure domain module. ENTSO-E XML parsing belongs to Task 4.
 - calculateUseCost(consumptionKwh, priceCentsPerKwh) returns CostEstimate.
 - deriveHourlyPoint(quarters, hourStartAt) returns an available or unavailable PricePoint.
 - classifyPriceLevels(points) returns points with cheap, normal, or high levels assigned only to available points.
@@ -258,7 +258,7 @@ git commit -m "feat: add provisional everyday use catalog"
 
 - [ ] Step 1: Write the failing normalization and calculation tests
 
-Create lib/price-domain.test.ts with independent source literals:
+Create lib/price-domain.test.ts with independent normalized `QuarterPrice` literals. The source adapter owns ENTSO-E XML validation, while these tests cover interval math and calculation behavior:
 
 ~~~ts
 import { describe, expect, it } from "vitest";
@@ -267,45 +267,24 @@ import {
   classifyPriceLevels,
   deriveHourlyPoint,
   findCheapestPoint,
-  parsePricePayload,
 } from "./price-domain";
+import type { QuarterPrice } from "./price-types";
 
-const completeHour = [
-  { price: 10, startDate: "2026-08-22T10:00:00.000Z", endDate: "2026-08-22T10:15:00.000Z" },
-  { price: 12, startDate: "2026-08-22T10:15:00.000Z", endDate: "2026-08-22T10:30:00.000Z" },
-  { price: 14, startDate: "2026-08-22T10:30:00.000Z", endDate: "2026-08-22T10:45:00.000Z" },
-  { price: 16, startDate: "2026-08-22T10:45:00.000Z", endDate: "2026-08-22T11:00:00.000Z" },
+const completeHour: QuarterPrice[] = [
+  { id: "q1", priceCentsPerKwh: 10, startAt: "2026-08-22T10:00:00.000Z", endAt: "2026-08-22T10:15:00.000Z" },
+  { id: "q2", priceCentsPerKwh: 12, startAt: "2026-08-22T10:15:00.000Z", endAt: "2026-08-22T10:30:00.000Z" },
+  { id: "q3", priceCentsPerKwh: 14, startAt: "2026-08-22T10:30:00.000Z", endAt: "2026-08-22T10:45:00.000Z" },
+  { id: "q4", priceCentsPerKwh: 16, startAt: "2026-08-22T10:45:00.000Z", endAt: "2026-08-22T11:00:00.000Z" },
 ];
 
 describe("price domain", () => {
-  it("accepts a valid API payload and preserves quarter-hour precision", () => {
-    const result = parsePricePayload({ prices: completeHour });
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error(result.message);
-    expect(result.prices).toHaveLength(4);
-    expect(result.prices[0]).toMatchObject({
-      priceCentsPerKwh: 10,
-      startAt: "2026-08-22T10:00:00.000Z",
-      endAt: "2026-08-22T10:15:00.000Z",
-    });
-    expect(result.prices[3]).toMatchObject({ priceCentsPerKwh: 16 });
-  });
-
-  it("rejects malformed or non-finite source data", () => {
-    expect(parsePricePayload({ prices: [{ price: "10" }] }).ok).toBe(false);
-    expect(parsePricePayload({ prices: [{ price: Number.NaN, ...completeHour[0] }] }).ok).toBe(false);
-    expect(parsePricePayload({ prices: [] }).ok).toBe(false);
-  });
-
   it("averages all four quarters and marks a missing quarter unavailable", () => {
-    const parsed = parsePricePayload({ prices: completeHour });
-    if (!parsed.ok) throw new Error(parsed.message);
-    expect(deriveHourlyPoint(parsed.prices, "2026-08-22T10:00:00.000Z")).toMatchObject({
+    expect(deriveHourlyPoint(completeHour, "2026-08-22T10:00:00.000Z")).toMatchObject({
       available: true,
       priceCentsPerKwh: 13,
     });
     expect(
-      deriveHourlyPoint(parsed.prices.slice(0, 3), "2026-08-22T10:00:00.000Z"),
+      deriveHourlyPoint(completeHour.slice(0, 3), "2026-08-22T10:00:00.000Z"),
     ).toMatchObject({ available: false, unavailableReason: "missing-quarter" });
   });
 
@@ -389,7 +368,7 @@ export type PricePoint = {
 
 - [ ] Step 3: Implement the minimal pure functions
 
-Create lib/price-domain.ts. Parse only a payload with a non-empty prices array, finite numeric price values, parseable ISO timestamps, and 15-minute start/end pairs. Reject the complete payload if any required record is malformed. Sort valid records by startAt and use a stable id based on the start instant.
+Create lib/price-domain.ts. Consume only normalized `QuarterPrice` records from the server adapter; ENTSO-E XML parsing and schema validation are specified in Task 4. The pure domain module must not know about the transport format. Sort source records by startAt and use a stable id based on the start instant.
 
 Use this calculation implementation:
 
@@ -542,7 +521,7 @@ export type HorizonPoints = {
 
 export type ExplorerData = {
   fetchedAt: string | null;
-  source: { name: string; pricesUrl: string; apiUrl: string };
+  source: { name: string; pricesUrl: string; apiUrl: string; documentationUrl: string };
   currentQuarterId: string | null;
   currentHourId: string | null;
   next24Hours: HorizonPoints;
@@ -595,46 +574,7 @@ git commit -m "feat: build Finnish price horizons"
 
 - [ ] Step 1: Write boundary tests with fetch doubles
 
-Create lib/price-source.test.ts:
-
-~~~ts
-import { describe, expect, it, vi } from "vitest";
-import { fetchLatestPrices } from "./price-source";
-
-describe("ENTSO-E source adapter", () => {
-  it("returns source records from a successful response", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          prices: [
-            {
-              price: 4.5,
-              startDate: "2026-08-22T10:00:00.000Z",
-              endDate: "2026-08-22T10:15:00.000Z",
-            },
-          ],
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      ),
-    );
-    const result = await fetchLatestPrices(fetchImpl);
-    expect(result.status).toBe("ready");
-    expect(fetchImpl).toHaveBeenCalledWith(
-      "https://web-api.tp.entsoe.eu/api",
-      { cache: "no-store" },
-    );
-  });
-
-  it("returns an explicit unavailable result for HTTP or JSON failures", async () => {
-    await expect(
-      fetchLatestPrices(vi.fn().mockResolvedValue(new Response("down", { status: 503 }))),
-    ).resolves.toMatchObject({ status: "unavailable" });
-    await expect(
-      fetchLatestPrices(vi.fn().mockResolvedValue(new Response("{", { status: 200 }))),
-    ).resolves.toMatchObject({ status: "unavailable" });
-  });
-});
-~~~
+Create lib/price-source.test.ts with a valid A44 XML fixture containing the Finnish bidding-zone EIC, EUR/MWh units, a PT15M period, and sparse point positions. Cover successful normalization to VAT-inclusive c/kWh, all required query parameters, missing-token short-circuiting, HTTP/XML/schema failures, rejected requests, unsupported resolutions, and the unavailable ExplorerData shape.
 
 Run: npm test -- lib/price-source.test.ts
 
@@ -642,7 +582,7 @@ Expected: FAIL because lib/price-source.ts does not exist.
 
 - [ ] Step 2: Implement the fetch adapter
 
-Implement fetchLatestPrices with the API URL and cache no-store in the low-level request so the outer server cache owns the 43,200-second freshness policy. Use response.ok, parse JSON inside a try/catch, and pass the payload through parsePricePayload. Return an explicit unavailable result for every failure path; never reuse a prior result.
+Implement fetchLatestPrices with the ENTSO-E API URL, Finnish bidding-zone EIC, A44 document type, A01 day-ahead market, Helsinki calendar-day window, and `securityToken=process.env.ENTSOE_TOKEN`. Keep `cache: "no-store"` on the low-level request so the outer server cache owns the 43,200-second freshness policy. Parse and validate the XML response, accept only Finnish EUR/MWh PT15M data, and convert it to VAT-inclusive cents per kWh using Finland's general 25.5% VAT rate. Return an explicit unavailable result for every failure path; never reuse a prior result.
 
 - [ ] Step 3: Add the server cache and page loader
 

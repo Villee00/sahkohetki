@@ -17,7 +17,7 @@ The central interaction is: select a price interval, then see the same selected 
 - Source values remain canonical at 15-minute resolution. The default view is hourly; an hour is available only when all four quarter-hour values exist, and its value is their arithmetic average.
 - “Next 24 hours” is an elapsed-time horizon from the current Finnish interval. “Tomorrow” follows the Finnish calendar date and can contain 23, 24, or 25 local clock hours.
 - Price level uses stable absolute bands: prices up to 5 c/kWh are cheap, prices above 5 and up to 14 c/kWh are normal, and prices above 14 c/kWh are high. A tightly clustered active horizon must not turn its single highest value into a high price solely because it is the maximum in that horizon.
-- All prices are shown as cents per kWh and are treated as VAT-inclusive because that is what the selected source returns. Network charges, supplier margins, electricity tax, and fixed fees stay outside the headline estimate.
+- All prices are shown as cents per kWh and are VAT-inclusive: the server adapter adds Finland's general 25.5% VAT to the ENTSO-E wholesale price before exposing it to the domain. Network charges, supplier margins, electricity tax, and fixed fees stay outside the headline estimate.
 - The site is Finnish only, has no account or non-essential cookie requirement, and must support phone and desktop layouts, keyboard selection, visible focus, and assistive technology.
 
 ## Architecture
@@ -53,7 +53,7 @@ type ChartPoint = {
 
 type ExplorerData = {
   fetchedAt: string | null;
-  source: { name: string; pricesUrl: string; apiUrl: string };
+  source: { name: string; pricesUrl: string; apiUrl: string; documentationUrl: string };
   currentQuarterId: string | null;
   currentHourId: string | null;
   next24Hours: { hourly: ChartPoint[]; quarterHour: ChartPoint[] };
@@ -72,7 +72,7 @@ Timestamps are kept as ISO instants for computation. Finnish labels are produced
 
 `lib/price-domain.ts` is a pure domain module. Its public functions validate source records, normalize timestamps, derive hourly points, build the two horizons, classify relative price levels, and calculate the cost table. It has no network, React, or browser dependencies.
 
-`lib/price-source.ts` is the server-only adapter for ENTSO-E. It applies the framework’s supported revalidation mechanism, validates the XML response, converts EUR/MWh to cents per kWh, records the server fetch timestamp, and returns an unavailable result when the source cannot be verified. It never generates fallback prices.
+`lib/price-source.ts` is the server-only adapter for ENTSO-E. It applies the framework’s supported revalidation mechanism, validates the XML response, converts EUR/MWh to VAT-inclusive cents per kWh using Finland's general 25.5% VAT rate, records the server fetch timestamp, and returns an unavailable result when the source cannot be verified. It never generates fallback prices.
 
 `app/page.tsx` loads the snapshot and renders the interactive explorer. It is responsible for the initial server-rendered state and metadata, not for client-side data fetching.
 

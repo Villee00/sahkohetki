@@ -630,6 +630,9 @@ it("shows natural Finnish copy in the calculation and source explanations", asyn
     "ENTSO-E:n uusimpia Suomen tarjousalueen spot-hintoja 15 minuutin tarkkuudella",
   );
   expect(sourceDialog.textContent).toContain(
+    "Suomen yleisen 25,5 %:n arvonlisäveron",
+  );
+  expect(sourceDialog.textContent).toContain(
     "eikä täydennä puuttuvia hintoja vanhoilla arvoilla.",
   );
 });
