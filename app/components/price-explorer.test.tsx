@@ -69,6 +69,14 @@ const data: ExplorerData = {
   },
   tomorrow: { hourly: [], quarterHour: [] },
   uses: [],
+  transferData: {
+    municipalities: [],
+    electricityTax: {
+      centsPerKwhVatIncluded: 2.917875,
+      effectiveFrom: "2026-04-01",
+      sourceUrl: "https://www.vero.fi/",
+    },
+  },
   status: "ready",
 };
 
@@ -76,6 +84,71 @@ const dataWithUses: ExplorerData = {
   ...data,
   uses: EVERYDAY_USES,
 };
+
+const transferDataFixture = {
+  municipalities: [
+    {
+      municipalityCode: "240",
+      city: "Kemi",
+      designation: "kaupunki",
+      operators: [
+        {
+          id: "240:Kemin Energia ja Vesi Oy",
+          operatorName: "Kemin Energia ja Vesi Oy",
+          monthlyFixedFeeEur: 10.1,
+          energyChargeCentsPerKwh: 3.73,
+          priceAvailable: true,
+          tariffName: "Yleissiirto / general-transfer",
+          tariffStatus: "matched",
+          tariffSnapshotCreatedAt: "2026-05-04",
+          tariffSourceUrl: "https://example.test/kemi.pdf",
+          notes: "",
+        },
+        {
+          id: "240:Tenergia Oy",
+          operatorName: "Tenergia Oy",
+          monthlyFixedFeeEur: null,
+          energyChargeCentsPerKwh: null,
+          priceAvailable: false,
+          tariffName: "Yleissiirto / general-transfer",
+          tariffStatus: "not_in_snapshot",
+          tariffSnapshotCreatedAt: "2026-05-04",
+          tariffSourceUrl: null,
+          notes: "Price unavailable",
+        },
+      ],
+    },
+    {
+      municipalityCode: "564",
+      city: "Oulu",
+      designation: "kaupunki",
+      operators: [
+        {
+          id: "564:Oulun Energia Sähköverkko Oy",
+          operatorName: "Oulun Energia Sähköverkko Oy",
+          monthlyFixedFeeEur: 6.99,
+          energyChargeCentsPerKwh: 3.18,
+          priceAvailable: true,
+          tariffName: "Yleissiirto / general-transfer",
+          tariffStatus: "matched",
+          tariffSnapshotCreatedAt: "2026-05-04",
+          tariffSourceUrl: "https://example.test/oulu.pdf",
+          notes: "",
+        },
+      ],
+    },
+  ],
+  electricityTax: {
+    centsPerKwhVatIncluded: 2.917875,
+    effectiveFrom: "2026-04-01",
+    sourceUrl: "https://www.vero.fi/",
+  },
+};
+
+const dataWithTransferData = {
+  ...dataWithUses,
+  transferData: transferDataFixture,
+} as ExplorerData;
 
 function createCompleteTomorrowPoints(
   intervalMilliseconds: number,
@@ -155,7 +228,16 @@ it("keeps explanation controls explicitly named at every breakpoint", () => {
 
 it("applies the supplier margin to displayed prices and appliance estimates", async () => {
   const user = userEvent.setup();
-  render(<PriceExplorer data={dataWithUses} />);
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Kunta" }),
+    "240",
+  );
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+    "240:Kemin Energia ja Vesi Oy",
+  );
 
   await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
 
@@ -173,14 +255,113 @@ it("applies the supplier margin to displayed prices and appliance estimates", as
   expect(
     screen.getByRole("heading", { name: "Kahvinkeitin" }).closest("article")
       ?.textContent,
-  ).toContain("2.25");
+  ).toContain("3.25");
   expect(
-    screen.getAllByText("ARVIOITU KUSTANNUS SPOT + MARGINAALI").length,
+    screen.getAllByText("ARVIOITU KUSTANNUS SÄHKÖ + SIIRTO + VERO").length,
   ).toBe(10);
   expect(
     screen.getByRole("button", {
       name: /Valitse aikaväli 13:00–14:00, hinta 15,00 senttiä kilowattitunnilta/,
     }),
+  ).toBeTruthy();
+});
+
+it("requires a DSO choice before recalculating use examples", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  const municipalitySelect = screen.getByRole("combobox", { name: "Kunta" });
+  const operatorSelect = screen.getByRole("combobox", {
+    name: "Sähköverkkoyhtiö",
+  });
+
+  expect((operatorSelect as HTMLSelectElement).disabled).toBe(true);
+  await user.selectOptions(municipalitySelect, "240");
+  expect((operatorSelect as HTMLSelectElement).value).toBe("");
+  expect((operatorSelect as HTMLSelectElement).disabled).toBe(false);
+
+  const coffeeCard = screen.getByRole("heading", { name: "Kahvinkeitin" }).closest(
+    "article",
+  );
+  expect(coffeeCard?.textContent).toContain("Valitse verkkoyhtiö");
+
+  await user.selectOptions(operatorSelect, "240:Kemin Energia ja Vesi Oy");
+
+  expect(coffeeCard?.textContent).toContain("2.80");
+  expect(screen.getByText(/6[,.]65 snt\/kWh/)).toBeTruthy();
+  expect(screen.getByText(/10[,.]10 €\/kk/)).toBeTruthy();
+});
+
+it("restores a saved municipality and DSO selection", async () => {
+  const user = userEvent.setup();
+  const firstRender = render(<PriceExplorer data={dataWithTransferData} />);
+
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Kunta" }),
+    "240",
+  );
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+    "240:Kemin Energia ja Vesi Oy",
+  );
+  expect(window.localStorage.getItem("sahkohetki.transfer-selection")).toContain(
+    "Kemin Energia ja Vesi Oy",
+  );
+
+  firstRender.unmount();
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  await waitFor(() => {
+    expect(
+      (screen.getByRole("combobox", { name: "Kunta" }) as HTMLSelectElement)
+        .value,
+    ).toBe("240");
+    expect(
+      (screen.getByRole("combobox", {
+        name: "Sähköverkkoyhtiö",
+      }) as HTMLSelectElement).value,
+    ).toBe("240:Kemin Energia ja Vesi Oy");
+  });
+});
+
+it("shows unavailable pricing instead of calculating for an unpriced operator", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Kunta" }),
+    "240",
+  );
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+    "240:Tenergia Oy",
+  );
+
+  expect(screen.getByRole("alert").textContent).toContain(
+    "siirtohinta ei ole saatavilla",
+  );
+  expect(
+    screen.getByRole("heading", { name: "Kahvinkeitin" }).closest("article")
+      ?.textContent,
+  ).toContain("Siirtohinta ei ole saatavilla");
+});
+
+it("automatically selects the only operator for a municipality", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Kunta" }),
+    "564",
+  );
+
+  expect(
+    (screen.getByRole("combobox", {
+      name: "Sähköverkkoyhtiö",
+    }) as HTMLSelectElement).value,
+  ).toBe("564:Oulun Energia Sähköverkko Oy");
+  expect(
+    screen.getByRole("group", { name: "Valitun siirtotariffin tiedot" }),
   ).toBeTruthy();
 });
 
@@ -641,7 +822,7 @@ it("shows natural Finnish copy in the calculation and source explanations", asyn
   await user.click(screen.getByRole("button", { name: "Miten laskemme?" }));
   const formulaDialog = screen.getByRole("dialog");
   expect(formulaDialog.textContent).toContain(
-    "Arvio perustuu valittuun spot-hintaan ja kunkin ennalta määritellyn käyttötavan kulutukseen.",
+    "Arvio perustuu valittuun spot-hintaan, valitun verkkoyhtiön siirtomaksuun",
   );
   expect(formulaDialog.textContent).toContain(
     "Laskennassa säilytetään täysi tarkkuus, ja kustannus pyöristetään näytettäessä kahteen desimaaliin.",
