@@ -3,6 +3,7 @@ import { XMLParser } from "fast-xml-parser";
 import { unstable_cache } from "next/cache";
 import { EVERYDAY_USES } from "./appliances";
 import { buildExplorerData } from "./price-domain";
+import { getTransferData } from "./transfer-source";
 import {
   getHelsinkiDateBounds,
   getHelsinkiDateKey,
@@ -375,7 +376,10 @@ const getCachedSourceSnapshot = unstable_cache(
   { revalidate: 43200 },
 );
 
-function unavailableExplorerData(message: string): ExplorerData {
+function unavailableExplorerData(
+  message: string,
+  transferData = getTransferData(),
+): ExplorerData {
   return {
     fetchedAt: null,
     source: { ...EXPLORER_SOURCE },
@@ -384,6 +388,7 @@ function unavailableExplorerData(message: string): ExplorerData {
     today: { hourly: [], quarterHour: [] },
     tomorrow: { hourly: [], quarterHour: [] },
     uses: EVERYDAY_USES,
+    transferData,
     status: "unavailable",
     message,
   };
@@ -391,13 +396,15 @@ function unavailableExplorerData(message: string): ExplorerData {
 
 export async function getExplorerData(now = new Date()): Promise<ExplorerData> {
   const snapshot = await getCachedSourceSnapshot();
+  const transferData = getTransferData();
   if (snapshot.status === "unavailable") {
-    return unavailableExplorerData(snapshot.message);
+    return unavailableExplorerData(snapshot.message, transferData);
   }
 
   return buildExplorerData({
     quarterPrices: snapshot.prices,
     now,
     fetchedAt: snapshot.fetchedAt,
+    transferData,
   });
 }

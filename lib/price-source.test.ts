@@ -283,5 +283,6 @@ describe("ENTSO-E source adapter", () => {
     });
     expect(result.message).toMatch(/saatavilla|varmistaa/i);
     expect(result.uses).toHaveLength(10);
+    expect(result.transferData.municipalities).toHaveLength(108);
   });
 });

@@ -6,8 +6,9 @@ import type { IconName } from "./ui-icon";
 
 type ApplianceCardProps = {
   use: EverydayUse;
-  estimate: CostEstimate;
+  estimate: CostEstimate | null;
   costLabel?: string;
+  emptyMessage?: string;
 };
 
 const numberFormatter = new Intl.NumberFormat("fi-FI", {
@@ -34,7 +35,12 @@ const applianceIcons: Record<EverydayUse["id"], IconName> = {
   computer: "computer",
 };
 
-export function ApplianceCard({ use, estimate, costLabel }: ApplianceCardProps) {
+export function ApplianceCard({
+  use,
+  estimate,
+  costLabel,
+  emptyMessage,
+}: ApplianceCardProps) {
   const [assumptionOpen, setAssumptionOpen] = useState(false);
 
   return (
@@ -65,32 +71,48 @@ export function ApplianceCard({ use, estimate, costLabel }: ApplianceCardProps) 
         className="appliance-card__metrics"
         aria-label={`${use.name} kustannustiedot`}
       >
-        <div className="appliance-card__metric appliance-card__metric--cost">
-          <p className="appliance-card__metric-label">
-            {costLabel ?? "ARVIOITU KUSTANNUS SPOT-HINNALLA"}
-          </p>
-          <p className="appliance-card__cost mt-1 font-mono text-2xl font-semibold tracking-tight text-white">
-            {estimate.centsLabel}{" "}
-            <span className="text-sm font-normal text-slate-400">snt</span>
-          </p>
-          <p className="appliance-card__euro-value font-mono text-xs text-slate-500">
-            {estimate.eurosLabel} €
-          </p>
-        </div>
+        {estimate ? (
+          <>
+            <div className="appliance-card__metric appliance-card__metric--cost">
+              <p className="appliance-card__metric-label">
+                {costLabel ?? "ARVIOITU KUSTANNUS SPOT-HINNALLA"}
+              </p>
+              <p className="appliance-card__cost mt-1 font-mono text-2xl font-semibold tracking-tight text-white">
+                {estimate.centsLabel}{" "}
+                <span className="text-sm font-normal text-slate-400">snt</span>
+              </p>
+              <p className="appliance-card__euro-value font-mono text-xs text-slate-500">
+                {estimate.eurosLabel} €
+              </p>
+            </div>
 
-        {estimate.comparison ? (
-          <div className="appliance-card__metric appliance-card__metric--saving">
-            <p className="appliance-card__metric-label appliance-card__metric-label--saving">
-              Säästät
+            {estimate.comparison ? (
+              <div className="appliance-card__metric appliance-card__metric--saving">
+                <p className="appliance-card__metric-label appliance-card__metric-label--saving">
+                  Säästät
+                </p>
+                <p className="appliance-card__saving mt-1 font-mono text-base font-semibold text-emerald-300">
+                  {estimate.comparison.title.replace(/^Säästät\s+/, "")}
+                </p>
+                <p className="appliance-card__metric-detail mt-1 text-xs leading-4 text-slate-500">
+                  {estimate.comparison.detail}
+                </p>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <div className="appliance-card__metric appliance-card__metric--cost">
+            <p className="appliance-card__metric-label">
+              {costLabel ?? "ARVIOITU KUSTANNUS SPOT-HINNALLA"}
             </p>
-            <p className="appliance-card__saving mt-1 font-mono text-base font-semibold text-emerald-300">
-              {estimate.comparison.title.replace(/^Säästät\s+/, "")}
+            <p className="appliance-card__cost mt-1 font-mono text-2xl font-semibold tracking-tight text-slate-500">
+              —
             </p>
             <p className="appliance-card__metric-detail mt-1 text-xs leading-4 text-slate-500">
-              {estimate.comparison.detail}
+              {emptyMessage ?? "Valitse kunta ja verkkoyhtiö"}
             </p>
           </div>
-        ) : null}
+        )}
       </div>
 
       <button
