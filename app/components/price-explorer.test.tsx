@@ -11,7 +11,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { EVERYDAY_USES } from "../../lib/appliances";
 import { PriceExplorer } from "./price-explorer";
-import type { ExplorerData, PricePoint } from "@/lib/price-types";
+import {
+  EXPLORER_SOURCE,
+  type ExplorerData,
+  type PricePoint,
+} from "../../lib/price-types";
 
 const storage = new Map<string, string>();
 const localStorageMock = {
@@ -56,12 +60,7 @@ const cheapestPoint: PricePoint = {
 
 const data: ExplorerData = {
   fetchedAt: "2026-08-22T10:00:00.000Z",
-  source: {
-    name: "Pörssisähkö.net",
-    pricesUrl: "https://porssisahko.net/",
-    apiUrl: "https://api.porssisahko.net/v2/latest-prices.json",
-    documentationUrl: "https://porssisahko.net/api",
-  },
+  source: EXPLORER_SOURCE,
   currentQuarterId: expensivePoint.id,
   currentHourId: expensivePoint.id,
   today: {
@@ -462,6 +461,30 @@ it("defaults to today's calendar-day horizon", () => {
   expect(screen.getByRole("button", { name: "Huomenna" })).toBeTruthy();
 });
 
+it("shows carried-forward markers only in the 15-minute chart", async () => {
+  const user = userEvent.setup();
+  const dataWithCarriedPoint: ExplorerData = {
+    ...data,
+    today: {
+      hourly: data.today.hourly,
+      quarterHour: [
+        { ...expensivePoint, carriedForward: true },
+        cheapestPoint,
+      ],
+    },
+  };
+
+  render(<PriceExplorer data={dataWithCarriedPoint} />);
+
+  expect(document.querySelector(".price-chart__bar--carried")).toBeNull();
+
+  await user.click(
+    screen.getByRole("button", { name: "15 minuutin tarkkuus" }),
+  );
+
+  expect(document.querySelector(".price-chart__bar--carried")).not.toBeNull();
+});
+
 it("shows the current-time line only on today's horizon", async () => {
   vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-08-22T10:30:00.000Z"));
   const user = userEvent.setup();
@@ -628,9 +651,12 @@ it("shows natural Finnish copy in the calculation and source explanations", asyn
   await user.click(screen.getByRole("button", { name: "Tietolähde" }));
   const sourceDialog = screen.getByRole("dialog");
   expect(sourceDialog.textContent).toContain(
-    "uusimpia Suomen alueen spot-hintoja 15 minuutin tarkkuudella",
+    "ENTSO-E:n uusimpia Suomen tarjousalueen spot-hintoja 15 minuutin tarkkuudella",
   );
   expect(sourceDialog.textContent).toContain(
-    "eikä täydennä puuttuvia hintoja vanhoilla arvoilla.",
+    "Suomen yleisen 25,5 %:n arvonlisäveron",
+  );
+  expect(sourceDialog.textContent).toContain(
+    "Puuttuvan hinnan tilalla käytetään 15 minuutin näkymässä viimeisintä saatavilla olevaa hintaa",
   );
 });

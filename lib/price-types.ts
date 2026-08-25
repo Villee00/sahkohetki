@@ -17,6 +17,7 @@ export type QuarterPrice = {
   startAt: string;
   endAt: string;
   priceCentsPerKwh: number;
+  carriedForward?: boolean;
 };
 
 export type CostComparison = {
@@ -39,6 +40,7 @@ export type PricePoint = {
   label: string;
   priceCentsPerKwh: number | null;
   available: boolean;
+  carriedForward?: boolean;
   unavailableReason?: "missing-quarter" | "source-gap";
   level?: PriceLevel;
   estimates?: Record<EverydayUseId, CostEstimate>;
@@ -54,6 +56,14 @@ export type ExplorerSource = {
   pricesUrl: string;
   apiUrl: string;
   documentationUrl: string;
+};
+
+export const EXPLORER_SOURCE: ExplorerSource = {
+  name: "ENTSO-E",
+  pricesUrl: "https://transparency.entsoe.eu/",
+  apiUrl: "https://web-api.tp.entsoe.eu/api",
+  documentationUrl:
+    "https://transparency.entsoe.eu/content/static_content/download?path=%2FStatic+content%2Fweb+api%2FRestfulAPI_IG.pdf",
 };
 
 export type ExplorerData = {

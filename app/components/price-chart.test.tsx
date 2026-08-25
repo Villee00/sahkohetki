@@ -51,6 +51,12 @@ const nextHourPoint = {
   label: "14:00–15:00",
 };
 
+const carriedPoint = {
+  ...point,
+  id: "quarter-carried",
+  carriedForward: true,
+};
+
 it("lets a keyboard-accessible chart button select an available interval", async () => {
   const user = userEvent.setup();
   const onSelect = vi.fn();
@@ -92,6 +98,38 @@ it("shows the price tooltip when an interval receives keyboard focus", async () 
   await user.tab();
 
   expect(screen.getByRole("tooltip").textContent).toContain("4,50 snt/kWh");
+});
+
+it("marks carried-forward prices only when the quarter-hour marker is enabled", () => {
+  const { rerender } = render(
+    <PriceChart
+      points={[carriedPoint]}
+      selectedId={carriedPoint.id}
+      onSelect={vi.fn()}
+      showCarriedForwardMarker
+    />,
+  );
+
+  expect(
+    screen
+      .getByRole("button", { name: /täydennetty viimeisimmällä julkaistulla hinnalla/ })
+      .querySelector(".price-chart__bar")
+      ?.classList.contains("price-chart__bar--carried"),
+  ).toBe(true);
+  expect(screen.getByText("Viivoitettu")).toBeTruthy();
+
+  rerender(
+    <PriceChart
+      points={[carriedPoint]}
+      selectedId={carriedPoint.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  expect(
+    document.querySelector(".price-chart__bar--carried"),
+  ).toBeNull();
+  expect(screen.queryByText("Viivoitettu")).toBeNull();
 });
 
 it("keeps hover presentation dominant while selecting a different interval", async () => {

@@ -723,6 +723,16 @@ button:disabled {
   box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.24), 0 0 16px rgba(56, 189, 248, 0.18);
 }
 
+.price-chart__bar--carried {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.44) 0,
+    rgba(248, 250, 252, 0.44) 2px,
+    transparent 2px,
+    transparent 6px
+  ) !important;
+}
+
 .price-chart__bar--hovered {
   filter: brightness(1.12) saturate(1.08);
   box-shadow:
@@ -818,6 +828,15 @@ button:disabled {
   font-size: 0.56rem;
   font-weight: 600;
   letter-spacing: 0;
+}
+
+.price-chart__tooltip-note {
+  max-width: 13rem;
+  color: #cbd5e1;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.58rem;
+  line-height: 1.25;
+  white-space: normal;
 }
 
 .price-chart__item:first-child .price-chart__tooltip {
@@ -963,6 +982,25 @@ button:disabled {
 
 .price-chart__legend-name--high {
   color: #f87171;
+}
+
+.price-chart__legend-swatch--carried {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 0.18rem;
+  background-color: #64748b;
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.64) 0,
+    rgba(248, 250, 252, 0.64) 2px,
+    transparent 2px,
+    transparent 6px
+  );
+  box-shadow: 0 0 8px rgba(148, 163, 184, 0.42);
+}
+
+.price-chart__legend-name--carried {
+  color: #cbd5e1;
 }
 
 .price-chart__legend-detail {

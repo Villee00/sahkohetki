@@ -6,99 +6,58 @@ import {
   classifyPriceLevels,
   deriveHourlyPoint,
   findCheapestPoint,
-  parsePricePayload,
 } from "./price-domain";
+import type { QuarterPrice } from "./price-types";
 
-const completeHour = [
-  { price: 10, startDate: "2026-08-22T10:00:00.000Z", endDate: "2026-08-22T10:15:00.000Z" },
-  { price: 12, startDate: "2026-08-22T10:15:00.000Z", endDate: "2026-08-22T10:30:00.000Z" },
-  { price: 14, startDate: "2026-08-22T10:30:00.000Z", endDate: "2026-08-22T10:45:00.000Z" },
-  { price: 16, startDate: "2026-08-22T10:45:00.000Z", endDate: "2026-08-22T11:00:00.000Z" },
+const completeHour: QuarterPrice[] = [
+  {
+    id: "q1",
+    priceCentsPerKwh: 10,
+    startAt: "2026-08-22T10:00:00.000Z",
+    endAt: "2026-08-22T10:15:00.000Z",
+  },
+  {
+    id: "q2",
+    priceCentsPerKwh: 12,
+    startAt: "2026-08-22T10:15:00.000Z",
+    endAt: "2026-08-22T10:30:00.000Z",
+  },
+  {
+    id: "q3",
+    priceCentsPerKwh: 14,
+    startAt: "2026-08-22T10:30:00.000Z",
+    endAt: "2026-08-22T10:45:00.000Z",
+  },
+  {
+    id: "q4",
+    priceCentsPerKwh: 16,
+    startAt: "2026-08-22T10:45:00.000Z",
+    endAt: "2026-08-22T11:00:00.000Z",
+  },
 ];
 
 describe("price domain", () => {
-  it("accepts a valid API payload and preserves quarter-hour precision", () => {
-    const result = parsePricePayload({ prices: completeHour });
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error(result.message);
-    expect(result.prices).toHaveLength(4);
-    expect(result.prices[0]).toMatchObject({
-      priceCentsPerKwh: 10,
-      startAt: "2026-08-22T10:00:00.000Z",
-      endAt: "2026-08-22T10:15:00.000Z",
-    });
-    expect(result.prices[3]).toMatchObject({ priceCentsPerKwh: 16 });
-  });
-
-  it("accepts the source's 899999ms quarter and normalizes its endAt", () => {
-    const result = parsePricePayload({
-      prices: [
-        {
-          ...completeHour[0],
-          endDate: "2026-08-22T10:14:59.999Z",
-        },
-      ],
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error(result.message);
-    expect(result.prices[0]).toMatchObject({
-      startAt: "2026-08-22T10:00:00.000Z",
-      endAt: "2026-08-22T10:15:00.000Z",
-      priceCentsPerKwh: 10,
-    });
-  });
-
-  it("rejects malformed or non-finite source data", () => {
-    expect(parsePricePayload({ prices: [{ price: "10" }] }).ok).toBe(false);
-    expect(parsePricePayload({ prices: [{ ...completeHour[0], price: Number.NaN }] }).ok).toBe(false);
-    expect(parsePricePayload({ prices: [] }).ok).toBe(false);
-  });
-
-  it("rejects other durations and malformed timestamps", () => {
-    expect(
-      parsePricePayload({
-        prices: [{ ...completeHour[0], endDate: "2026-08-22T10:14:59.998Z" }],
-      }).ok,
-    ).toBe(false);
-    expect(
-      parsePricePayload({
-        prices: [{ ...completeHour[0], endDate: "2026-08-22T10:15:00.001Z" }],
-      }).ok,
-    ).toBe(false);
-    expect(
-      parsePricePayload({
-        prices: [{ ...completeHour[0], endDate: "not-an-iso-timestamp" }],
-      }).ok,
-    ).toBe(false);
-  });
-
   it("averages all four quarters and marks a missing quarter unavailable", () => {
-    const parsed = parsePricePayload({ prices: completeHour });
-    if (!parsed.ok) throw new Error(parsed.message);
-    expect(deriveHourlyPoint(parsed.prices, "2026-08-22T10:00:00.000Z")).toMatchObject({
+    expect(deriveHourlyPoint(completeHour, "2026-08-22T10:00:00.000Z")).toMatchObject({
       available: true,
       priceCentsPerKwh: 13,
     });
     expect(
-      deriveHourlyPoint(parsed.prices.slice(0, 3), "2026-08-22T10:00:00.000Z"),
+      deriveHourlyPoint(completeHour.slice(0, 3), "2026-08-22T10:00:00.000Z"),
     ).toMatchObject({ available: false, unavailableReason: "missing-quarter" });
   });
 
   it("labels hourly points with the Europe/Helsinki interval", () => {
-    const parsed = parsePricePayload({ prices: completeHour });
-    if (!parsed.ok) throw new Error(parsed.message);
-    expect(deriveHourlyPoint(parsed.prices, "2026-08-22T10:00:00.000Z").label).toBe(
+    expect(deriveHourlyPoint(completeHour, "2026-08-22T10:00:00.000Z").label).toBe(
       "13:00–14:00",
     );
     expect(
-      deriveHourlyPoint(parsed.prices.slice(0, 3), "2026-08-22T10:00:00.000Z").label,
+      deriveHourlyPoint(completeHour.slice(0, 3), "2026-08-22T10:00:00.000Z").label,
     ).toBe("13:00–14:00");
   });
 
   it("marks an hourly point unavailable when a matched quarter has a non-finite price", () => {
-    const parsed = parsePricePayload({ prices: completeHour });
-    if (!parsed.ok) throw new Error(parsed.message);
-    const malformed = parsed.prices.map((quarter, index) =>
+    const malformed = completeHour.map((quarter, index) =>
       index === 1 ? { ...quarter, priceCentsPerKwh: Number.NaN } : quarter,
     );
     expect(deriveHourlyPoint(malformed, "2026-08-22T10:00:00.000Z")).toMatchObject({
@@ -106,7 +65,7 @@ describe("price domain", () => {
       priceCentsPerKwh: null,
       unavailableReason: "missing-quarter",
     });
-    const unparsable = parsed.prices.map((quarter, index) =>
+    const unparsable = completeHour.map((quarter, index) =>
       index === 2 ? { ...quarter, endAt: "not-an-iso-timestamp" } : quarter,
     );
     expect(deriveHourlyPoint(unparsable, "2026-08-22T10:00:00.000Z")).toMatchObject({
@@ -117,9 +76,7 @@ describe("price domain", () => {
   });
 
   it("marks an hourly point unavailable when a matched quarter has an invalid interval", () => {
-    const parsed = parsePricePayload({ prices: completeHour });
-    if (!parsed.ok) throw new Error(parsed.message);
-    const malformed = parsed.prices.map((quarter, index) =>
+    const malformed = completeHour.map((quarter, index) =>
       index === 2
         ? { ...quarter, endAt: "2026-08-22T10:50:00.000Z" }
         : quarter,
