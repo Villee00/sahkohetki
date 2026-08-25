@@ -66,6 +66,37 @@ export const EXPLORER_SOURCE: ExplorerSource = {
     "https://transparency.entsoe.eu/content/static_content/download?path=%2FStatic+content%2Fweb+api%2FRestfulAPI_IG.pdf",
 };
 
+export type TransferTariff = {
+  id: string;
+  operatorName: string;
+  monthlyFixedFeeEur: number | null;
+  energyChargeCentsPerKwh: number | null;
+  priceAvailable: boolean;
+  tariffName: string;
+  tariffStatus: string;
+  tariffSnapshotCreatedAt: string;
+  tariffSourceUrl: string | null;
+  notes: string;
+};
+
+export type MunicipalityTransfer = {
+  municipalityCode: string;
+  city: string;
+  designation: string;
+  operators: readonly TransferTariff[];
+};
+
+export type ElectricityTax = {
+  centsPerKwhVatIncluded: number;
+  effectiveFrom: string;
+  sourceUrl: string;
+};
+
+export type TransferData = {
+  municipalities: readonly MunicipalityTransfer[];
+  electricityTax: ElectricityTax;
+};
+
 export type ExplorerData = {
   fetchedAt: string | null;
   source: ExplorerSource;
@@ -74,6 +105,7 @@ export type ExplorerData = {
   today: HorizonPoints;
   tomorrow: HorizonPoints;
   uses: readonly EverydayUse[];
+  transferData: TransferData;
   status: "ready" | "unavailable";
   message?: string;
 };

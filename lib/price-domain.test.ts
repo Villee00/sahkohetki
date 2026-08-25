@@ -3,6 +3,7 @@ import {
   buildExplorerData,
   applyPriceMargin,
   calculateUseCost,
+  calculateUseCostWithTransfer,
   classifyPriceLevels,
   deriveHourlyPoint,
   findCheapestPoint,
@@ -100,6 +101,15 @@ describe("price domain", () => {
       euros: 0.012,
       centsLabel: "1.20",
       eurosLabel: "0.01",
+    });
+  });
+
+  it("adds the selected transfer charge and household electricity tax to one use", () => {
+    expect(calculateUseCostWithTransfer(0.15, 12, 3.73, 2.917875)).toMatchObject({
+      cents: 2.79718125,
+      euros: 0.0279718125,
+      centsLabel: "2.80",
+      eurosLabel: "0.03",
     });
   });
 
