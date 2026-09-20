@@ -35,7 +35,11 @@ function dayIntervals(
   const end = Date.parse(bounds.endAt);
   const step = resolution * 60 * 1000;
   const values: MarketPriceInterval[] = [];
-  for (let instant = start, index = 0; instant < end; instant += step, index += 1) {
+  for (
+    let instant = start, index = 0;
+    instant < end;
+    instant += step, index += 1
+  ) {
     values.push(
       interval(
         instant,
@@ -128,9 +132,35 @@ describe("historical price analytics", () => {
     ]);
   });
 
+  it("keeps unavailable dates at the start of the requested range visible as gaps", () => {
+    const data = buildHistoryPageData({
+      intervals: dayIntervals("2026-02-03", 20),
+      throughDateKey: "2026-02-03",
+      fetchedAt: null,
+      status: "partial",
+      requestedRange: {
+        startDateKey: "2026-02-01",
+        endDateKey: "2026-02-03",
+      },
+      missingRanges: [
+        {
+          startDateKey: "2026-02-01",
+          endDateKey: "2026-02-02",
+          reason: "request",
+        },
+      ],
+    });
+
+    expect(data.days).toEqual([
+      expect.objectContaining({ dateKey: "2026-02-01", complete: false }),
+      expect.objectContaining({ dateKey: "2026-02-02", complete: false }),
+      expect.objectContaining({ dateKey: "2026-02-03", complete: true }),
+    ]);
+  });
+
   it("links preceding calendar periods across year boundaries", () => {
-    const intervals = dateKeys("2025-12-01", "2026-01-31").flatMap(
-      (dateKey) => dayIntervals(dateKey, dateKey.startsWith("2025") ? 20 : 40),
+    const intervals = dateKeys("2025-12-01", "2026-01-31").flatMap((dateKey) =>
+      dayIntervals(dateKey, dateKey.startsWith("2025") ? 20 : 40),
     );
 
     const data = buildHistoryPageData({
@@ -140,10 +170,12 @@ describe("historical price analytics", () => {
     });
 
     expect(data.periods.day.at(-1)?.previousId).toBe("day:2026-01-30");
-    expect(data.periods.week.find((period) => period.id === "week:2026-01-05"))
-      .toMatchObject({ previousId: "week:2025-12-29" });
-    expect(data.periods.month.find((period) => period.id === "month:2026-01"))
-      .toMatchObject({ previousId: "month:2025-12" });
+    expect(
+      data.periods.week.find((period) => period.id === "week:2026-01-05"),
+    ).toMatchObject({ previousId: "week:2025-12-29" });
+    expect(
+      data.periods.month.find((period) => period.id === "month:2026-01"),
+    ).toMatchObject({ previousId: "month:2025-12" });
   });
 
   it("calculates percentile distributions and ranks from complete aligned periods", () => {
@@ -164,14 +196,11 @@ describe("historical price analytics", () => {
       p75: 32.5,
       p90: 37,
     });
-    expect(data.periods.day.map((period) => period.percentileRank.raw)).toEqual([
-      25, 50, 75, 100,
-    ]);
-    expect(data.periods.day.map((period) => period.percentileBand.raw)).toEqual([
-      "low",
-      "typical",
-      "high",
-      "very-high",
-    ]);
+    expect(data.periods.day.map((period) => period.percentileRank.raw)).toEqual(
+      [25, 50, 75, 100],
+    );
+    expect(data.periods.day.map((period) => period.percentileBand.raw)).toEqual(
+      ["low", "typical", "high", "very-high"],
+    );
   });
 });

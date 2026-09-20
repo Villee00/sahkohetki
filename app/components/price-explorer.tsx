@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, MouseEvent as ReactMouseEvent } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
 import { Icon } from "./ui-icon";
@@ -121,16 +122,15 @@ function getTransferUseEstimate(
   tariff: TransferCostTariff | null,
   electricityTaxCentsPerKwh: number,
 ): CostEstimate | null {
-  if (
-    !point ||
-    !point.available ||
-    point.priceCentsPerKwh === null
-  ) {
+  if (!point || !point.available || point.priceCentsPerKwh === null) {
     return null;
   }
 
   if (!tariff) return point.estimates?.[use.id] ?? null;
-  if (!tariff.priceAvailable || tariff.transferEnergyChargeCentsPerKwh === null) {
+  if (
+    !tariff.priceAvailable ||
+    tariff.transferEnergyChargeCentsPerKwh === null
+  ) {
     return null;
   }
 
@@ -160,7 +160,8 @@ function parseSavedTransferSelection(
       return null;
     }
     return {
-      municipalityCode: (parsed as { municipalityCode: string }).municipalityCode,
+      municipalityCode: (parsed as { municipalityCode: string })
+        .municipalityCode,
       operatorId: (parsed as { operatorId: string }).operatorId,
     };
   } catch {
@@ -537,9 +538,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     );
     setSelectedMunicipalityCode(municipalityCode);
     setSelectedOperatorId(
-      municipality?.operators.length === 1
-        ? municipality.operators[0].id
-        : "",
+      municipality?.operators.length === 1 ? municipality.operators[0].id : "",
     );
   };
 
@@ -849,6 +848,12 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               aria-label="Lisätietoja"
               className="flex items-center gap-0.5 sm:gap-1"
             >
+              <Link
+                href="/historia"
+                className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white sm:px-3"
+              >
+                Historia
+              </Link>
               <button
                 type="button"
                 aria-label="Miten laskemme?"
@@ -1185,8 +1190,8 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           näytettäessä kahteen desimaaliin.
         </p>
         <p>
-          Kuukausittaista perusmaksua ei kohdisteta yksittäiseen käyttöön,
-          vaan se näytetään valitun tariffin tiedoissa.{" "}
+          Kuukausittaista perusmaksua ei kohdisteta yksittäiseen käyttöön, vaan
+          se näytetään valitun tariffin tiedoissa.{" "}
           {priceMargin > 0
             ? "Asetettu " +
               formatPrice(priceMargin) +
@@ -1205,8 +1210,8 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
       >
         <p>
           Sähköhetki käyttää ENTSO-E:n uusimpia Suomen tarjousalueen
-          spot-hintoja 15 minuutin tarkkuudella. Näytetty hinta sisältää
-          Suomen yleisen 25,5 %:n arvonlisäveron.{" "}
+          spot-hintoja 15 minuutin tarkkuudella. Näytetty hinta sisältää Suomen
+          yleisen 25,5 %:n arvonlisäveron.{" "}
           {priceMargin > 0
             ? "Näytettyihin hintoihin on lisätty " +
               formatPrice(priceMargin) +

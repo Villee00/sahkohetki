@@ -34,7 +34,10 @@ type RangeSummary = {
 
 function parseDateKey(dateKey: string): Date {
   const date = new Date(`${dateKey}T00:00:00.000Z`);
-  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== dateKey) {
+  if (
+    !Number.isFinite(date.getTime()) ||
+    date.toISOString().slice(0, 10) !== dateKey
+  ) {
     throw new RangeError(`Invalid date key: ${dateKey}`);
   }
   return date;
@@ -161,7 +164,10 @@ function summarizeRange(
   };
 }
 
-function percentile(sortedValues: readonly number[], percentileValue: number): number | null {
+function percentile(
+  sortedValues: readonly number[],
+  percentileValue: number,
+): number | null {
   if (sortedValues.length === 0) return null;
   const index = (sortedValues.length - 1) * percentileValue;
   const lower = Math.floor(index);
@@ -230,9 +236,7 @@ function periodSummary(
   };
 }
 
-function attachPercentiles(
-  periods: HistoryPeriodSummary[],
-): {
+function attachPercentiles(periods: HistoryPeriodSummary[]): {
   periods: HistoryPeriodSummary[];
   rawEurPerMwh: PercentileDistribution;
   householdCentsPerKwh: PercentileDistribution;
@@ -250,7 +254,9 @@ function attachPercentiles(
       );
       return {
         ...period,
-        previousId: periods.some((candidate) => candidate.id === period.previousId)
+        previousId: periods.some(
+          (candidate) => candidate.id === period.previousId,
+        )
           ? period.previousId
           : null,
         percentileRank: { raw: rawRank, household: householdRank },
@@ -280,8 +286,12 @@ export function buildHistoryPageData({
   const firstDateKey = sortedIntervals[0]
     ? getHelsinkiDateKey(sortedIntervals[0].startAt)
     : null;
-  const days: HistoryDayCell[] = firstDateKey
-    ? dateRange(firstDateKey, throughDateKey).map((dateKey) => {
+  const calendarStartDateKey =
+    status === "unavailable"
+      ? null
+      : (requestedRange?.startDateKey ?? firstDateKey);
+  const days: HistoryDayCell[] = calendarStartDateKey
+    ? dateRange(calendarStartDateKey, throughDateKey).map((dateKey) => {
         const bounds = getHelsinkiDateBounds(dateKey);
         const start = Date.parse(bounds.startAt);
         const end = Date.parse(bounds.endAt);
@@ -309,7 +319,9 @@ export function buildHistoryPageData({
     return summary ? [summary] : [];
   });
 
-  const weekStarts = [...new Set(days.map((day) => firstDateOfIsoWeek(day.dateKey)))];
+  const weekStarts = [
+    ...new Set(days.map((day) => firstDateOfIsoWeek(day.dateKey))),
+  ];
   const weekPeriods = weekStarts.flatMap((startDateKey) => {
     const endDateKey = addDays(startDateKey, 6);
     if (endDateKey > throughDateKey) return [];

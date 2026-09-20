@@ -145,9 +145,9 @@ async function requestMonthPage(
       ? "no-data"
       : parsed.reason === "too-many-documents"
         ? "too-many-documents"
-      : parsed.reason === "schema"
-        ? "schema"
-        : "acknowledgement";
+        : parsed.reason === "schema"
+          ? "schema"
+          : "acknowledgement";
   return unavailable(
     reason,
     reason === "no-data"
@@ -171,10 +171,7 @@ export async function fetchHistoryMonth(
   }
 
   const first = await requestMonthPage(monthKey, token, fetchImpl);
-  if (
-    first.status === "unavailable" &&
-    first.reason !== "too-many-documents"
-  ) {
+  if (first.status === "unavailable" && first.reason !== "too-many-documents") {
     return first;
   }
   if (first.status === "ready") {
@@ -200,11 +197,17 @@ export async function fetchHistoryMonth(
     pages.push(...result.intervals);
   }
   if (pages.length === 0) {
-    return unavailable("schema", "Historiatietojen sivutus ei palauttanut tietoja.");
+    return unavailable(
+      "schema",
+      "Historiatietojen sivutus ei palauttanut tietoja.",
+    );
   }
   const merged = mergeMarketPriceIntervals(pages);
   if (merged.status === "unavailable") {
-    return unavailable("schema", "Historiatietojen päällekkäisyyksiä ei voitu ratkaista.");
+    return unavailable(
+      "schema",
+      "Historiatietojen päällekkäisyyksiä ei voitu ratkaista.",
+    );
   }
   return {
     status: "ready",
@@ -273,9 +276,7 @@ export async function getHistoricalPrices(
       intervals: [],
       fetchedAt: null,
       requestedRange: context.requestedRange,
-      missingRanges: [
-        { ...context.requestedRange, reason: "configuration" },
-      ],
+      missingRanges: [{ ...context.requestedRange, reason: "configuration" }],
       reason: "configuration",
       message:
         "Historiatietoja ei voitu hakea, koska lähteen käyttöoikeus puuttuu.",
@@ -295,7 +296,11 @@ export async function getHistoricalPrices(
       ? [
           {
             startDateKey: `${context.monthKeys[index]}-01`,
-            endDateKey: lastDateOfMonth(context.monthKeys[index]),
+            endDateKey:
+              lastDateOfMonth(context.monthKeys[index]) <
+              context.requestedRange.endDateKey
+                ? lastDateOfMonth(context.monthKeys[index])
+                : context.requestedRange.endDateKey,
             reason: result.reason,
           },
         ]
@@ -306,7 +311,9 @@ export async function getHistoricalPrices(
   );
   if (candidates.length === 0) {
     const firstFailure = results.find(
-      (result): result is Extract<HistoryMonthResult, { status: "unavailable" }> =>
+      (
+        result,
+      ): result is Extract<HistoryMonthResult, { status: "unavailable" }> =>
         result.status === "unavailable",
     );
     return {

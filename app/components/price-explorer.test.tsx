@@ -322,9 +322,9 @@ it("keeps the spot estimate until a DSO is chosen", async () => {
   expect((operatorSelect as HTMLSelectElement).value).toBe("");
   expect((operatorSelect as HTMLSelectElement).disabled).toBe(false);
 
-  const coffeeCard = screen.getByRole("heading", { name: "Kahvinkeitin" }).closest(
-    "article",
-  );
+  const coffeeCard = screen
+    .getByRole("heading", { name: "Kahvinkeitin" })
+    .closest("article");
   expect(coffeeCard?.textContent).toContain("ARVIOITU KUSTANNUS SPOT-HINNALLA");
   expect(coffeeCard?.textContent).toContain("1.80");
 
@@ -398,9 +398,9 @@ it("renders the canonical combined transfer charge from the API DTO", async () =
 it("shows the selected spot-price estimate before transfer details are selected", () => {
   render(<PriceExplorer data={dataWithTransferData} />);
 
-  const coffeeCard = screen.getByRole("heading", { name: "Kahvinkeitin" }).closest(
-    "article",
-  );
+  const coffeeCard = screen
+    .getByRole("heading", { name: "Kahvinkeitin" })
+    .closest("article");
 
   expect(coffeeCard?.textContent).toContain("ARVIOITU KUSTANNUS SPOT-HINNALLA");
   expect(coffeeCard?.textContent).toContain("1.80");
@@ -443,15 +443,19 @@ it("selects the municipality returned by the location lookup", async () => {
 
   await waitFor(() => {
     expect(
-      (within(dialog).getByRole("combobox", {
-        name: "Kunta",
-      }) as HTMLSelectElement).value,
+      (
+        within(dialog).getByRole("combobox", {
+          name: "Kunta",
+        }) as HTMLSelectElement
+      ).value,
     ).toBe("240");
   });
   expect(
-    (within(dialog).getByRole("combobox", {
-      name: "Sähköverkkoyhtiö",
-    }) as HTMLSelectElement).value,
+    (
+      within(dialog).getByRole("combobox", {
+        name: "Sähköverkkoyhtiö",
+      }) as HTMLSelectElement
+    ).value,
   ).toBe("");
   expect(screen.getByRole("status").textContent).toContain("Kemi");
   expect(getCurrentPosition).toHaveBeenCalledOnce();
@@ -469,9 +473,7 @@ it("shows a Finnish retry message when location lookup fails", async () => {
   Object.defineProperty(navigator, "geolocation", {
     configurable: true,
     value: {
-      getCurrentPosition: (
-        success: (position: GeolocationPosition) => void,
-      ) =>
+      getCurrentPosition: (success: (position: GeolocationPosition) => void) =>
         success({
           coords: {
             latitude: 65.736,
@@ -512,9 +514,9 @@ it("restores a saved municipality and DSO selection", async () => {
     within(firstDialog).getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
     "240:Kemin Energia ja Vesi Oy",
   );
-  expect(window.localStorage.getItem("sahkohetki.transfer-selection")).toContain(
-    "Kemin Energia ja Vesi Oy",
-  );
+  expect(
+    window.localStorage.getItem("sahkohetki.transfer-selection"),
+  ).toContain("Kemin Energia ja Vesi Oy");
 
   firstRender.unmount();
   render(<PriceExplorer data={dataWithTransferData} />);
@@ -525,14 +527,18 @@ it("restores a saved municipality and DSO selection", async () => {
 
   await waitFor(() => {
     expect(
-      (within(restoredDialog).getByRole("combobox", {
-        name: "Kunta",
-      }) as HTMLSelectElement).value,
+      (
+        within(restoredDialog).getByRole("combobox", {
+          name: "Kunta",
+        }) as HTMLSelectElement
+      ).value,
     ).toBe("240");
     expect(
-      (within(restoredDialog).getByRole("combobox", {
-        name: "Sähköverkkoyhtiö",
-      }) as HTMLSelectElement).value,
+      (
+        within(restoredDialog).getByRole("combobox", {
+          name: "Sähköverkkoyhtiö",
+        }) as HTMLSelectElement
+      ).value,
     ).toBe("240:Kemin Energia ja Vesi Oy");
   });
 });
@@ -573,9 +579,11 @@ it("automatically selects the only operator for a municipality", async () => {
   );
 
   expect(
-    (within(dialog).getByRole("combobox", {
-      name: "Sähköverkkoyhtiö",
-    }) as HTMLSelectElement).value,
+    (
+      within(dialog).getByRole("combobox", {
+        name: "Sähköverkkoyhtiö",
+      }) as HTMLSelectElement
+    ).value,
   ).toBe("564:Oulun Energia Sähköverkko Oy");
   expect(
     within(dialog).getByRole("group", {
@@ -882,10 +890,7 @@ it("shows carried-forward markers only in the 15-minute chart", async () => {
     ...data,
     today: {
       hourly: data.today.hourly,
-      quarterHour: [
-        { ...expensivePoint, carriedForward: true },
-        cheapestPoint,
-      ],
+      quarterHour: [{ ...expensivePoint, carriedForward: true }, cheapestPoint],
     },
   };
 
@@ -1074,4 +1079,12 @@ it("shows natural Finnish copy in the calculation and source explanations", asyn
   expect(sourceDialog.textContent).toContain(
     "Puuttuvan hinnan tilalla käytetään 15 minuutin näkymässä viimeisintä saatavilla olevaa hintaa",
   );
+});
+
+it("links the live explorer to the history page", () => {
+  render(<PriceExplorer data={data} />);
+
+  expect(
+    screen.getByRole("link", { name: "Historia" }).getAttribute("href"),
+  ).toBe("/historia");
 });
