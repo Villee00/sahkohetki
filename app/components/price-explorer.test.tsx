@@ -69,6 +69,14 @@ const data: ExplorerData = {
   },
   tomorrow: { hourly: [], quarterHour: [] },
   uses: [],
+  transferData: {
+    municipalities: [],
+    electricityTax: {
+      centsPerKwhVatIncluded: 2.917875,
+      effectiveFrom: "2026-04-01",
+      sourceUrl: "https://www.vero.fi/",
+    },
+  },
   status: "ready",
 };
 
@@ -76,6 +84,71 @@ const dataWithUses: ExplorerData = {
   ...data,
   uses: EVERYDAY_USES,
 };
+
+const transferDataFixture = {
+  municipalities: [
+    {
+      municipalityCode: "240",
+      city: "Kemi",
+      designation: "kaupunki",
+      operators: [
+        {
+          id: "240:Kemin Energia ja Vesi Oy",
+          operatorName: "Kemin Energia ja Vesi Oy",
+          monthlyFixedFeeEur: 10.1,
+          energyChargeCentsPerKwh: 3.73,
+          priceAvailable: true,
+          tariffName: "Yleissiirto / general-transfer",
+          tariffStatus: "matched",
+          tariffSnapshotCreatedAt: "2026-05-04",
+          tariffSourceUrl: "https://example.test/kemi.pdf",
+          notes: "",
+        },
+        {
+          id: "240:Tenergia Oy",
+          operatorName: "Tenergia Oy",
+          monthlyFixedFeeEur: null,
+          energyChargeCentsPerKwh: null,
+          priceAvailable: false,
+          tariffName: "Yleissiirto / general-transfer",
+          tariffStatus: "not_in_snapshot",
+          tariffSnapshotCreatedAt: "2026-05-04",
+          tariffSourceUrl: null,
+          notes: "Price unavailable",
+        },
+      ],
+    },
+    {
+      municipalityCode: "564",
+      city: "Oulu",
+      designation: "kaupunki",
+      operators: [
+        {
+          id: "564:Oulun Energia Sähköverkko Oy",
+          operatorName: "Oulun Energia Sähköverkko Oy",
+          monthlyFixedFeeEur: 6.99,
+          energyChargeCentsPerKwh: 3.18,
+          priceAvailable: true,
+          tariffName: "Yleissiirto / general-transfer",
+          tariffStatus: "matched",
+          tariffSnapshotCreatedAt: "2026-05-04",
+          tariffSourceUrl: "https://example.test/oulu.pdf",
+          notes: "",
+        },
+      ],
+    },
+  ],
+  electricityTax: {
+    centsPerKwhVatIncluded: 2.917875,
+    effectiveFrom: "2026-04-01",
+    sourceUrl: "https://www.vero.fi/",
+  },
+};
+
+const dataWithTransferData = {
+  ...dataWithUses,
+  transferData: transferDataFixture,
+} as ExplorerData;
 
 function createCompleteTomorrowPoints(
   intervalMilliseconds: number,
@@ -153,13 +226,43 @@ it("keeps explanation controls explicitly named at every breakpoint", () => {
   expect(sourceButton.getAttribute("aria-label")).toBe("Tietolähde");
 });
 
-it("applies the supplier margin to displayed prices and appliance estimates", async () => {
+it("keeps transfer controls in the settings modal and opens it from the usage section", async () => {
   const user = userEvent.setup();
-  render(<PriceExplorer data={dataWithUses} />);
+  render(<PriceExplorer data={dataWithTransferData} />);
 
-  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  expect(screen.queryByRole("combobox", { name: "Kunta" })).toBeNull();
+
+  await user.click(
+    screen.getByRole("button", { name: "Lisää siirto + sähkövero" }),
+  );
 
   const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
+  expect(within(dialog).getByRole("combobox", { name: "Kunta" })).toBeTruthy();
+  expect(
+    within(dialog).getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+  ).toBeTruthy();
+  expect(
+    within(dialog).getByText(
+      "Lisää siirtomaksu ja sähkövero käyttökustannusarvioihin.",
+    ),
+  ).toBeTruthy();
+});
+
+it("applies the supplier margin to displayed prices and appliance estimates", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
+  await user.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Kunta" }),
+    "240",
+  );
+  await user.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+    "240:Kemin Energia ja Vesi Oy",
+  );
+
   const marginInput = within(dialog).getByLabelText("Sähköyhtiön marginaali");
   await user.clear(marginInput);
   await user.type(marginInput, "3");
@@ -173,13 +276,220 @@ it("applies the supplier margin to displayed prices and appliance estimates", as
   expect(
     screen.getByRole("heading", { name: "Kahvinkeitin" }).closest("article")
       ?.textContent,
-  ).toContain("2.25");
+  ).toContain("3.25");
   expect(
-    screen.getAllByText("ARVIOITU KUSTANNUS SPOT + MARGINAALI").length,
+    screen.getAllByText("ARVIOITU KUSTANNUS SÄHKÖ + SIIRTO + VERO").length,
   ).toBe(10);
   expect(
     screen.getByRole("button", {
       name: /Valitse aikaväli 13:00–14:00, hinta 15,00 senttiä kilowattitunnilta/,
+    }),
+  ).toBeTruthy();
+});
+
+it("requires a DSO choice before recalculating use examples", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
+  const municipalitySelect = within(dialog).getByRole("combobox", {
+    name: "Kunta",
+  });
+  const operatorSelect = within(dialog).getByRole("combobox", {
+    name: "Sähköverkkoyhtiö",
+  });
+
+  expect((operatorSelect as HTMLSelectElement).disabled).toBe(true);
+  await user.selectOptions(municipalitySelect, "240");
+  expect((operatorSelect as HTMLSelectElement).value).toBe("");
+  expect((operatorSelect as HTMLSelectElement).disabled).toBe(false);
+
+  const coffeeCard = screen.getByRole("heading", { name: "Kahvinkeitin" }).closest(
+    "article",
+  );
+  expect(coffeeCard?.textContent).toContain("Valitse verkkoyhtiö");
+
+  await user.selectOptions(operatorSelect, "240:Kemin Energia ja Vesi Oy");
+
+  expect(coffeeCard?.textContent).toContain("2.80");
+  expect(screen.getByText(/6[,.]65 snt\/kWh/)).toBeTruthy();
+  expect(screen.getByText(/10[,.]10 €\/kk/)).toBeTruthy();
+});
+
+it("selects the municipality returned by the location lookup", async () => {
+  const user = userEvent.setup();
+  const getCurrentPosition = vi.fn(
+    (success: (position: GeolocationPosition) => void) => {
+      success({
+        coords: {
+          latitude: 65.736,
+          longitude: 24.563,
+        } as GeolocationCoordinates,
+        timestamp: Date.now(),
+      } as GeolocationPosition);
+    },
+  );
+  Object.defineProperty(navigator, "geolocation", {
+    configurable: true,
+    value: { getCurrentPosition },
+  });
+  const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    ok: true,
+    json: async () => ({ municipalityCode: "240", municipalityName: "Kemi" }),
+  } as Response);
+
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
+  const locateButton = within(dialog).getByRole("button", {
+    name: "Paikanna minut",
+  });
+  expect(locateButton.getAttribute("aria-label")).toBe("Paikanna minut");
+  expect(locateButton.textContent).toBe("");
+
+  await user.click(locateButton);
+
+  await waitFor(() => {
+    expect(
+      (within(dialog).getByRole("combobox", {
+        name: "Kunta",
+      }) as HTMLSelectElement).value,
+    ).toBe("240");
+  });
+  expect(
+    (within(dialog).getByRole("combobox", {
+      name: "Sähköverkkoyhtiö",
+    }) as HTMLSelectElement).value,
+  ).toBe("");
+  expect(screen.getByRole("status").textContent).toContain("Kemi");
+  expect(getCurrentPosition).toHaveBeenCalledOnce();
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/api/municipality-by-location",
+    expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ latitude: 65.736, longitude: 24.563 }),
+    }),
+  );
+});
+
+it("shows a Finnish retry message when location lookup fails", async () => {
+  const user = userEvent.setup();
+  Object.defineProperty(navigator, "geolocation", {
+    configurable: true,
+    value: {
+      getCurrentPosition: (
+        success: (position: GeolocationPosition) => void,
+      ) =>
+        success({
+          coords: {
+            latitude: 65.736,
+            longitude: 24.563,
+          } as GeolocationCoordinates,
+          timestamp: Date.now(),
+        } as GeolocationPosition),
+    },
+  });
+  vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Failed to fetch"));
+
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
+  await user.click(
+    within(dialog).getByRole("button", { name: "Paikanna minut" }),
+  );
+
+  await waitFor(() => {
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Sijaintia ei voitu selvittää juuri nyt",
+    );
+  });
+});
+
+it("restores a saved municipality and DSO selection", async () => {
+  const user = userEvent.setup();
+  const firstRender = render(<PriceExplorer data={dataWithTransferData} />);
+
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const firstDialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
+  await user.selectOptions(
+    within(firstDialog).getByRole("combobox", { name: "Kunta" }),
+    "240",
+  );
+  await user.selectOptions(
+    within(firstDialog).getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+    "240:Kemin Energia ja Vesi Oy",
+  );
+  expect(window.localStorage.getItem("sahkohetki.transfer-selection")).toContain(
+    "Kemin Energia ja Vesi Oy",
+  );
+
+  firstRender.unmount();
+  render(<PriceExplorer data={dataWithTransferData} />);
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const restoredDialog = screen.getByRole("dialog", {
+    name: "Lisää marginaali",
+  });
+
+  await waitFor(() => {
+    expect(
+      (within(restoredDialog).getByRole("combobox", {
+        name: "Kunta",
+      }) as HTMLSelectElement).value,
+    ).toBe("240");
+    expect(
+      (within(restoredDialog).getByRole("combobox", {
+        name: "Sähköverkkoyhtiö",
+      }) as HTMLSelectElement).value,
+    ).toBe("240:Kemin Energia ja Vesi Oy");
+  });
+});
+
+it("shows unavailable pricing instead of calculating for an unpriced operator", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
+  await user.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Kunta" }),
+    "240",
+  );
+  await user.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+    "240:Tenergia Oy",
+  );
+
+  expect(screen.getByRole("alert").textContent).toContain(
+    "siirtohinta ei ole saatavilla",
+  );
+  expect(
+    screen.getByRole("heading", { name: "Kahvinkeitin" }).closest("article")
+      ?.textContent,
+  ).toContain("Siirtohinta ei ole saatavilla");
+});
+
+it("automatically selects the only operator for a municipality", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
+  await user.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Kunta" }),
+    "564",
+  );
+
+  expect(
+    (within(dialog).getByRole("combobox", {
+      name: "Sähköverkkoyhtiö",
+    }) as HTMLSelectElement).value,
+  ).toBe("564:Oulun Energia Sähköverkko Oy");
+  expect(
+    within(dialog).getByRole("group", {
+      name: "Valitun siirtotariffin tiedot",
     }),
   ).toBeTruthy();
 });
@@ -226,6 +536,15 @@ it("keeps the settings form controls inside the keyboard focus trap", async () =
   const resetButton = within(dialog).getByRole("button", {
     name: "Palauta spot-hintaan",
   });
+  const municipalitySelect = within(dialog).getByRole("combobox", {
+    name: "Kunta",
+  });
+  const locateButton = within(dialog).getByRole("button", {
+    name: "Paikanna minut",
+  });
+  const mapSourceLink = within(dialog).getByRole("link", {
+    name: "OpenStreetMap",
+  });
 
   expect(document.activeElement).toBe(closeButton);
   await user.tab();
@@ -235,9 +554,15 @@ it("keeps the settings form controls inside the keyboard focus trap", async () =
   await user.tab();
   expect(document.activeElement).toBe(resetButton);
   await user.tab();
+  expect(document.activeElement).toBe(municipalitySelect);
+  await user.tab();
+  expect(document.activeElement).toBe(locateButton);
+  await user.tab();
+  expect(document.activeElement).toBe(mapSourceLink);
+  await user.tab();
   expect(document.activeElement).toBe(closeButton);
   await user.tab({ shift: true });
-  expect(document.activeElement).toBe(resetButton);
+  expect(document.activeElement).toBe(mapSourceLink);
 });
 
 it("associates an invalid margin with its validation message", async () => {
@@ -641,7 +966,7 @@ it("shows natural Finnish copy in the calculation and source explanations", asyn
   await user.click(screen.getByRole("button", { name: "Miten laskemme?" }));
   const formulaDialog = screen.getByRole("dialog");
   expect(formulaDialog.textContent).toContain(
-    "Arvio perustuu valittuun spot-hintaan ja kunkin ennalta määritellyn käyttötavan kulutukseen.",
+    "Arvio perustuu valittuun spot-hintaan, valitun verkkoyhtiön siirtomaksuun",
   );
   expect(formulaDialog.textContent).toContain(
     "Laskennassa säilytetään täysi tarkkuus, ja kustannus pyöristetään näytettäessä kahteen desimaaliin.",

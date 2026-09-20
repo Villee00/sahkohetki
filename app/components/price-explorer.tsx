@@ -7,21 +7,31 @@ import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
 import { Icon } from "./ui-icon";
 import { PriceChart } from "./price-chart";
-import { applyPriceMargin } from "../../lib/price-domain";
+import { TransferCostPanel } from "./transfer-cost-panel";
+import {
+  applyPriceMargin,
+  calculateUseCostWithTransfer,
+} from "../../lib/price-domain";
 import { getHelsinkiDateBounds, getHelsinkiDateKey } from "../../lib/time";
 import { PRICE_LEVEL_CUTOFFS, PRICE_SCALE_BOUNDS } from "../../lib/price-types";
+import type { EverydayUse } from "@/lib/appliances";
 import type {
+  CostEstimate,
   ExplorerData,
   HorizonPoints,
+  MunicipalityTransfer,
   PriceLevel,
   PricePoint,
+  TransferTariff,
 } from "@/lib/price-types";
 
 type PriceMode = "hourly" | "quarterHour";
 type Horizon = "today" | "tomorrow";
 type DialogName = "formula" | "source" | "settings" | null;
+type LocationStatus = "idle" | "locating" | "success" | "error";
 
 const PRICE_MARGIN_STORAGE_KEY = "sahkohetki.price-margin";
+const TRANSFER_SELECTION_STORAGE_KEY = "sahkohetki.transfer-selection";
 
 type LevelCopy = {
   label: string;
@@ -80,6 +90,77 @@ const HOUR_MILLISECONDS = 60 * 60 * 1000;
 
 function formatPrice(price: number): string {
   return priceFormatter.format(price);
+}
+
+function isMunicipalityLocationResponse(
+  value: unknown,
+): value is { municipalityCode: string; municipalityName: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { municipalityCode?: unknown }).municipalityCode ===
+      "string" &&
+    typeof (value as { municipalityName?: unknown }).municipalityName ===
+      "string"
+  );
+}
+
+function getLocationResponseMessage(value: unknown): string | null {
+  return typeof value === "object" &&
+    value !== null &&
+    typeof (value as { message?: unknown }).message === "string"
+    ? (value as { message: string }).message
+    : null;
+}
+
+function getTransferUseEstimate(
+  use: EverydayUse,
+  point: PricePoint | null,
+  tariff: TransferTariff | null,
+  electricityTaxCentsPerKwh: number,
+): CostEstimate | null {
+  if (
+    !point ||
+    !point.available ||
+    point.priceCentsPerKwh === null ||
+    !tariff?.priceAvailable ||
+    tariff.energyChargeCentsPerKwh === null
+  ) {
+    return null;
+  }
+
+  const estimate = calculateUseCostWithTransfer(
+    use.consumptionKwh,
+    point.priceCentsPerKwh,
+    tariff.energyChargeCentsPerKwh,
+    electricityTaxCentsPerKwh,
+  );
+  const comparison = point.estimates?.[use.id]?.comparison;
+  return comparison ? { ...estimate, comparison } : estimate;
+}
+
+function parseSavedTransferSelection(
+  value: string | null,
+): { municipalityCode: string; operatorId: string } | null {
+  if (!value) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      typeof (parsed as { municipalityCode?: unknown }).municipalityCode !==
+        "string" ||
+      typeof (parsed as { operatorId?: unknown }).operatorId !== "string"
+    ) {
+      return null;
+    }
+    return {
+      municipalityCode: (parsed as { municipalityCode: string }).municipalityCode,
+      operatorId: (parsed as { operatorId: string }).operatorId,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function parsePriceMargin(value: string): number | null {
@@ -288,11 +369,31 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const [priceMargin, setPriceMargin] = useState(0);
   const [marginInput, setMarginInput] = useState("0");
   const [marginError, setMarginError] = useState<string | null>(null);
+  const [selectedMunicipalityCode, setSelectedMunicipalityCode] = useState("");
+  const [selectedOperatorId, setSelectedOperatorId] = useState("");
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
   const coffeeUse = data.uses.find((use) => use.id === "coffee");
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const dialogWasOpenRef = useRef(false);
+  const transferData = data.transferData;
+  const selectedMunicipality = useMemo<MunicipalityTransfer | null>(
+    () =>
+      transferData.municipalities.find(
+        (municipality) =>
+          municipality.municipalityCode === selectedMunicipalityCode,
+      ) ?? null,
+    [selectedMunicipalityCode, transferData.municipalities],
+  );
+  const selectedTransferTariff = useMemo<TransferTariff | null>(
+    () =>
+      selectedMunicipality?.operators.find(
+        (operator) => operator.id === selectedOperatorId,
+      ) ?? null,
+    [selectedMunicipality, selectedOperatorId],
+  );
 
   const adjustedToday = useMemo<HorizonPoints>(
     () => ({
@@ -374,6 +475,147 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
       if (restoreTimeout !== undefined) window.clearTimeout(restoreTimeout);
     };
   }, []);
+
+  useEffect(() => {
+    let restoreTimeout: number | undefined;
+
+    try {
+      const saved = parseSavedTransferSelection(
+        window.localStorage.getItem(TRANSFER_SELECTION_STORAGE_KEY),
+      );
+      if (!saved) return;
+
+      const municipality = transferData.municipalities.find(
+        (candidate) => candidate.municipalityCode === saved.municipalityCode,
+      );
+      if (!municipality) return;
+
+      const savedOperator = municipality.operators.find(
+        (operator) => operator.id === saved.operatorId,
+      );
+      const operatorId =
+        savedOperator?.id ??
+        (municipality.operators.length === 1
+          ? municipality.operators[0].id
+          : "");
+      restoreTimeout = window.setTimeout(() => {
+        setSelectedMunicipalityCode(municipality.municipalityCode);
+        setSelectedOperatorId(operatorId);
+      }, 0);
+    } catch {
+      // The selectors remain empty when browser storage is unavailable.
+    }
+
+    return () => {
+      if (restoreTimeout !== undefined) window.clearTimeout(restoreTimeout);
+    };
+  }, [transferData.municipalities]);
+
+  useEffect(() => {
+    if (!selectedMunicipalityCode) return;
+    try {
+      window.localStorage.setItem(
+        TRANSFER_SELECTION_STORAGE_KEY,
+        JSON.stringify({
+          municipalityCode: selectedMunicipalityCode,
+          operatorId: selectedOperatorId,
+        }),
+      );
+    } catch {
+      // Selection still applies for the current page when storage is unavailable.
+    }
+  }, [selectedMunicipalityCode, selectedOperatorId]);
+
+  const changeMunicipality = (municipalityCode: string) => {
+    const municipality = transferData.municipalities.find(
+      (candidate) => candidate.municipalityCode === municipalityCode,
+    );
+    setSelectedMunicipalityCode(municipalityCode);
+    setSelectedOperatorId(
+      municipality?.operators.length === 1
+        ? municipality.operators[0].id
+        : "",
+    );
+  };
+
+  const changeOperator = (operatorId: string) => {
+    setSelectedOperatorId(operatorId);
+  };
+
+  const locateMunicipality = () => {
+    setLocationMessage(null);
+
+    if (!navigator.geolocation) {
+      setLocationStatus("error");
+      setLocationMessage("Selain ei tue sijainnin hakua.");
+      return;
+    }
+
+    setLocationStatus("locating");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        void (async () => {
+          try {
+            const response = await fetch("/api/municipality-by-location", {
+              method: "POST",
+              headers: {
+                accept: "application/json",
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+              }),
+              cache: "no-store",
+            });
+            const payload: unknown = await response.json().catch(() => null);
+
+            if (!response.ok) {
+              setLocationStatus("error");
+              setLocationMessage(
+                getLocationResponseMessage(payload) ??
+                  "Sijaintikuntaa ei voitu selvittää.",
+              );
+              return;
+            }
+            if (!isMunicipalityLocationResponse(payload)) {
+              setLocationStatus("error");
+              setLocationMessage("Sijaintikuntaa ei voitu selvittää.");
+              return;
+            }
+
+            changeMunicipality(payload.municipalityCode);
+            setLocationStatus("success");
+            setLocationMessage(
+              `Kunta valittu sijainnin perusteella: ${payload.municipalityName}.`,
+            );
+          } catch {
+            setLocationStatus("error");
+            setLocationMessage(
+              "Sijaintia ei voitu selvittää juuri nyt. Yritä uudelleen.",
+            );
+          }
+        })();
+      },
+      (error) => {
+        setLocationStatus("error");
+        setLocationMessage(
+          error.code === 1
+            ? "Sijainnin käyttö estettiin. Salli paikannus selaimen asetuksissa."
+            : error.code === 2
+              ? "Sijaintia ei voitu määrittää."
+              : error.code === 3
+                ? "Sijainnin haku aikakatkaistiin. Yritä uudelleen."
+                : "Sijaintia ei voitu hakea.",
+        );
+      },
+      {
+        enableHighAccuracy: false,
+        maximumAge: 5 * 60 * 1000,
+        timeout: 10 * 1000,
+      },
+    );
+  };
 
   const closeDialog = useCallback(() => {
     setOpenDialog(null);
@@ -493,6 +735,13 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const heading = selectedPoint
     ? `${isCurrentSelection ? "Nykyinen aikaväli" : "Valittu aikaväli"} ${selectedPoint.label}`
     : "Valittu aikaväli";
+  const useCostEmptyMessage = !selectedMunicipality
+    ? "Valitse kunta ja verkkoyhtiö"
+    : !selectedOperatorId
+      ? "Valitse verkkoyhtiö"
+      : !selectedTransferTariff?.priceAvailable
+        ? "Siirtohinta ei ole saatavilla"
+        : "Valitse saatavilla oleva aikaväli";
   const viewControls = (
     <div className="price-chart__controls">
       <div className="view-control-group">
@@ -808,7 +1057,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             className="uses-section space-y-5"
           >
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
                   Kymmenen arjen sähkönkäyttökohdetta
                 </p>
@@ -818,11 +1067,21 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 >
                   Mitä sähkönkäyttö maksaa?
                 </h2>
+                <button
+                  type="button"
+                  className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-sky-300/35 bg-sky-300/10 px-4 text-sm font-semibold text-sky-100 transition hover:border-sky-300/65 hover:bg-sky-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+                  onClick={(event) => openExplanation("settings", event)}
+                >
+                  <Icon name="settings" className="h-4 w-4" />
+                  Lisää siirto + sähkövero
+                </button>
               </div>
               <p className="max-w-md text-sm leading-6 text-slate-400">
                 Arvio perustuu valittuun spot-hintaan
                 {priceMargin > 0 ? " ja asetettuun myyjän marginaaliin" : ""}.
-                Sähkön siirtomaksut, sähkövero ja perusmaksut eivät sisälly.
+                Kun verkkoyhtiö on valittu, mukaan lasketaan siirtomaksu ja
+                kotitalouden sähkövero. Kuukausittainen perusmaksu näytetään
+                erikseen.
                 {priceMargin > 0
                   ? ` Marginaali on ${formatPrice(priceMargin)} snt/kWh.`
                   : " Lisää myyjän marginaali hinta-asetuksista, jos haluat sen mukaan arvioon."}
@@ -830,19 +1089,21 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             </div>
             <div className="appliance-grid">
               {data.uses.map((use) => {
-                const estimate = selectedPoint.estimates?.[use.id];
-                return estimate ? (
+                const estimate = getTransferUseEstimate(
+                  use,
+                  selectedPoint,
+                  selectedTransferTariff,
+                  transferData.electricityTax.centsPerKwhVatIncluded,
+                );
+                return (
                   <ApplianceCard
                     key={use.id}
                     use={use}
                     estimate={estimate}
-                    costLabel={
-                      priceMargin > 0
-                        ? "ARVIOITU KUSTANNUS SPOT + MARGINAALI"
-                        : undefined
-                    }
+                    costLabel="ARVIOITU KUSTANNUS SÄHKÖ + SIIRTO + VERO"
+                    emptyMessage={useCostEmptyMessage}
                   />
-                ) : null;
+                );
               })}
             </div>
           </section>
@@ -898,12 +1159,14 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         closeButtonRef={closeButtonRef}
       >
         <p>
-          Arvio perustuu valittuun spot-hintaan ja kunkin ennalta määritellyn
-          käyttötavan kulutukseen. Hinta sisältää Suomen yleisen 25,5 %:n
-          arvonlisäveron, joka lisätään ENTSO-E:n markkinahintaan.
+          Arvio perustuu valittuun spot-hintaan, valitun verkkoyhtiön
+          siirtomaksuun, kotitalouden sähköveroon ja kunkin ennalta määritellyn
+          käyttötavan kulutukseen. Spot- ja siirtohinnat sisältävät Suomen
+          yleisen 25,5 %:n arvonlisäveron.
         </p>
         <p className="rounded-2xl border border-sky-300/20 bg-sky-300/10 px-4 py-3 font-mono text-sm text-sky-100">
-          kulutus (kWh) × (spot-hinta + marginaali) (snt/kWh) = kustannus (snt)
+          kulutus (kWh) × (spot + marginaali + siirto + sähkövero) (snt/kWh) =
+          kustannus (snt)
         </p>
         <p>
           Esimerkiksi kahvinkeittimen vertailukulutus on{" "}
@@ -914,8 +1177,8 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           näytettäessä kahteen desimaaliin.
         </p>
         <p>
-          Sähkön siirtomaksut, sähkövero ja perusmaksut eivät sisälly tähän
-          suuntaa-antavaan energia-arvioon.{" "}
+          Kuukausittaista perusmaksua ei kohdisteta yksittäiseen käyttöön,
+          vaan se näytetään valitun tariffin tiedoissa.{" "}
           {priceMargin > 0
             ? "Asetettu " +
               formatPrice(priceMargin) +
@@ -945,6 +1208,12 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           näkymään tuntikeskiarvot sekä 15 minuutin hinnat.
         </p>
         <p>
+          Siirtohinnat luetaan tämän näkymän CSV-snapshotista kunnittain.
+          Verkkoyhtiö valitaan erikseen silloin, kun kunnassa on useampi
+          vaihtoehto. Sähkövero perustuu Verohallinnon voimassa olevaan
+          verotaulukkoon.
+        </p>
+        <p>
           Tiedot haetaan ja säilytetään palvelimella noin 12 tuntia. Sivu ei hae
           hintoja uudelleen selaimessa. Puuttuvan hinnan tilalla käytetään 15
           minuutin näkymässä viimeisintä saatavilla olevaa hintaa, ja se
@@ -970,6 +1239,15 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             <Icon name="arrow-up-right" className="h-4 w-4" />
           </a>
         </div>
+        <a
+          className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+          href={data.transferData.electricityTax.sourceUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Verohallinnon sähköveron verotaulukko
+          <Icon name="arrow-up-right" className="h-4 w-4" />
+        </a>
       </ExplanationDialog>
 
       <ExplanationDialog
@@ -1047,6 +1325,18 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             </button>
           </div>
         </form>
+        <TransferCostPanel
+          data={transferData}
+          selectedMunicipalityCode={selectedMunicipalityCode}
+          selectedOperatorId={selectedOperatorId}
+          selectedMunicipality={selectedMunicipality}
+          selectedTariff={selectedTransferTariff}
+          onMunicipalityChange={changeMunicipality}
+          onOperatorChange={changeOperator}
+          onLocate={locateMunicipality}
+          locationStatus={locationStatus}
+          locationMessage={locationMessage}
+        />
       </ExplanationDialog>
     </main>
   );
