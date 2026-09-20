@@ -287,7 +287,7 @@ it("applies the supplier margin to displayed prices and appliance estimates", as
   ).toBeTruthy();
 });
 
-it("requires a DSO choice before recalculating use examples", async () => {
+it("keeps the spot estimate until a DSO is chosen", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={dataWithTransferData} />);
 
@@ -308,13 +308,29 @@ it("requires a DSO choice before recalculating use examples", async () => {
   const coffeeCard = screen.getByRole("heading", { name: "Kahvinkeitin" }).closest(
     "article",
   );
-  expect(coffeeCard?.textContent).toContain("Valitse verkkoyhtiö");
+  expect(coffeeCard?.textContent).toContain("ARVIOITU KUSTANNUS SPOT-HINNALLA");
+  expect(coffeeCard?.textContent).toContain("1.80");
 
   await user.selectOptions(operatorSelect, "240:Kemin Energia ja Vesi Oy");
 
+  expect(coffeeCard?.textContent).toContain(
+    "ARVIOITU KUSTANNUS SÄHKÖ + SIIRTO + VERO",
+  );
   expect(coffeeCard?.textContent).toContain("2.80");
   expect(screen.getByText(/6[,.]65 snt\/kWh/)).toBeTruthy();
   expect(screen.getByText(/10[,.]10 €\/kk/)).toBeTruthy();
+});
+
+it("shows the selected spot-price estimate before transfer details are selected", () => {
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  const coffeeCard = screen.getByRole("heading", { name: "Kahvinkeitin" }).closest(
+    "article",
+  );
+
+  expect(coffeeCard?.textContent).toContain("ARVIOITU KUSTANNUS SPOT-HINNALLA");
+  expect(coffeeCard?.textContent).toContain("1.80");
+  expect(coffeeCard?.textContent).not.toContain("Valitse kunta ja verkkoyhtiö");
 });
 
 it("selects the municipality returned by the location lookup", async () => {
