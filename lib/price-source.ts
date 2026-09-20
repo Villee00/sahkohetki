@@ -1,7 +1,13 @@
 import "server-only";
-import { XMLParser } from "fast-xml-parser";
 import { unstable_cache } from "next/cache";
 import { EVERYDAY_USES } from "./appliances";
+import {
+  ENTSOE_DAY_AHEAD_CONTRACT,
+  ENTSOE_ENERGY_PRICE_DOCUMENT,
+  FINNISH_BIDDING_ZONE,
+  parseEntsoePriceXml,
+  toVatInclusiveQuarterPrices,
+} from "./entsoe-prices";
 import {
   buildPriceApiResponse,
   type PriceApiHorizon,
@@ -18,11 +24,6 @@ import { EXPLORER_SOURCE } from "./price-types";
 import type { ExplorerData, QuarterPrice } from "./price-types";
 
 const API_URL = EXPLORER_SOURCE.apiUrl;
-const FINNISH_BIDDING_ZONE = "10YFI-1--------U";
-const ENTSOE_DOCUMENT_TYPE = "A44";
-const DAY_AHEAD_MARKET = "A01";
-const FINNISH_GENERAL_VAT_RATE = 0.255;
-const QUARTER_MILLISECONDS = 15 * 60 * 1000;
 const SOURCE_CACHE_REVALIDATE_SECONDS = 12 * 60 * 60;
 const NOT_PUBLISHED_RETRY_MILLISECONDS = 5 * 60 * 1000;
 const REQUEST_UNAVAILABLE_MESSAGE =
@@ -32,13 +33,6 @@ const TOKEN_UNAVAILABLE_MESSAGE =
 const SCHEMA_UNAVAILABLE_MESSAGE =
   "Hintatietojen muotoa ei voitu varmistaa juuri nyt.";
 const NOT_PUBLISHED_MESSAGE = "Hintatietoja ei ole vielä julkaistu.";
-
-const xmlParser = new XMLParser({
-  ignoreAttributes: true,
-  parseTagValue: false,
-  removeNSPrefix: true,
-  trimValues: true,
-});
 
 type FetchImplementation = (
   input: RequestInfo | URL,
@@ -50,14 +44,6 @@ export type PriceSourceUnavailableReason =
   | "configuration"
   | "request"
   | "schema";
-
-type EntsoeParseResult =
-  | { status: "ready"; prices: QuarterPrice[] }
-  | {
-      status: "unavailable";
-      message: string;
-      reason: PriceSourceUnavailableReason;
-    };
 
 type CachedSourceSnapshot = {
   status: "ready";
@@ -73,270 +59,6 @@ class SourceRefreshError extends Error {
     this.name = "SourceRefreshError";
     this.reason = reason;
   }
-}
-
-type ParsedPeriod = {
-  startMilliseconds: number;
-  endMilliseconds: number;
-  pricesByPosition: Map<number, number>;
-};
-
-function asArray(value: unknown): unknown[] {
-  if (value === undefined || value === null) return [];
-  return Array.isArray(value) ? value : [value];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function textValue(value: unknown): string | undefined {
-  if (typeof value !== "string" && typeof value !== "number") return undefined;
-  const text = String(value).trim();
-  return text.length > 0 ? text : undefined;
-}
-
-function finiteNumber(value: unknown): number | undefined {
-  const text = textValue(value);
-  if (text === undefined) return undefined;
-
-  const number = Number(text);
-  return Number.isFinite(number) ? number : undefined;
-}
-
-function positiveInteger(value: unknown): number | undefined {
-  const number = finiteNumber(value);
-  if (number === undefined || !Number.isInteger(number) || number < 1) {
-    return undefined;
-  }
-  return number;
-}
-
-function parseTimestamp(value: unknown): number | undefined {
-  const text = textValue(value);
-  if (text === undefined || !/(?:Z|[+-]\d{2}:\d{2})$/.test(text)) {
-    return undefined;
-  }
-
-  const milliseconds = Date.parse(text);
-  return Number.isFinite(milliseconds) ? milliseconds : undefined;
-}
-
-function canonicalTimestamp(milliseconds: number): string {
-  return new Date(milliseconds).toISOString();
-}
-
-function parseEntsoeXml(xml: string): EntsoeParseResult {
-  const schemaUnavailable = (): EntsoeParseResult => ({
-    status: "unavailable",
-    message: SCHEMA_UNAVAILABLE_MESSAGE,
-    reason: "schema",
-  });
-
-  let parsed: unknown;
-  try {
-    parsed = xmlParser.parse(xml);
-  } catch {
-    return schemaUnavailable();
-  }
-
-  if (!isRecord(parsed)) {
-    return schemaUnavailable();
-  }
-
-  const acknowledgement = parsed.Acknowledgement_MarketDocument;
-  if (isRecord(acknowledgement)) {
-    const hasNoMatchingDataReason = asArray(acknowledgement.Reason).some(
-      (reason) => isRecord(reason) && textValue(reason.code) === "999",
-    );
-    if (hasNoMatchingDataReason) {
-      return {
-        status: "unavailable",
-        message: NOT_PUBLISHED_MESSAGE,
-        reason: "not-published",
-      };
-    }
-    return schemaUnavailable();
-  }
-
-  if (!isRecord(parsed.Publication_MarketDocument)) {
-    return schemaUnavailable();
-  }
-
-  const document = parsed.Publication_MarketDocument;
-  if (textValue(document.type) !== ENTSOE_DOCUMENT_TYPE) {
-    return schemaUnavailable();
-  }
-
-  const periodsToExpand: ParsedPeriod[] = [];
-  const timeSeries = asArray(document.TimeSeries);
-  if (timeSeries.length === 0) {
-    return schemaUnavailable();
-  }
-
-  for (const seriesValue of timeSeries) {
-    if (!isRecord(seriesValue)) {
-      return schemaUnavailable();
-    }
-
-    if (
-      textValue(seriesValue["in_Domain.mRID"]) !== FINNISH_BIDDING_ZONE ||
-      textValue(seriesValue["out_Domain.mRID"]) !== FINNISH_BIDDING_ZONE ||
-      textValue(seriesValue["currency_Unit.name"]) !== "EUR" ||
-      textValue(seriesValue["price_Measure_Unit.name"]) !== "MWH"
-    ) {
-      return schemaUnavailable();
-    }
-
-    const periods = asArray(seriesValue.Period);
-    if (periods.length === 0) {
-      return schemaUnavailable();
-    }
-
-    for (const periodValue of periods) {
-      if (!isRecord(periodValue)) {
-        return schemaUnavailable();
-      }
-
-      if (textValue(periodValue.resolution) !== "PT15M") {
-        return schemaUnavailable();
-      }
-
-      const interval = periodValue.timeInterval;
-      if (!isRecord(interval)) {
-        return schemaUnavailable();
-      }
-
-      const startMilliseconds = parseTimestamp(interval.start);
-      const endMilliseconds = parseTimestamp(interval.end);
-      if (
-        startMilliseconds === undefined ||
-        endMilliseconds === undefined ||
-        startMilliseconds % QUARTER_MILLISECONDS !== 0 ||
-        endMilliseconds <= startMilliseconds ||
-        (endMilliseconds - startMilliseconds) % QUARTER_MILLISECONDS !== 0
-      ) {
-        return schemaUnavailable();
-      }
-
-      const periodSlots =
-        (endMilliseconds - startMilliseconds) / QUARTER_MILLISECONDS;
-      const points = asArray(periodValue.Point);
-      if (points.length === 0) {
-        return schemaUnavailable();
-      }
-
-      const pricesByPosition = new Map<number, number>();
-      for (const pointValue of points) {
-        if (!isRecord(pointValue)) {
-          return schemaUnavailable();
-        }
-
-        const position = positiveInteger(pointValue.position);
-        const priceInMegawattHours = finiteNumber(pointValue["price.amount"]);
-        if (
-          position === undefined ||
-          position > periodSlots ||
-          priceInMegawattHours === undefined
-        ) {
-          return schemaUnavailable();
-        }
-
-        if (pricesByPosition.has(position)) {
-          return schemaUnavailable();
-        }
-        pricesByPosition.set(position, priceInMegawattHours);
-      }
-
-      periodsToExpand.push({
-        startMilliseconds,
-        endMilliseconds,
-        pricesByPosition,
-      });
-    }
-  }
-
-  const pricesByStart = new Map<number, QuarterPrice>();
-  let lastPriceInMegawattHours: number | undefined;
-  let previousPeriodEndMilliseconds: number | undefined;
-  const addPrice = (
-    priceStartMilliseconds: number,
-    priceInMegawattHours: number,
-    carriedForward = false,
-  ): boolean => {
-    if (pricesByStart.has(priceStartMilliseconds)) return false;
-
-    const priceStartAt = canonicalTimestamp(priceStartMilliseconds);
-    pricesByStart.set(priceStartMilliseconds, {
-      id: String(priceStartMilliseconds),
-      startAt: priceStartAt,
-      endAt: canonicalTimestamp(priceStartMilliseconds + QUARTER_MILLISECONDS),
-      priceCentsPerKwh:
-        (priceInMegawattHours / 10) * (1 + FINNISH_GENERAL_VAT_RATE),
-      carriedForward,
-    });
-    return true;
-  };
-
-  for (const period of periodsToExpand.sort(
-    (left, right) => left.startMilliseconds - right.startMilliseconds,
-  )) {
-    if (
-      lastPriceInMegawattHours !== undefined &&
-      previousPeriodEndMilliseconds !== undefined &&
-      period.startMilliseconds > previousPeriodEndMilliseconds
-    ) {
-      for (
-        let slotStart = previousPeriodEndMilliseconds;
-        slotStart < period.startMilliseconds;
-        slotStart += QUARTER_MILLISECONDS
-      ) {
-        if (!addPrice(slotStart, lastPriceInMegawattHours, true)) {
-          return schemaUnavailable();
-        }
-      }
-    }
-
-    const periodSlots =
-      (period.endMilliseconds - period.startMilliseconds) /
-      QUARTER_MILLISECONDS;
-
-    for (let position = 1; position <= periodSlots; position += 1) {
-      if (period.pricesByPosition.has(position)) {
-        lastPriceInMegawattHours = period.pricesByPosition.get(position);
-      }
-
-      if (lastPriceInMegawattHours === undefined) {
-        continue;
-      }
-
-      const priceStartMilliseconds =
-        period.startMilliseconds + (position - 1) * QUARTER_MILLISECONDS;
-      if (
-        !addPrice(
-          priceStartMilliseconds,
-          lastPriceInMegawattHours,
-          !period.pricesByPosition.has(position),
-        )
-      ) {
-        return schemaUnavailable();
-      }
-    }
-
-    previousPeriodEndMilliseconds =
-      previousPeriodEndMilliseconds === undefined
-        ? period.endMilliseconds
-        : Math.max(previousPeriodEndMilliseconds, period.endMilliseconds);
-  }
-
-  const prices = [...pricesByStart.entries()]
-    .sort(([left], [right]) => left - right)
-    .map(([, price]) => price);
-  if (prices.length === 0) {
-    return schemaUnavailable();
-  }
-
-  return { status: "ready", prices };
 }
 
 function formatEntsoeTimestamp(milliseconds: number): string {
@@ -380,10 +102,13 @@ function buildRequestUrl(token: string, now: Date): string | undefined {
   if (window === undefined) return undefined;
 
   const url = new URL(API_URL);
-  url.searchParams.set("documentType", ENTSOE_DOCUMENT_TYPE);
+  url.searchParams.set("documentType", ENTSOE_ENERGY_PRICE_DOCUMENT);
   url.searchParams.set("in_Domain", FINNISH_BIDDING_ZONE);
   url.searchParams.set("out_Domain", FINNISH_BIDDING_ZONE);
-  url.searchParams.set("contract_MarketAgreement.type", DAY_AHEAD_MARKET);
+  url.searchParams.set(
+    "contract_MarketAgreement.type",
+    ENTSOE_DAY_AHEAD_CONTRACT,
+  );
   url.searchParams.set("periodStart", formatEntsoeTimestamp(window.start));
   url.searchParams.set("periodEnd", formatEntsoeTimestamp(window.end));
   url.searchParams.set("securityToken", token);
@@ -434,8 +159,28 @@ export async function fetchLatestPrices(
       };
     }
 
-    const parsed = parseEntsoeXml(await response.text());
-    return parsed;
+    const parsed = parseEntsoePriceXml(await response.text());
+    if (parsed.status === "unavailable") {
+      return parsed.reason === "no-data"
+        ? {
+            status: "unavailable",
+            message: NOT_PUBLISHED_MESSAGE,
+            reason: "not-published",
+          }
+        : {
+            status: "unavailable",
+            message: SCHEMA_UNAVAILABLE_MESSAGE,
+            reason: "schema",
+          };
+    }
+    const prices = toVatInclusiveQuarterPrices(parsed.intervals);
+    return prices.length > 0
+      ? { status: "ready", prices }
+      : {
+          status: "unavailable",
+          message: SCHEMA_UNAVAILABLE_MESSAGE,
+          reason: "schema",
+        };
   } catch {
     return {
       status: "unavailable",
