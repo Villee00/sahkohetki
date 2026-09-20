@@ -1,9 +1,21 @@
+import { LocateFixed } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import type {
   MunicipalityTransfer,
   TransferData,
   TransferTariff,
 } from "@/lib/price-types";
-import { Icon } from "./ui-icon";
 
 type TransferCostPanelProps = {
   data: TransferData;
@@ -54,184 +66,218 @@ export function TransferCostPanel({
   locationMessage,
 }: TransferCostPanelProps) {
   const operators = selectedMunicipality?.operators ?? [];
+  const operatorDisabled = !selectedMunicipality || operators.length <= 1;
+  const municipalityItems = [
+    { label: "Valitse kunta", value: null },
+    ...data.municipalities.map((municipality) => ({
+      label: municipality.city,
+      value: municipality.municipalityCode,
+    })),
+  ];
+  const operatorPlaceholder = !selectedMunicipality
+    ? "Valitse kunta ensin"
+    : operators.length === 0
+      ? "Verkkoyhtiötä ei löytynyt"
+      : operators.length > 1
+        ? "Valitse verkkoyhtiö"
+        : null;
+  const operatorItems = [
+    ...(operatorPlaceholder
+      ? [{ label: operatorPlaceholder, value: null }]
+      : []),
+    ...operators.map((operator) => ({
+      label:
+        operator.operatorName +
+        (!operator.priceAvailable ? " (hinta ei saatavilla)" : ""),
+      value: operator.id,
+    })),
+  ];
+  const selectedEnergyCharge = selectedTariff?.priceAvailable
+    ? selectedTariff.energyChargeCentsPerKwh
+    : null;
   const combinedRate =
-    selectedTariff?.priceAvailable &&
-    selectedTariff.energyChargeCentsPerKwh !== null
-      ? selectedTariff.energyChargeCentsPerKwh +
-        data.electricityTax.centsPerKwhVatIncluded
+    selectedEnergyCharge !== null
+      ? selectedEnergyCharge + data.electricityTax.centsPerKwhVatIncluded
       : null;
+  const tariffMessage =
+    selectedTariff?.priceAvailable && combinedRate !== null
+      ? null
+      : selectedMunicipality && selectedOperatorId
+        ? "Tämän verkkoyhtiön siirtohinta ei ole saatavilla CSV-aineistossa. Esimerkkien kustannuksia ei arvioida."
+        : selectedMunicipality && operators.length > 1
+          ? "Valitse verkkoyhtiö, jotta esimerkkien kustannukset voidaan laskea."
+          : selectedMunicipality
+            ? "Tälle kunnalle ei löytynyt verkkoyhtiötä CSV-aineistosta."
+            : null;
+  const tariffMessageIsError = Boolean(
+    selectedMunicipality && selectedOperatorId,
+  );
+
   return (
-    <section
-      aria-labelledby="transfer-cost-heading"
-      className="border-t border-slate-700/70 pt-5"
-    >
-      <div>
+    <section aria-labelledby="transfer-cost-heading" className="pt-5">
+      <Separator className="mb-5" />
+      <div className="flex flex-col gap-1">
         <h3
           id="transfer-cost-heading"
-          className="text-base font-semibold text-white"
+          className="text-base font-semibold text-foreground"
         >
           Siirto + sähkövero
         </h3>
-        <p className="mt-1 text-sm leading-6 text-slate-400">
+        <p className="text-sm leading-6 text-muted-foreground">
           Lisää siirtomaksu ja sähkövero käyttökustannusarvioihin.
         </p>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="transfer-municipality"
-                className="text-sm font-semibold text-white"
+      <FieldGroup className="mt-4 grid gap-3 sm:grid-cols-2">
+        <Field>
+          <FieldLabel htmlFor="transfer-municipality">Kunta</FieldLabel>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Select
+              items={municipalityItems}
+              value={selectedMunicipalityCode || null}
+              onValueChange={(value) => onMunicipalityChange(value ?? "")}
+            >
+              <SelectTrigger
+                id="transfer-municipality"
+                className="min-h-11 min-w-0 w-full flex-1"
               >
-                Kunta
-              </label>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                <select
-                  id="transfer-municipality"
-                  value={selectedMunicipalityCode}
-                  onChange={(event) => onMunicipalityChange(event.target.value)}
-                  className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950/70 px-3 text-sm text-white outline-none transition focus:border-sky-300/70 focus:ring-2 focus:ring-sky-300/20"
-                >
-                  <option value="">Valitse kunta</option>
-                  {data.municipalities.map((municipality) => (
-                    <option
-                      key={municipality.municipalityCode}
-                      value={municipality.municipalityCode}
-                    >
-                      {municipality.city}
-                    </option>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {municipalityItems.map((item) => (
+                    <SelectItem key={item.value ?? "empty"} value={item.value}>
+                      {item.label}
+                    </SelectItem>
                   ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={onLocate}
-                  disabled={locationStatus === "locating"}
-                  aria-label="Paikanna minut"
-                  title="Paikanna minut"
-                  className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-sky-300/30 bg-sky-300/10 p-2.5 text-sky-100 transition hover:border-sky-300/60 hover:bg-sky-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 disabled:cursor-wait disabled:opacity-60"
-                >
-                  <Icon name="locate" className="h-4 w-4" />
-                </button>
-              </div>
-              <p className="mt-2 text-xs leading-5 text-slate-500">
-                Sijainti haetaan vain painikkeella. Karttatieto: {" "}
-                <a
-                  href="https://www.openstreetmap.org/copyright"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-                >
-                  OpenStreetMap
-                </a>
-                .
-              </p>
-            </div>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-lg"
+              onClick={onLocate}
+              disabled={locationStatus === "locating"}
+              aria-label="Paikanna minut"
+              title="Paikanna minut"
+              className="shrink-0"
+            >
+              <LocateFixed aria-hidden="true" />
+            </Button>
+          </div>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Sijainti haetaan vain painikkeella. Karttatieto{" "}
+            <a
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              OpenStreetMap
+            </a>
+            .
+          </p>
+        </Field>
 
-            <div>
-              <label
-                htmlFor="transfer-operator"
-                className="text-sm font-semibold text-white"
-              >
-                Sähköverkkoyhtiö
-              </label>
-              <select
-                id="transfer-operator"
-                value={selectedOperatorId}
-                disabled={!selectedMunicipality || operators.length <= 1}
-                onChange={(event) => onOperatorChange(event.target.value)}
-                className="mt-2 min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 text-sm text-white outline-none transition focus:border-sky-300/70 focus:ring-2 focus:ring-sky-300/20 disabled:cursor-not-allowed disabled:text-slate-500"
-              >
-                {!selectedMunicipality ? (
-                  <option value="">Valitse kunta ensin</option>
-                ) : operators.length === 0 ? (
-                  <option value="">Verkkoyhtiötä ei löytynyt</option>
-                ) : operators.length > 1 ? (
-                  <option value="">Valitse verkkoyhtiö</option>
-                ) : null}
-                {operators.map((operator) => (
-                  <option key={operator.id} value={operator.id}>
-                    {operator.operatorName}
-                    {!operator.priceAvailable ? " (hinta ei saatavilla)" : ""}
-                  </option>
+        <Field data-disabled={operatorDisabled ? "" : undefined}>
+          <FieldLabel htmlFor="transfer-operator">
+            Sähköverkkoyhtiö
+          </FieldLabel>
+          <Select
+            items={operatorItems}
+            value={selectedOperatorId || null}
+            onValueChange={(value) => onOperatorChange(value ?? "")}
+            disabled={operatorDisabled}
+          >
+            <SelectTrigger
+              id="transfer-operator"
+              className="min-h-11 w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {operatorItems.map((item) => (
+                  <SelectItem key={item.value ?? "empty"} value={item.value}>
+                    {item.label}
+                  </SelectItem>
                 ))}
-              </select>
-            </div>
-      </div>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+      </FieldGroup>
 
       {locationMessage ? (
-        <p
-          role={locationStatus === "error" ? "alert" : "status"}
-          className={`mt-5 border-t pt-5 text-sm leading-6 ${
-            locationStatus === "error"
-              ? "border-amber-300/20 text-amber-100"
-              : "border-slate-800 text-slate-300"
-          }`}
-        >
-          {locationMessage}
-        </p>
+        <div className="mt-5 flex flex-col gap-5">
+          <Separator />
+          <Alert
+            variant={locationStatus === "error" ? "destructive" : "default"}
+            role={locationStatus === "error" ? "alert" : "status"}
+          >
+            <AlertDescription>{locationMessage}</AlertDescription>
+          </Alert>
+        </div>
       ) : null}
 
-      {selectedTariff?.priceAvailable && combinedRate !== null ? (
+      {selectedTariff?.priceAvailable && selectedEnergyCharge !== null && combinedRate !== null ? (
         <div
-          className="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-slate-950/45 p-4 sm:grid-cols-4"
+          className="mt-4 grid grid-cols-2 gap-3 border border-border bg-muted p-4 sm:grid-cols-4"
           aria-label="Valitun siirtotariffin tiedot"
           role="group"
         >
           <div>
-            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
               Siirtomaksu
             </p>
-            <p className="mt-1 font-mono text-sm font-semibold text-white">
-              {formatRate(selectedTariff.energyChargeCentsPerKwh!)}
+            <p className="mt-1 font-mono text-sm font-semibold text-foreground">
+              {formatRate(selectedEnergyCharge)}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
               Sähkövero
             </p>
-            <p className="mt-1 font-mono text-sm font-semibold text-white">
+            <p className="mt-1 font-mono text-sm font-semibold text-foreground">
               {formatRate(data.electricityTax.centsPerKwhVatIncluded)}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
               Siirto + vero
             </p>
-            <p className="mt-1 font-mono text-sm font-semibold text-sky-200">
+            <p className="mt-1 font-mono text-sm font-semibold text-primary">
               {formatRate(combinedRate)}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
               Perusmaksu
             </p>
-            <p className="mt-1 font-mono text-sm font-semibold text-white">
+            <p className="mt-1 font-mono text-sm font-semibold text-foreground">
               {selectedTariff.monthlyFixedFeeEur === null
                 ? "—"
                 : formatEuro(selectedTariff.monthlyFixedFeeEur)}
             </p>
           </div>
         </div>
-      ) : selectedMunicipality && selectedOperatorId ? (
-        <p
-          role="alert"
-          className="mt-5 border-t border-amber-300/20 pt-5 text-sm leading-6 text-amber-100"
-        >
-          Tämän verkkoyhtiön siirtohinta ei ole saatavilla CSV-aineistossa.
-          Esimerkkien kustannuksia ei arvioida.
-        </p>
-      ) : selectedMunicipality && operators.length > 1 ? (
-        <p className="mt-5 border-t border-slate-800 pt-5 text-sm leading-6 text-slate-400">
-          Valitse verkkoyhtiö, jotta esimerkkien kustannukset voidaan laskea.
-        </p>
-      ) : selectedMunicipality ? (
-        <p className="mt-5 border-t border-slate-800 pt-5 text-sm leading-6 text-slate-400">
-          Tälle kunnalle ei löytynyt verkkoyhtiötä CSV-aineistosta.
-        </p>
+      ) : null}
+
+      {tariffMessage ? (
+        <div className="mt-5 flex flex-col gap-5">
+          <Separator />
+          <Alert
+            variant={tariffMessageIsError ? "destructive" : "default"}
+            role={tariffMessageIsError ? "alert" : "status"}
+          >
+            <AlertDescription>{tariffMessage}</AlertDescription>
+          </Alert>
+        </div>
       ) : null}
 
       {selectedTariff?.priceAvailable ? (
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
           <span>
             {selectedTariff.tariffName} · tariffin snapshot{" "}
             {formatSnapshotDate(selectedTariff.tariffSnapshotCreatedAt)}
@@ -241,20 +287,20 @@ export function TransferCostPanel({
               href={selectedTariff.tariffSourceUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+              className="text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               Tariffin lähde
             </a>
           ) : null}
           <span>
-            Sähkövero voimassa {formatSnapshotDate(data.electricityTax.effectiveFrom)}{" "}
-            alkaen
+            Sähkövero voimassa{" "}
+            {formatSnapshotDate(data.electricityTax.effectiveFrom)} alkaen
           </span>
           <a
             href={data.electricityTax.sourceUrl}
             target="_blank"
             rel="noreferrer"
-            className="text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+            className="text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             Verohallinnon verotaulukko
           </a>
