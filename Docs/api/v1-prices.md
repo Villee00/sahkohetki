@@ -1,5 +1,8 @@
 # Sähköhetki price API v1
 
+For transfer charges and household electricity tax, see the companion
+[transfer-cost API](v1-transfer-costs.md).
+
 The public spot-price endpoint is available from the site origin:
 
 ```text

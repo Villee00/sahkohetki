@@ -4,6 +4,7 @@ import type {
   TransferData,
   TransferTariff,
 } from "./price-types";
+import { EMPTY_TRANSFER_DATA } from "./transfer-prices";
 
 export const TRANSFER_COST_API_PRICING = {
   currency: "EUR",
@@ -22,8 +23,6 @@ export type TransferCostTariff = Omit<
   TransferTariff,
   "energyChargeCentsPerKwh"
 > & {
-  /** @deprecated Use transferEnergyChargeCentsPerKwh in new clients. */
-  energyChargeCentsPerKwh: number | null;
   transferEnergyChargeCentsPerKwh: number | null;
   combinedVariableChargeCentsPerKwh: number | null;
 };
@@ -58,7 +57,6 @@ function projectTariff(
     id: tariff.id,
     operatorName: tariff.operatorName,
     monthlyFixedFeeEur: priceAvailable ? tariff.monthlyFixedFeeEur : null,
-    energyChargeCentsPerKwh: transferEnergyChargeCentsPerKwh,
     transferEnergyChargeCentsPerKwh,
     combinedVariableChargeCentsPerKwh:
       transferEnergyChargeCentsPerKwh === null
@@ -108,3 +106,7 @@ export function buildTransferCostApiResponse(
       ),
   };
 }
+
+export const EMPTY_TRANSFER_COST_API_RESPONSE = buildTransferCostApiResponse(
+  EMPTY_TRANSFER_DATA,
+);

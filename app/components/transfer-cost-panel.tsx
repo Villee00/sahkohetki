@@ -1,16 +1,16 @@
 import type {
-  MunicipalityTransfer,
-  TransferData,
-  TransferTariff,
-} from "@/lib/price-types";
+  TransferCostApiResponse,
+  TransferCostMunicipality,
+  TransferCostTariff,
+} from "@/lib/transfer-api";
 import { Icon } from "./ui-icon";
 
 type TransferCostPanelProps = {
-  data: TransferData;
+  data: TransferCostApiResponse;
   selectedMunicipalityCode: string;
   selectedOperatorId: string;
-  selectedMunicipality: MunicipalityTransfer | null;
-  selectedTariff: TransferTariff | null;
+  selectedMunicipality: TransferCostMunicipality | null;
+  selectedTariff: TransferCostTariff | null;
   onMunicipalityChange: (municipalityCode: string) => void;
   onOperatorChange: (operatorId: string) => void;
   onLocate: () => void;
@@ -55,10 +55,8 @@ export function TransferCostPanel({
 }: TransferCostPanelProps) {
   const operators = selectedMunicipality?.operators ?? [];
   const combinedRate =
-    selectedTariff?.priceAvailable &&
-    selectedTariff.energyChargeCentsPerKwh !== null
-      ? selectedTariff.energyChargeCentsPerKwh +
-        data.electricityTax.centsPerKwhVatIncluded
+    selectedTariff?.priceAvailable
+      ? selectedTariff.combinedVariableChargeCentsPerKwh
       : null;
   return (
     <section
@@ -182,7 +180,7 @@ export function TransferCostPanel({
               Siirtomaksu
             </p>
             <p className="mt-1 font-mono text-sm font-semibold text-white">
-              {formatRate(selectedTariff.energyChargeCentsPerKwh!)}
+              {formatRate(selectedTariff.transferEnergyChargeCentsPerKwh!)}
             </p>
           </div>
           <div>

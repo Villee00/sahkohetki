@@ -70,8 +70,15 @@ const data: ExplorerData = {
   tomorrow: { hourly: [], quarterHour: [] },
   uses: [],
   transferData: {
+    pricing: {
+      currency: "EUR",
+      vatIncluded: true,
+      energyUnit: "cents-per-kwh",
+      fixedFeeUnit: "euros-per-month",
+    },
     municipalities: [],
     electricityTax: {
+      taxClass: "I",
       centsPerKwhVatIncluded: 2.917875,
       effectiveFrom: "2026-04-01",
       sourceUrl: "https://www.vero.fi/",
@@ -96,7 +103,8 @@ const transferDataFixture = {
           id: "240:Kemin Energia ja Vesi Oy",
           operatorName: "Kemin Energia ja Vesi Oy",
           monthlyFixedFeeEur: 10.1,
-          energyChargeCentsPerKwh: 3.73,
+          transferEnergyChargeCentsPerKwh: 3.73,
+          combinedVariableChargeCentsPerKwh: 6.647875,
           priceAvailable: true,
           tariffName: "Yleissiirto / general-transfer",
           tariffStatus: "matched",
@@ -108,7 +116,8 @@ const transferDataFixture = {
           id: "240:Tenergia Oy",
           operatorName: "Tenergia Oy",
           monthlyFixedFeeEur: null,
-          energyChargeCentsPerKwh: null,
+          transferEnergyChargeCentsPerKwh: null,
+          combinedVariableChargeCentsPerKwh: null,
           priceAvailable: false,
           tariffName: "Yleissiirto / general-transfer",
           tariffStatus: "not_in_snapshot",
@@ -127,7 +136,8 @@ const transferDataFixture = {
           id: "564:Oulun Energia Sähköverkko Oy",
           operatorName: "Oulun Energia Sähköverkko Oy",
           monthlyFixedFeeEur: 6.99,
-          energyChargeCentsPerKwh: 3.18,
+          transferEnergyChargeCentsPerKwh: 3.18,
+          combinedVariableChargeCentsPerKwh: 6.097875,
           priceAvailable: true,
           tariffName: "Yleissiirto / general-transfer",
           tariffStatus: "matched",
@@ -138,7 +148,14 @@ const transferDataFixture = {
       ],
     },
   ],
+  pricing: {
+    currency: "EUR",
+    vatIncluded: true,
+    energyUnit: "cents-per-kwh",
+    fixedFeeUnit: "euros-per-month",
+  },
   electricityTax: {
+    taxClass: "I",
     centsPerKwhVatIncluded: 2.917875,
     effectiveFrom: "2026-04-01",
     sourceUrl: "https://www.vero.fi/",
@@ -315,6 +332,63 @@ it("requires a DSO choice before recalculating use examples", async () => {
   expect(coffeeCard?.textContent).toContain("2.80");
   expect(screen.getByText(/6[,.]65 snt\/kWh/)).toBeTruthy();
   expect(screen.getByText(/10[,.]10 €\/kk/)).toBeTruthy();
+});
+
+it("renders the canonical combined transfer charge from the API DTO", async () => {
+  const user = userEvent.setup();
+  const canonicalData = {
+    ...dataWithUses,
+    transferData: {
+      pricing: {
+        currency: "EUR",
+        vatIncluded: true,
+        energyUnit: "cents-per-kwh",
+        fixedFeeUnit: "euros-per-month",
+      },
+      electricityTax: {
+        taxClass: "I",
+        centsPerKwhVatIncluded: 2.917875,
+        effectiveFrom: "2026-04-01",
+        sourceUrl: "https://www.vero.fi/",
+      },
+      municipalities: [
+        {
+          municipalityCode: "240",
+          city: "Kemi",
+          designation: "kaupunki",
+          operators: [
+            {
+              id: "240:Kemin Energia ja Vesi Oy",
+              operatorName: "Kemin Energia ja Vesi Oy",
+              monthlyFixedFeeEur: 10.1,
+              transferEnergyChargeCentsPerKwh: 3.73,
+              combinedVariableChargeCentsPerKwh: 6.647875,
+              priceAvailable: true,
+              tariffName: "Yleissiirto / general-transfer",
+              tariffStatus: "matched",
+              tariffSnapshotCreatedAt: "2026-05-04",
+              tariffSourceUrl: "https://example.test/kemi.pdf",
+              notes: "",
+            },
+          ],
+        },
+      ],
+    },
+  } as unknown as ExplorerData;
+
+  render(<PriceExplorer data={canonicalData} />);
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
+  await user.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Kunta" }),
+    "240",
+  );
+  await user.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+    "240:Kemin Energia ja Vesi Oy",
+  );
+
+  expect(within(dialog).getByText(/6[,.]65 snt\/kWh/)).toBeTruthy();
 });
 
 it("selects the municipality returned by the location lookup", async () => {

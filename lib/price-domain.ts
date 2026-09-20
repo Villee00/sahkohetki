@@ -6,7 +6,10 @@ import {
   getNextHelsinkiDateKey,
 } from "./time";
 import { EXPLORER_SOURCE, PRICE_LEVEL_CUTOFFS } from "./price-types";
-import { EMPTY_TRANSFER_DATA } from "./transfer-prices";
+import {
+  EMPTY_TRANSFER_COST_API_RESPONSE,
+  type TransferCostApiResponse,
+} from "./transfer-api";
 import type {
   CostComparison,
   CostEstimate,
@@ -15,7 +18,6 @@ import type {
   PriceLevel,
   PricePoint,
   QuarterPrice,
-  TransferData,
 } from "./price-types";
 import type { EverydayUseId } from "./appliances";
 
@@ -298,7 +300,7 @@ type BuildExplorerDataInput = {
   quarterPrices: QuarterPrice[];
   now: Date;
   fetchedAt: string | null;
-  transferData?: TransferData;
+  transferData?: TransferCostApiResponse;
 };
 
 function validQuarterStartMilliseconds(quarter: QuarterPrice): number | undefined {
@@ -468,7 +470,7 @@ export function buildExplorerData({
   quarterPrices,
   now,
   fetchedAt,
-  transferData = EMPTY_TRANSFER_DATA,
+  transferData = EMPTY_TRANSFER_COST_API_RESPONSE,
 }: BuildExplorerDataInput): ExplorerData {
   const nowMilliseconds = now.getTime();
   if (!Number.isFinite(nowMilliseconds)) throw new RangeError("Invalid now instant.");

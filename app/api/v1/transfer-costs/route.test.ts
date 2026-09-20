@@ -31,9 +31,7 @@ describe("GET /api/v1/transfer-costs", () => {
   it("returns the shared transfer-cost response with public caching", async () => {
     getTransferCostApiDataMock.mockReturnValue(responseBody);
 
-    const response = await GET(
-      new Request("http://localhost/api/v1/transfer-costs"),
-    );
+    const response = await GET();
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(responseBody);
@@ -49,9 +47,7 @@ describe("GET /api/v1/transfer-costs", () => {
       throw new Error("CSV path leaked");
     });
 
-    const response = await GET(
-      new Request("http://localhost/api/v1/transfer-costs"),
-    );
+    const response = await GET();
 
     expect(response.status).toBe(500);
     const body = await response.json();
