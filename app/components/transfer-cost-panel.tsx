@@ -119,7 +119,7 @@ export function TransferCostPanel({
       <div className="flex flex-col gap-1">
         <h3
           id="transfer-cost-heading"
-          className="text-base font-semibold text-foreground"
+          className="font-heading text-base font-semibold text-foreground"
         >
           Siirto + sähkövero
         </h3>

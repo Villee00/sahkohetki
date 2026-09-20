@@ -777,7 +777,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         <div className="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:gap-5 sm:px-6 lg:px-8">
           <a
             href="#main-content"
-            className="group inline-flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+            className="group inline-flex items-center gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           >
             <Image
               src="/icon.ico"
@@ -1059,7 +1059,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 </p>
                 <h2
                   id="uses-heading"
-                  className="mt-2 text-3xl font-semibold tracking-tight text-foreground"
+                  className="mt-2 font-heading text-3xl font-semibold tracking-tight text-foreground"
                 >
                   Mitä sähkönkäyttö maksaa?
                 </h2>

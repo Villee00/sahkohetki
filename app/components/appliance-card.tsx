@@ -82,7 +82,7 @@ export function ApplianceCard({
               <CardTitle className="appliance-card__name">
                 <h3
                   id={`appliance-${use.id}-name`}
-                  className="text-lg font-semibold tracking-tight"
+                  className="font-heading text-lg font-semibold tracking-tight"
                 >
                   {use.name}
                 </h3>

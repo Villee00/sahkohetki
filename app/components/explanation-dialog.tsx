@@ -1,4 +1,4 @@
-import { useRef, type ReactNode, type RefObject } from "react";
+import { useRef, type ReactNode } from "react";
 import { XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,10 +14,7 @@ type ExplanationDialogProps = {
   id: string;
   title: string;
   open: boolean;
-  onOpenChange?: (open: boolean) => void;
-  onClose?: () => void;
-  dialogRef?: RefObject<HTMLDivElement | null>;
-  closeButtonRef?: RefObject<HTMLButtonElement | null>;
+  onOpenChange: (open: boolean) => void;
   closeButtonLabel?: string;
   children: ReactNode;
 };
@@ -27,24 +24,15 @@ export function ExplanationDialog({
   title,
   open,
   onOpenChange,
-  onClose,
   closeButtonLabel = "Sulje selite",
   children,
 }: ExplanationDialogProps) {
   const titleId = `${id}-title`;
   const descriptionId = `${id}-description`;
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (onOpenChange) {
-      onOpenChange(nextOpen);
-      return;
-    }
-
-    if (!nextOpen) onClose?.();
-  };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => onOpenChange(nextOpen)}>
       <DialogContent
         id={id}
         showCloseButton={false}

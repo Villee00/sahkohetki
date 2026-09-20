@@ -40,9 +40,12 @@
   --price-border: color-mix(in oklch, var(--border) 78%, transparent);
   --price-surface: color-mix(in oklch, var(--card) 92%, var(--background));
   --price-accent: var(--chart-2);
-  --price-cheap: var(--primary);
-  --price-normal: var(--chart-1);
-  --price-high: var(--destructive);
+  --price-cheap: var(--chart-1);
+  --price-normal: var(--chart-2);
+  --price-high: var(--chart-3);
+  --price-cheap-foreground: color-mix(in oklch, var(--foreground) 82%, var(--price-cheap));
+  --price-normal-foreground: color-mix(in oklch, var(--foreground) 82%, var(--price-normal));
+  --price-high-foreground: color-mix(in oklch, var(--foreground) 82%, var(--price-high));
   --cheap: var(--price-cheap);
   --normal: var(--price-normal);
   --high: var(--price-high);
@@ -166,6 +169,7 @@ button:disabled {
   letter-spacing: -0.025em;
 }
 
+/* Decorative clock/status dots remain circular; surrounding UI follows --radius: 0. */
 .price-hero__clock-dot {
   position: relative;
   display: inline-block;
@@ -193,7 +197,6 @@ button:disabled {
   align-items: center;
   gap: 0.4rem;
   border: 1px solid var(--ring);
-  border-radius: 999px;
   padding: 0.3rem 0.58rem;
   background: color-mix(in oklch, var(--primary) 12%, transparent);
   color: var(--primary);
@@ -203,6 +206,7 @@ button:disabled {
   line-height: 1;
 }
 
+/* Decorative current-status dot remains circular. */
 .price-hero__current-badge::before {
   width: 0.42rem;
   height: 0.42rem;
@@ -227,7 +231,6 @@ button:disabled {
   min-width: min(100%, 22rem);
   gap: 0.25rem;
   border: 1px solid var(--price-border);
-  border-radius: 0.95rem;
   padding: 0.4rem;
   background: var(--card);
 }
@@ -271,23 +274,23 @@ button:disabled {
 }
 
 .price-summary__item--cheap .price-summary__label {
-  color: var(--price-cheap);
+  color: var(--price-cheap-foreground);
 }
 
 .price-summary__item--average .price-summary__label {
-  color: var(--price-normal);
+  color: var(--price-normal-foreground);
 }
 
 .price-summary__item--high .price-summary__label {
-  color: var(--price-high);
+  color: var(--price-high-foreground);
 }
 
 .hero-panel {
   position: relative;
   overflow: hidden;
-  border-radius: 1.45rem !important;
 }
 
+/* Decorative hero rings intentionally stay circular; the surface follows --radius: 0. */
 .hero-panel::after {
   position: absolute;
   top: -8rem;
@@ -314,13 +317,13 @@ button:disabled {
   align-items: center;
   gap: 0.5rem;
   border: 1px solid currentColor;
-  border-radius: 999px;
   padding: 0.45rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
 
+/* The level indicator dot is a decorative status marker, not a surface. */
 .level-badge::before {
   width: 0.5rem;
   height: 0.5rem;
@@ -331,7 +334,7 @@ button:disabled {
 }
 
 .level-badge--cheap {
-  color: var(--price-cheap) !important;
+  color: var(--price-cheap-foreground) !important;
   background: color-mix(in oklch, var(--price-cheap) 12%, transparent);
 }
 
@@ -340,7 +343,7 @@ button:disabled {
 }
 
 .level-badge--normal {
-  color: var(--price-normal) !important;
+  color: var(--price-normal-foreground) !important;
   background: color-mix(in oklch, var(--price-normal) 12%, transparent);
 }
 
@@ -349,7 +352,7 @@ button:disabled {
 }
 
 .level-badge--high {
-  color: var(--price-high) !important;
+  color: var(--price-high-foreground) !important;
   background: color-mix(in oklch, var(--price-high) 12%, transparent);
 }
 
@@ -392,6 +395,7 @@ button:disabled {
   box-shadow: 0 0 22px color-mix(in oklch, var(--price-accent) 15%, transparent), inset 0 1px 2px color-mix(in oklch, var(--foreground) 12%, transparent);
 }
 
+/* The spectrum marker and tick are intentionally rounded visualization details. */
 .spectrum-marker {
   display: grid;
   place-items: center;
@@ -421,14 +425,12 @@ button:disabled {
   gap: 0.2rem;
   padding: 0.22rem;
   border: 1px solid var(--price-border);
-  border-radius: 0.75rem;
   background: var(--card);
 }
 
 .view-toggle {
   min-height: 1.5rem !important;
   border: 1px solid transparent;
-  border-radius: 0.55rem !important;
   background: transparent !important;
   color: var(--muted-foreground) !important;
   padding-right: 0.7rem !important;
@@ -623,6 +625,7 @@ button:disabled {
   pointer-events: none;
 }
 
+/* Rounded geometry below is limited to custom chart markers and visualization details. */
 .price-chart__current-time {
   position: absolute;
   top: 0;
@@ -854,7 +857,7 @@ button:disabled {
 .price-chart__tooltip-note {
   max-width: 13rem;
   color: var(--muted-foreground);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.58rem;
   line-height: 1.25;
   white-space: normal;
@@ -994,15 +997,15 @@ button:disabled {
 }
 
 .price-chart__legend-name--cheap {
-  color: var(--price-cheap);
+  color: var(--price-cheap-foreground);
 }
 
 .price-chart__legend-name--normal {
-  color: var(--price-normal);
+  color: var(--price-normal-foreground);
 }
 
 .price-chart__legend-name--high {
-  color: var(--price-high);
+  color: var(--price-high-foreground);
 }
 
 .price-chart__legend-swatch--carried {
@@ -1041,7 +1044,6 @@ button:disabled {
 .appliance-card {
   position: relative;
   overflow: hidden;
-  border-radius: 1.15rem !important;
   transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
@@ -1053,7 +1055,6 @@ button:disabled {
   row-gap: 0.75rem;
   min-width: 0;
   border-width: 0.5px !important;
-  border-radius: 1rem !important;
   padding: 0.9rem 1rem;
 }
 
@@ -1064,7 +1065,6 @@ button:disabled {
   left: 0;
   width: 1px;
   height: auto;
-  border-radius: 999px;
   background: linear-gradient(
     180deg,
     transparent,
@@ -1093,7 +1093,6 @@ button:disabled {
   height: 3.5rem;
   place-items: center;
   border: 0.5px solid color-mix(in oklch, var(--price-accent) 24%, var(--border));
-  border-radius: 0.95rem;
   background: linear-gradient(
     145deg,
     color-mix(in oklch, var(--price-accent) 18%, transparent),
@@ -1151,7 +1150,7 @@ button:disabled {
 }
 
 .appliance-card__metric-label--saving {
-  color: var(--price-cheap);
+  color: var(--price-cheap-foreground);
 }
 
 .appliance-card__cost {
@@ -1180,7 +1179,6 @@ button:disabled {
   align-self: center;
   justify-self: end;
   border: 0.5px solid color-mix(in oklch, var(--border) 72%, transparent);
-  border-radius: 0.75rem;
   background: color-mix(in oklch, var(--background) 32%, transparent);
   color: var(--muted-foreground);
   text-align: center;

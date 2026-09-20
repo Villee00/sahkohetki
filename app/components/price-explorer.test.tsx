@@ -238,6 +238,33 @@ it("styles the active ToggleGroupItem through its generated pressed state", () =
   );
 });
 
+it("keeps non-chart surfaces on the preset radius-none contract", () => {
+  const styles = readFileSync(`${process.cwd()}/app/globals.css`, "utf8");
+  const explorerSource = readFileSync(
+    `${process.cwd()}/app/components/price-explorer.tsx`,
+    "utf8",
+  );
+  const nonChartRules = [
+    "hero-panel",
+    "price-summary",
+    "level-badge",
+    "price-hero__current-badge",
+    "view-control-options",
+    "view-toggle",
+    "appliance-card",
+    "appliance-card--row",
+    "appliance-card__icon-frame",
+    "appliance-card__assumption-trigger",
+  ];
+
+  for (const selector of nonChartRules) {
+    expect(styles).not.toMatch(
+      new RegExp(`\\.${selector}\\s*\\{[^}]*border-radius`),
+    );
+  }
+  expect(explorerSource).not.toContain("rounded-lg");
+});
+
 it("opens settings, validates the margin Field, and returns focus on close", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={dataWithUses} />);
@@ -306,6 +333,9 @@ it("keeps explanation controls explicitly named at every breakpoint", () => {
 it("keeps transfer controls in the settings modal and opens it from the usage section", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={dataWithTransferData} />);
+  const usesHeading = screen.getByRole("heading", {
+    name: "Mitä sähkönkäyttö maksaa?",
+  });
 
   expect(screen.queryByRole("combobox", { name: "Kunta" })).toBeNull();
 
@@ -323,6 +353,12 @@ it("keeps transfer controls in the settings modal and opens it from the usage se
       "Lisää siirtomaksu ja sähkövero käyttökustannusarvioihin.",
     ),
   ).toBeTruthy();
+  expect(usesHeading.classList.contains("font-heading")).toBe(true);
+  expect(
+    within(dialog)
+      .getByRole("heading", { name: "Siirto + sähkövero" })
+      .classList.contains("font-heading"),
+  ).toBe(true);
 });
 
 it("applies the supplier margin to displayed prices and appliance estimates", async () => {

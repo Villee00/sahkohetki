@@ -247,16 +247,18 @@ export function PriceChart({
     <section aria-labelledby="price-chart-heading" className="price-chart">
       <Card className="price-chart__frame">
         <CardHeader className="price-chart__header px-5 sm:px-6">
-          <CardTitle className="price-chart__title">
+          <CardTitle className="contents">
             <h2
               id="price-chart-heading"
-              className="contents"
+              className="price-chart__title font-heading"
               aria-label="Pörssisähkön hinta"
             >
-              <Icon icon={ChartLine} className="price-chart__title-icon" />
-              <span>Pörssisähkön hinta</span>
-              <span className="price-chart__title-hint">
-                (Valitse aika napsauttamalla pylvästä)
+              <span className="contents">
+                <Icon icon={ChartLine} className="price-chart__title-icon" />
+                <span>Pörssisähkön hinta</span>
+                <span className="price-chart__title-hint">
+                  (Valitse aika napsauttamalla pylvästä)
+                </span>
               </span>
             </h2>
           </CardTitle>
@@ -483,7 +485,7 @@ export function PriceChart({
                   aria-hidden="true"
                 />
                 <span className="price-chart__legend-name price-chart__legend-name--cheap">
-                  Vihreä
+                  Vaalea oranssi
                 </span>
                 <span className="price-chart__legend-detail">= Edullinen</span>
               </span>
@@ -493,7 +495,7 @@ export function PriceChart({
                   aria-hidden="true"
                 />
                 <span className="price-chart__legend-name price-chart__legend-name--normal">
-                  Keltainen
+                  Oranssi
                 </span>
                 <span className="price-chart__legend-detail">
                   = Normaali
@@ -505,7 +507,7 @@ export function PriceChart({
                   aria-hidden="true"
                 />
                 <span className="price-chart__legend-name price-chart__legend-name--high">
-                  Punainen
+                  Tumma oranssi
                 </span>
                 <span className="price-chart__legend-detail">= Korkea</span>
               </span>

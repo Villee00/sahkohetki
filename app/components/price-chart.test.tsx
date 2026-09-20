@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { PriceChart } from "./price-chart";
@@ -273,6 +273,13 @@ it("renders the mockup-style zero-based chart with a visible price scale", () =>
   expect(
     screen.getByRole("heading", { name: "Pörssisähkön hinta" }),
   ).toBeTruthy();
+  const chartHeading = screen.getByRole("heading", {
+    name: "Pörssisähkön hinta",
+  });
+  expect(chartHeading.classList.contains("price-chart__title")).toBe(true);
+  expect(chartHeading.classList.contains("font-heading")).toBe(true);
+  expect(chartHeading.classList.contains("contents")).toBe(false);
+  expect(chartHeading.querySelector(".contents")).toBeTruthy();
   expect(document.querySelector('[data-slot="card"]')).toBeTruthy();
   expect(document.querySelector('[data-slot="card-header"]')).toBeTruthy();
   expect(document.querySelector('[data-slot="card-content"]')).toBeTruthy();
@@ -302,9 +309,13 @@ it("renders the mockup-style zero-based chart with a visible price scale", () =>
     ),
   ).toBeCloseTo(62.8933, 4);
   expect(screen.getByTestId("price-chart-legend")).toBeTruthy();
-  expect(screen.getByText("Vihreä")).toBeTruthy();
-  expect(screen.getByText("Keltainen")).toBeTruthy();
-  expect(screen.getByText("Punainen")).toBeTruthy();
+  const legend = screen.getByTestId("price-chart-legend");
+  expect(within(legend).getByText("Vaalea oranssi")).toBeTruthy();
+  expect(within(legend).getByText("Oranssi")).toBeTruthy();
+  expect(within(legend).getByText("Tumma oranssi")).toBeTruthy();
+  expect(legend.textContent).toContain("Edullinen");
+  expect(legend.textContent).toContain("Normaali");
+  expect(legend.textContent).toContain("Korkea");
 
   const selectedButton = screen.getByRole("button", { name: /11:00/ });
   expect(selectedButton.getAttribute("aria-pressed")).toBe("true");
@@ -341,6 +352,53 @@ it("renders numeric hour ticks and marks every other hour for mobile", () => {
   expect(styles).toMatch(
     /@media \(max-width: 47\.999rem\)[\s\S]*\.price-chart__time-label\[data-mobile-hidden="true"\][\s\S]*visibility: hidden;/,
   );
+});
+
+it("uses readable semantic foregrounds for the preset orange price palette", () => {
+  const styles = readFileSync(`${process.cwd()}/app/globals.css`, "utf8");
+  const normalBadgeRule =
+    styles.match(/\.level-badge--normal\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+  const normalSummaryRule =
+    styles.match(
+      /\.price-summary__item--average \.price-summary__label\s*\{([\s\S]*?)\n\}/,
+    )?.[1] ?? "";
+  const normalLegendRule =
+    styles.match(
+      /\.price-chart__legend-name--normal\s*\{([\s\S]*?)\n\}/,
+    )?.[1] ?? "";
+
+  expect(styles).toMatch(/--price-cheap:\s*var\(--chart-1\);/);
+  expect(styles).toMatch(/--price-normal:\s*var\(--chart-2\);/);
+  expect(styles).toMatch(/--price-high:\s*var\(--chart-3\);/);
+  expect(styles).toMatch(
+    /--price-cheap-foreground:\s*color-mix\(in oklch,/,
+  );
+  expect(styles).toMatch(
+    /--price-normal-foreground:\s*color-mix\(in oklch,/,
+  );
+  expect(styles).toMatch(
+    /--price-high-foreground:\s*color-mix\(in oklch,/,
+  );
+  expect(normalBadgeRule).toMatch(
+    /color:\s*var\(--price-normal-foreground\)\s*!important;/,
+  );
+  expect(normalSummaryRule).toMatch(
+    /color:\s*var\(--price-normal-foreground\);/,
+  );
+  expect(normalLegendRule).toMatch(
+    /color:\s*var\(--price-normal-foreground\);/,
+  );
+});
+
+it("uses the preset sans font for chart tooltip notes", () => {
+  const styles = readFileSync(`${process.cwd()}/app/globals.css`, "utf8");
+  const tooltipNoteRule =
+    styles.match(
+      /\.price-chart__tooltip-note\s*\{([\s\S]*?)\n\}/,
+    )?.[1] ?? "";
+
+  expect(tooltipNoteRule).toMatch(/font-family:\s*var\(--font-sans\);/);
+  expect(tooltipNoteRule).not.toContain("ui-sans-serif");
 });
 
 it("anchors hour labels to the grid line at desktop and mobile sizes", () => {

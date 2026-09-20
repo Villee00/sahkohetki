@@ -55,6 +55,11 @@ it("keeps the appliance article, cost metrics, and expandable assumption", async
     name: "Kahvinkeitin: näytä oletus ja rajaus",
   });
 
+  expect(
+    screen
+      .getByRole("heading", { name: "Kahvinkeitin" })
+      .classList.contains("font-heading"),
+  ).toBe(true);
   expect(article.textContent).toContain("Säästät");
   expect(article.textContent).toContain("0,04 senttiä");
   expect(article.textContent).toContain("0,15 kWh");
