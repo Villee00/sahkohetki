@@ -1,4 +1,5 @@
 import type { EverydayUse, EverydayUseId } from "./appliances";
+import type { TransferCostApiResponse } from "./transfer-api";
 
 export type PriceLevel = "cheap" | "normal" | "high";
 
@@ -105,7 +106,7 @@ export type ExplorerData = {
   today: HorizonPoints;
   tomorrow: HorizonPoints;
   uses: readonly EverydayUse[];
-  transferData: TransferData;
+  transferData: TransferCostApiResponse;
   status: "ready" | "unavailable";
   message?: string;
 };

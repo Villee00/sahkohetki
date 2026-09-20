@@ -6,7 +6,10 @@ import {
   getNextHelsinkiDateKey,
 } from "./time";
 import { EXPLORER_SOURCE, PRICE_LEVEL_CUTOFFS } from "./price-types";
-import { EMPTY_TRANSFER_DATA } from "./transfer-prices";
+import {
+  EMPTY_TRANSFER_COST_API_RESPONSE,
+  type TransferCostApiResponse,
+} from "./transfer-api";
 import type {
   CostComparison,
   CostEstimate,
@@ -15,7 +18,6 @@ import type {
   PriceLevel,
   PricePoint,
   QuarterPrice,
-  TransferData,
 } from "./price-types";
 import type { EverydayUseId } from "./appliances";
 
@@ -298,7 +300,7 @@ type BuildExplorerDataInput = {
   quarterPrices: QuarterPrice[];
   now: Date;
   fetchedAt: string | null;
-  transferData?: TransferData;
+  transferData?: TransferCostApiResponse;
 };
 
 function validQuarterStartMilliseconds(quarter: QuarterPrice): number | undefined {
@@ -390,7 +392,7 @@ function createQuarterPoint(
   };
 }
 
-function buildHorizon(
+function buildRawHorizon(
   sourcePrices: QuarterPrice[],
   quarterByStart: Map<number, QuarterPrice>,
   startMilliseconds: number,
@@ -402,7 +404,7 @@ function buildHorizon(
     slotStart < endMilliseconds;
     slotStart += QUARTER_MILLISECONDS
   ) {
-    quarterHour.push(estimatePoint(createQuarterPoint(slotStart, quarterByStart)));
+    quarterHour.push(createQuarterPoint(slotStart, quarterByStart));
   }
 
   const hourly = [] as PricePoint[];
@@ -412,22 +414,63 @@ function buildHorizon(
     hourStart < endMilliseconds;
     hourStart += HOUR_MILLISECONDS
   ) {
-    hourly.push(
-      estimatePoint(deriveHourlyPoint(sourcePrices, canonicalTimestamp(hourStart))),
-    );
+    hourly.push(deriveHourlyPoint(sourcePrices, canonicalTimestamp(hourStart)));
   }
 
   return {
-    hourly: attachComparisons(classifyPriceLevels(hourly)),
-    quarterHour: attachComparisons(classifyPriceLevels(quarterHour)),
+    hourly: classifyPriceLevels(hourly),
+    quarterHour: classifyPriceLevels(quarterHour),
   };
+}
+
+function buildHorizon(
+  sourcePrices: QuarterPrice[],
+  quarterByStart: Map<number, QuarterPrice>,
+  startMilliseconds: number,
+  endMilliseconds: number,
+): HorizonPoints {
+  const raw = buildRawHorizon(
+    sourcePrices,
+    quarterByStart,
+    startMilliseconds,
+    endMilliseconds,
+  );
+
+  return {
+    hourly: attachComparisons(raw.hourly.map(estimatePoint)),
+    quarterHour: attachComparisons(raw.quarterHour.map(estimatePoint)),
+  };
+}
+
+export function buildPriceHorizon(
+  quarterPrices: QuarterPrice[],
+  startMilliseconds: number,
+  endMilliseconds: number,
+): HorizonPoints {
+  if (
+    !Number.isFinite(startMilliseconds) ||
+    !Number.isFinite(endMilliseconds) ||
+    endMilliseconds <= startMilliseconds
+  ) {
+    throw new RangeError("Invalid price horizon.");
+  }
+
+  const sourcePrices = quarterPrices.filter(
+    (quarter) => validQuarterStartMilliseconds(quarter) !== undefined,
+  );
+  return buildRawHorizon(
+    sourcePrices,
+    indexQuarterPrices(sourcePrices),
+    startMilliseconds,
+    endMilliseconds,
+  );
 }
 
 export function buildExplorerData({
   quarterPrices,
   now,
   fetchedAt,
-  transferData = EMPTY_TRANSFER_DATA,
+  transferData = EMPTY_TRANSFER_COST_API_RESPONSE,
 }: BuildExplorerDataInput): ExplorerData {
   const nowMilliseconds = now.getTime();
   if (!Number.isFinite(nowMilliseconds)) throw new RangeError("Invalid now instant.");

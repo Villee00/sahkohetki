@@ -14,15 +14,17 @@ import {
 } from "../../lib/price-domain";
 import { getHelsinkiDateBounds, getHelsinkiDateKey } from "../../lib/time";
 import { PRICE_LEVEL_CUTOFFS, PRICE_SCALE_BOUNDS } from "../../lib/price-types";
+import type {
+  TransferCostMunicipality,
+  TransferCostTariff,
+} from "../../lib/transfer-api";
 import type { EverydayUse } from "@/lib/appliances";
 import type {
   CostEstimate,
   ExplorerData,
   HorizonPoints,
-  MunicipalityTransfer,
   PriceLevel,
   PricePoint,
-  TransferTariff,
 } from "@/lib/price-types";
 
 type PriceMode = "hourly" | "quarterHour";
@@ -116,7 +118,7 @@ function getLocationResponseMessage(value: unknown): string | null {
 function getTransferUseEstimate(
   use: EverydayUse,
   point: PricePoint | null,
-  tariff: TransferTariff | null,
+  tariff: TransferCostTariff | null,
   electricityTaxCentsPerKwh: number,
 ): CostEstimate | null {
   if (
@@ -128,14 +130,14 @@ function getTransferUseEstimate(
   }
 
   if (!tariff) return point.estimates?.[use.id] ?? null;
-  if (!tariff.priceAvailable || tariff.energyChargeCentsPerKwh === null) {
+  if (!tariff.priceAvailable || tariff.transferEnergyChargeCentsPerKwh === null) {
     return null;
   }
 
   const estimate = calculateUseCostWithTransfer(
     use.consumptionKwh,
     point.priceCentsPerKwh,
-    tariff.energyChargeCentsPerKwh,
+    tariff.transferEnergyChargeCentsPerKwh,
     electricityTaxCentsPerKwh,
   );
   const comparison = point.estimates?.[use.id]?.comparison;
@@ -382,7 +384,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const dialogWasOpenRef = useRef(false);
   const transferData = data.transferData;
-  const selectedMunicipality = useMemo<MunicipalityTransfer | null>(
+  const selectedMunicipality = useMemo<TransferCostMunicipality | null>(
     () =>
       transferData.municipalities.find(
         (municipality) =>
@@ -390,7 +392,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
       ) ?? null,
     [selectedMunicipalityCode, transferData.municipalities],
   );
-  const selectedTransferTariff = useMemo<TransferTariff | null>(
+  const selectedTransferTariff = useMemo<TransferCostTariff | null>(
     () =>
       selectedMunicipality?.operators.find(
         (operator) => operator.id === selectedOperatorId,

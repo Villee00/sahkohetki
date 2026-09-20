@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseTransferCsv } from "./transfer-prices";
+import {
+  buildTransferCostApiResponse,
+  type TransferCostApiResponse,
+} from "./transfer-api";
 import type { TransferData } from "./price-types";
 
 const SNAPSHOT_PATH = join(
@@ -15,4 +19,8 @@ export function getTransferData(): TransferData {
   if (cachedTransferData) return cachedTransferData;
   cachedTransferData = parseTransferCsv(readFileSync(SNAPSHOT_PATH, "utf8"));
   return cachedTransferData;
+}
+
+export function getTransferCostApiData(): TransferCostApiResponse {
+  return buildTransferCostApiResponse(getTransferData());
 }

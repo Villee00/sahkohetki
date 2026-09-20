@@ -89,7 +89,7 @@ function getOperatorName(row: CsvRecord): string {
 function createUnavailableTariff(
   municipalityCode: string,
   operatorName: string,
-  row: CsvRecord | undefined,
+  row?: CsvRecord,
 ): TransferTariff {
   return {
     id: `${municipalityCode}:${operatorName}`,
@@ -165,7 +165,7 @@ function buildMunicipality(
       const row = rowsByOperator.get(operatorName);
       return row
         ? createTariff(municipalityCode, operatorName, row)
-        : createUnavailableTariff(municipalityCode, operatorName, firstRow);
+        : createUnavailableTariff(municipalityCode, operatorName);
     });
 
   return {
