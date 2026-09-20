@@ -128,13 +128,66 @@ it("defaults to the latest complete day and household-facing prices", () => {
   render(<HistoryExplorer data={data} />);
 
   expect(screen.getByRole("heading", { name: "Hintahistoria" })).toBeTruthy();
-  expect(screen.getByText("2.1.2026")).toBeTruthy();
-  expect(screen.getByText("5,02", { exact: true })).toBeTruthy();
-  expect(screen.getByText("snt/kWh (sis. alv.)")).toBeTruthy();
+  const summary = screen.getByRole("region", { name: "2.1.2026" });
+  expect(summary.textContent).toContain("5,02");
+  expect(summary.textContent).toContain("snt/kWh (sis. alv.)");
   expect(screen.getByText("Täydellinen")).toBeTruthy();
   expect(
     screen.getByRole("link", { name: "Tänään" }).getAttribute("href"),
   ).toBe("/");
+});
+
+it("shows an accessible daily trend chart with a data table", () => {
+  render(<HistoryExplorer data={data} />);
+
+  const chart = screen.getByRole("region", {
+    name: "Päivittäinen hintakehitys",
+  });
+  expect(chart).toBeTruthy();
+  expect(chart.querySelector("svg")).not.toBeNull();
+  expect(chart.querySelectorAll(".history-trend__line").length).toBe(1);
+  expect(
+    chart.querySelectorAll(".history-trend__point.is-selected").length,
+  ).toBe(1);
+  expect(
+    screen.getByRole("table", { name: "Päivittäiset hintatiedot" }),
+  ).toBeTruthy();
+  expect(chart.textContent).toContain("snt/kWh sis. alv.");
+});
+
+it("breaks the daily line around missing dates", () => {
+  const fourthDay = period(
+    "day:2026-01-04",
+    "day",
+    "2026-01-04",
+    "2026-01-04",
+    30,
+    secondDay.id,
+  );
+  render(
+    <HistoryExplorer
+      data={{
+        ...data,
+        days: [
+          data.days[0],
+          data.days[2],
+          {
+            dateKey: "2026-01-04",
+            complete: true,
+            expectedMinutes: 1440,
+            average: fourthDay.average,
+          },
+        ],
+        periods: { ...data.periods, day: [...data.periods.day, fourthDay] },
+      }}
+    />,
+  );
+
+  expect(
+    screen
+      .getByRole("region", { name: "Päivittäinen hintakehitys" })
+      .querySelectorAll(".history-trend__line").length,
+  ).toBe(2);
 });
 
 it("switches price basis and period granularity without requesting more data", async () => {
@@ -144,12 +197,20 @@ it("switches price basis and period granularity without requesting more data", a
   await user.click(
     screen.getByRole("button", { name: "ENTSO-E-markkinahinta" }),
   );
-  expect(screen.getByText("40,00", { exact: true })).toBeTruthy();
+  expect(
+    screen.getByRole("region", { name: "2.1.2026" }).textContent,
+  ).toContain("40,00");
   expect(screen.getAllByText("€/MWh").length).toBeGreaterThan(0);
+  expect(
+    screen.getByRole("region", { name: "Päivittäinen hintakehitys" })
+      .textContent,
+  ).toContain("€/MWh");
 
   await user.click(screen.getByRole("button", { name: "Viikko" }));
   expect(screen.getByText("29.12.2025–4.1.2026")).toBeTruthy();
-  expect(screen.getByText("35,00", { exact: true })).toBeTruthy();
+  expect(
+    screen.getByRole("region", { name: "29.12.2025–4.1.2026" }).textContent,
+  ).toContain("35,00");
 });
 
 it("navigates to the previous period and lets a heatmap cell select a date", async () => {
@@ -157,7 +218,7 @@ it("navigates to the previous period and lets a heatmap cell select a date", asy
   render(<HistoryExplorer data={data} />);
 
   await user.click(screen.getByRole("button", { name: "Edellinen jakso" }));
-  expect(screen.getByText("1.1.2026")).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "1.1.2026" })).toBeTruthy();
   expect(
     screen.getByRole("button", { name: /2\.1\.2026.*5,02 snt\/kWh/i }),
   ).toBeTruthy();
@@ -165,7 +226,7 @@ it("navigates to the previous period and lets a heatmap cell select a date", asy
   await user.click(
     screen.getByRole("button", { name: /2\.1\.2026.*5,02 snt\/kWh/i }),
   );
-  expect(screen.getByText("2.1.2026")).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "2.1.2026" })).toBeTruthy();
 });
 
 it("keeps missing dates visible, named, and non-selectable", () => {

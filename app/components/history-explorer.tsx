@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { CSSProperties } from "react";
+import { HistoryTrendChart } from "./history-trend-chart";
 import type {
   HistoryDayCell,
   HistoryGranularity,
@@ -337,6 +338,13 @@ export function HistoryExplorer({ data }: { data: HistoryPageData }) {
                 </button>
               </div>
             </section>
+
+            <HistoryTrendChart
+              days={data.days}
+              basis={basis}
+              selectedStartDateKey={selected.startDateKey}
+              selectedEndDateKey={selected.endDateKey}
+            />
 
             <section
               className="history-summary hero-panel"
