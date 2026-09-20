@@ -18,12 +18,15 @@ const ENTSOE_DOCUMENT_TYPE = "A44";
 const DAY_AHEAD_MARKET = "A01";
 const FINNISH_GENERAL_VAT_RATE = 0.255;
 const QUARTER_MILLISECONDS = 15 * 60 * 1000;
+const SOURCE_CACHE_REVALIDATE_SECONDS = 12 * 60 * 60;
+const NOT_PUBLISHED_RETRY_MILLISECONDS = 5 * 60 * 1000;
 const REQUEST_UNAVAILABLE_MESSAGE =
   "Hintatietoja ei voitu hakea tai varmistaa juuri nyt.";
 const TOKEN_UNAVAILABLE_MESSAGE =
   "Hintatietoja ei voitu hakea, koska lähteen käyttöoikeus puuttuu.";
 const SCHEMA_UNAVAILABLE_MESSAGE =
   "Hintatietojen muotoa ei voitu varmistaa juuri nyt.";
+const NOT_PUBLISHED_MESSAGE = "Hintatietoja ei ole vielä julkaistu.";
 
 const xmlParser = new XMLParser({
   ignoreAttributes: true,
@@ -37,9 +40,35 @@ type FetchImplementation = (
   init?: RequestInit,
 ) => Promise<Response>;
 
+export type PriceSourceUnavailableReason =
+  | "not-published"
+  | "configuration"
+  | "request"
+  | "schema";
+
 type EntsoeParseResult =
   | { status: "ready"; prices: QuarterPrice[] }
-  | { status: "unavailable"; message: string };
+  | {
+      status: "unavailable";
+      message: string;
+      reason: PriceSourceUnavailableReason;
+    };
+
+type CachedSourceSnapshot = {
+  status: "ready";
+  prices: QuarterPrice[];
+  fetchedAt: string;
+};
+
+class SourceRefreshError extends Error {
+  readonly reason: PriceSourceUnavailableReason;
+
+  constructor(reason: PriceSourceUnavailableReason, message: string) {
+    super(message);
+    this.name = "SourceRefreshError";
+    this.reason = reason;
+  }
+}
 
 type ParsedPeriod = {
   startMilliseconds: number;
@@ -93,31 +122,56 @@ function canonicalTimestamp(milliseconds: number): string {
 }
 
 function parseEntsoeXml(xml: string): EntsoeParseResult {
+  const schemaUnavailable = (): EntsoeParseResult => ({
+    status: "unavailable",
+    message: SCHEMA_UNAVAILABLE_MESSAGE,
+    reason: "schema",
+  });
+
   let parsed: unknown;
   try {
     parsed = xmlParser.parse(xml);
   } catch {
-    return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+    return schemaUnavailable();
   }
 
-  if (!isRecord(parsed) || !isRecord(parsed.Publication_MarketDocument)) {
-    return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+  if (!isRecord(parsed)) {
+    return schemaUnavailable();
+  }
+
+  const acknowledgement = parsed.Acknowledgement_MarketDocument;
+  if (isRecord(acknowledgement)) {
+    const hasNoMatchingDataReason = asArray(acknowledgement.Reason).some(
+      (reason) => isRecord(reason) && textValue(reason.code) === "999",
+    );
+    if (hasNoMatchingDataReason) {
+      return {
+        status: "unavailable",
+        message: NOT_PUBLISHED_MESSAGE,
+        reason: "not-published",
+      };
+    }
+    return schemaUnavailable();
+  }
+
+  if (!isRecord(parsed.Publication_MarketDocument)) {
+    return schemaUnavailable();
   }
 
   const document = parsed.Publication_MarketDocument;
   if (textValue(document.type) !== ENTSOE_DOCUMENT_TYPE) {
-    return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+    return schemaUnavailable();
   }
 
   const periodsToExpand: ParsedPeriod[] = [];
   const timeSeries = asArray(document.TimeSeries);
   if (timeSeries.length === 0) {
-    return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+    return schemaUnavailable();
   }
 
   for (const seriesValue of timeSeries) {
     if (!isRecord(seriesValue)) {
-      return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+      return schemaUnavailable();
     }
 
     if (
@@ -126,26 +180,26 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
       textValue(seriesValue["currency_Unit.name"]) !== "EUR" ||
       textValue(seriesValue["price_Measure_Unit.name"]) !== "MWH"
     ) {
-      return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+      return schemaUnavailable();
     }
 
     const periods = asArray(seriesValue.Period);
     if (periods.length === 0) {
-      return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+      return schemaUnavailable();
     }
 
     for (const periodValue of periods) {
       if (!isRecord(periodValue)) {
-        return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+        return schemaUnavailable();
       }
 
       if (textValue(periodValue.resolution) !== "PT15M") {
-        return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+        return schemaUnavailable();
       }
 
       const interval = periodValue.timeInterval;
       if (!isRecord(interval)) {
-        return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+        return schemaUnavailable();
       }
 
       const startMilliseconds = parseTimestamp(interval.start);
@@ -157,20 +211,20 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
         endMilliseconds <= startMilliseconds ||
         (endMilliseconds - startMilliseconds) % QUARTER_MILLISECONDS !== 0
       ) {
-        return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+        return schemaUnavailable();
       }
 
       const periodSlots =
         (endMilliseconds - startMilliseconds) / QUARTER_MILLISECONDS;
       const points = asArray(periodValue.Point);
       if (points.length === 0) {
-        return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+        return schemaUnavailable();
       }
 
       const pricesByPosition = new Map<number, number>();
       for (const pointValue of points) {
         if (!isRecord(pointValue)) {
-          return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+          return schemaUnavailable();
         }
 
         const position = positiveInteger(pointValue.position);
@@ -180,11 +234,11 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
           position > periodSlots ||
           priceInMegawattHours === undefined
         ) {
-          return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+          return schemaUnavailable();
         }
 
         if (pricesByPosition.has(position)) {
-          return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+          return schemaUnavailable();
         }
         pricesByPosition.set(position, priceInMegawattHours);
       }
@@ -233,7 +287,7 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
         slotStart += QUARTER_MILLISECONDS
       ) {
         if (!addPrice(slotStart, lastPriceInMegawattHours, true)) {
-          return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+          return schemaUnavailable();
         }
       }
     }
@@ -260,7 +314,7 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
           !period.pricesByPosition.has(position),
         )
       ) {
-        return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+        return schemaUnavailable();
       }
     }
 
@@ -274,7 +328,7 @@ function parseEntsoeXml(xml: string): EntsoeParseResult {
     .sort(([left], [right]) => left - right)
     .map(([, price]) => price);
   if (prices.length === 0) {
-    return { status: "unavailable", message: SCHEMA_UNAVAILABLE_MESSAGE };
+    return schemaUnavailable();
   }
 
   return { status: "ready", prices };
@@ -333,7 +387,11 @@ function buildRequestUrl(token: string, now: Date): string | undefined {
 
 export type PriceSourceResult =
   | { status: "ready"; prices: QuarterPrice[] }
-  | { status: "unavailable"; message: string };
+  | {
+      status: "unavailable";
+      message: string;
+      reason: PriceSourceUnavailableReason;
+    };
 
 export async function fetchLatestPrices(
   fetchImpl: FetchImplementation = fetch,
@@ -341,40 +399,106 @@ export async function fetchLatestPrices(
 ): Promise<PriceSourceResult> {
   const token = process.env.ENTSOE_TOKEN?.trim();
   if (!token) {
-    return { status: "unavailable", message: TOKEN_UNAVAILABLE_MESSAGE };
+    return {
+      status: "unavailable",
+      message: TOKEN_UNAVAILABLE_MESSAGE,
+      reason: "configuration",
+    };
   }
 
   const requestUrl = buildRequestUrl(token, now);
   if (requestUrl === undefined) {
-    return { status: "unavailable", message: REQUEST_UNAVAILABLE_MESSAGE };
+    return {
+      status: "unavailable",
+      message: REQUEST_UNAVAILABLE_MESSAGE,
+      reason: "request",
+    };
   }
 
   try {
     const response = await fetchImpl(requestUrl, { cache: "no-store" });
     if (!response.ok) {
-      return { status: "unavailable", message: REQUEST_UNAVAILABLE_MESSAGE };
+      return {
+        status: "unavailable",
+        message: REQUEST_UNAVAILABLE_MESSAGE,
+        reason: "request",
+      };
     }
 
     const parsed = parseEntsoeXml(await response.text());
-    return parsed.status === "ready"
-      ? parsed
-      : { status: "unavailable", message: parsed.message };
+    return parsed;
   } catch {
-    return { status: "unavailable", message: REQUEST_UNAVAILABLE_MESSAGE };
+    return {
+      status: "unavailable",
+      message: REQUEST_UNAVAILABLE_MESSAGE,
+      reason: "request",
+    };
   }
 }
 
-const getCachedSourceSnapshot = unstable_cache(
-  async () => {
+let latestSuccessfulSnapshot: CachedSourceSnapshot | undefined;
+let notPublishedRetryAtMilliseconds = 0;
+
+const getCachedPublishedSourceSnapshot = unstable_cache(
+  async (): Promise<CachedSourceSnapshot> => {
     const result = await fetchLatestPrices();
-    return {
+    if (result.status === "unavailable") {
+      if (result.reason === "not-published") {
+        notPublishedRetryAtMilliseconds =
+          Date.now() + NOT_PUBLISHED_RETRY_MILLISECONDS;
+      }
+      throw new SourceRefreshError(result.reason, result.message);
+    }
+
+    const snapshot = {
       ...result,
-      fetchedAt: result.status === "ready" ? new Date().toISOString() : null,
+      fetchedAt: new Date().toISOString(),
     };
+    latestSuccessfulSnapshot = snapshot;
+    notPublishedRetryAtMilliseconds = 0;
+    return snapshot;
   },
   ["sahkohetki-entsoe-latest-prices-vat-inclusive-v1"],
-  { revalidate: 43200 },
+  { revalidate: SOURCE_CACHE_REVALIDATE_SECONDS },
 );
+
+async function getCachedSourceSnapshot(): Promise<
+  CachedSourceSnapshot | {
+    status: "unavailable";
+    message: string;
+    fetchedAt: null;
+  }
+> {
+  if (Date.now() < notPublishedRetryAtMilliseconds) {
+    return (
+      latestSuccessfulSnapshot ?? {
+        status: "unavailable",
+        message: NOT_PUBLISHED_MESSAGE,
+        fetchedAt: null,
+      }
+    );
+  }
+
+  try {
+    const snapshot = await getCachedPublishedSourceSnapshot();
+    latestSuccessfulSnapshot = snapshot;
+    return snapshot;
+  } catch (error) {
+    if (error instanceof SourceRefreshError) {
+      return {
+        status: "unavailable",
+        message: error.message,
+        fetchedAt: null,
+      };
+    }
+
+    return {
+      status: "unavailable",
+      message: REQUEST_UNAVAILABLE_MESSAGE,
+      fetchedAt: null,
+    };
+  }
+}
 
 function unavailableExplorerData(
   message: string,
