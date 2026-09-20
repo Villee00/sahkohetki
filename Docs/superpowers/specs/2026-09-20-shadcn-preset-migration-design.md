@@ -1,6 +1,6 @@
 # Sähköhetki shadcn preset migration design
 
-**Date:** 20 September 2026  
+**Date:** 20 September 2026
 **Status:** Approved direction
 
 ## Goal
