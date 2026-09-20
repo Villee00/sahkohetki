@@ -67,8 +67,8 @@ export function ApplianceCard({
 
   return (
     <article aria-labelledby={`appliance-${use.id}-name`}>
-      <Card className="appliance-card appliance-card--row p-4 sm:p-5">
-        <CardHeader className="contents">
+      <Card className="appliance-card grid min-w-0 grid-cols-[minmax(3rem,auto)_minmax(0,1fr)_auto] items-center gap-x-[1.1rem] gap-y-3 md:grid-cols-[minmax(3.5rem,auto)_minmax(0,1fr)_minmax(18rem,1.25fr)] lg:grid-cols-[minmax(3.5rem,auto)_minmax(13rem,1.15fr)_minmax(22rem,1.7fr)_minmax(7rem,auto)]">
+        <CardHeader className="col-span-2 grid grid-cols-[minmax(3rem,auto)_minmax(0,1fr)] items-center gap-x-[1.1rem] md:grid-cols-[minmax(3.5rem,auto)_minmax(0,1fr)]">
           <div className="appliance-card__icon-frame" aria-hidden="true">
             <Icon
               icon={applianceIcons[use.id]}
@@ -100,7 +100,7 @@ export function ApplianceCard({
           </div>
         </CardHeader>
 
-        <CardContent className="contents">
+        <CardContent className="col-span-full min-w-0 md:col-start-3 md:col-span-1">
           <div
             className="appliance-card__metrics"
             aria-label={`${use.name} kustannustiedot`}
@@ -155,7 +155,7 @@ export function ApplianceCard({
           </div>
         </CardContent>
 
-        <CardFooter className="contents">
+        <CardFooter className="col-start-3 row-start-1 justify-self-end border-t-0 lg:col-start-4 md:row-start-auto">
           <Button
             type="button"
             variant="ghost"
@@ -179,7 +179,7 @@ export function ApplianceCard({
         {assumptionOpen ? (
           <div
             id={`appliance-${use.id}-assumption`}
-            className="appliance-card__assumption-panel text-xs text-muted-foreground"
+            className="appliance-card__assumption-panel col-span-full text-xs text-muted-foreground"
           >
             <p className="appliance-card__assumption-copy leading-5">
               {use.assumption} Lähde:{" "}

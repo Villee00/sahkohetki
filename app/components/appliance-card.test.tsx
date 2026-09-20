@@ -64,6 +64,30 @@ it("keeps the appliance article, cost metrics, and expandable assumption", async
   expect(article.textContent).toContain("Tarkistettu");
 });
 
+it("keeps generated card sections as real layout wrappers", () => {
+  const use = getEverydayUse("coffee");
+  if (!use) throw new Error("Expected the coffee use to be in the catalog.");
+
+  render(<ApplianceCard use={use} estimate={estimateWithComparison} />);
+
+  const card = screen
+    .getByRole("article")
+    .querySelector('[data-slot="card"]');
+  const header = card?.querySelector('[data-slot="card-header"]');
+  const content = card?.querySelector('[data-slot="card-content"]');
+  const footer = card?.querySelector('[data-slot="card-footer"]');
+
+  expect(header).toBeTruthy();
+  expect(content).toBeTruthy();
+  expect(footer).toBeTruthy();
+  expect(header?.classList.contains("contents")).toBe(false);
+  expect(content?.classList.contains("contents")).toBe(false);
+  expect(footer?.classList.contains("contents")).toBe(false);
+  expect(header?.querySelector(".appliance-card__identity")).toBeTruthy();
+  expect(content?.querySelector(".appliance-card__metrics")).toBeTruthy();
+  expect(footer?.querySelector('[data-slot="button"]')).toBeTruthy();
+});
+
 it("keeps the disclosure trigger anchored while its panel opens beneath the row", async () => {
   const user = userEvent.setup();
   const use = getEverydayUse("coffee");
