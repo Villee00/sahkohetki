@@ -115,8 +115,7 @@ button:disabled {
 .hero-panel,
 .price-chart__frame,
 .appliance-card,
-.unavailable-panel,
-.dialog-panel {
+.unavailable-panel {
   border-color: var(--price-border) !important;
   background: var(--price-surface) !important;
   box-shadow:
@@ -146,7 +145,7 @@ button:disabled {
 
 .current-value {
   min-width: 0;
-  border-left: 1px solid rgba(148, 163, 184, 0.18);
+  border-left: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
   padding-left: 0.8rem;
   font-variant-numeric: tabular-nums;
 }
@@ -1066,17 +1065,22 @@ button:disabled {
   width: 1px;
   height: auto;
   border-radius: 999px;
-  background: linear-gradient(180deg, transparent, rgba(56, 189, 248, 0.85), transparent);
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in oklch, var(--price-accent) 85%, transparent),
+    transparent
+  );
   content: "";
 }
 
 .appliance-card:hover {
-  border-color: rgba(56, 189, 248, 0.32) !important;
+  border-color: color-mix(in oklch, var(--price-accent) 32%, var(--border)) !important;
   transform: translateY(-2px);
   box-shadow:
-    0 24px 70px rgba(2, 8, 23, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 0 0 1px rgba(56, 189, 248, 0.06);
+    0 24px 70px color-mix(in oklch, var(--foreground) 25%, transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--background) 4%, transparent),
+    0 0 0 1px color-mix(in oklch, var(--price-accent) 6%, transparent);
 }
 
 .appliance-card__name {
@@ -1088,11 +1092,17 @@ button:disabled {
   width: 3.5rem;
   height: 3.5rem;
   place-items: center;
-  border: 0.5px solid rgba(56, 189, 248, 0.24);
+  border: 0.5px solid color-mix(in oklch, var(--price-accent) 24%, var(--border));
   border-radius: 0.95rem;
-  background: linear-gradient(145deg, rgba(56, 189, 248, 0.18), rgba(56, 189, 248, 0.04));
-  color: #7dd3fc;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 20px rgba(2, 8, 23, 0.18);
+  background: linear-gradient(
+    145deg,
+    color-mix(in oklch, var(--price-accent) 18%, transparent),
+    color-mix(in oklch, var(--price-accent) 4%, transparent)
+  );
+  color: var(--price-accent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--background) 8%, transparent),
+    0 8px 20px color-mix(in oklch, var(--foreground) 18%, transparent);
 }
 
 .appliance-card__icon {
@@ -1108,8 +1118,8 @@ button:disabled {
 }
 
 .appliance-card__consumption {
-  border: 0.5px solid rgba(148, 163, 184, 0.12);
-  background: rgba(7, 17, 30, 0.38);
+  border: 0.5px solid color-mix(in oklch, var(--border) 52%, transparent);
+  background: color-mix(in oklch, var(--background) 38%, transparent);
 }
 
 .appliance-card__standard-use {
@@ -1124,12 +1134,12 @@ button:disabled {
 }
 
 .appliance-card__metric--saving {
-  border-left: 0.5px solid rgba(148, 163, 184, 0.16);
+  border-left: 0.5px solid color-mix(in oklch, var(--border) 64%, transparent);
   padding-left: 1.15rem;
 }
 
 .appliance-card__metric-label {
-  color: #64748b;
+  color: var(--muted-foreground);
   display: flex;
   min-height: 1.35rem;
   align-items: flex-end;
@@ -1141,7 +1151,7 @@ button:disabled {
 }
 
 .appliance-card__metric-label--saving {
-  color: #6ee7b7;
+  color: var(--price-cheap);
 }
 
 .appliance-card__cost {
@@ -1169,16 +1179,16 @@ button:disabled {
   justify-items: center;
   align-self: center;
   justify-self: end;
-  border: 0.5px solid rgba(148, 163, 184, 0.18);
+  border: 0.5px solid color-mix(in oklch, var(--border) 72%, transparent);
   border-radius: 0.75rem;
-  background: rgba(7, 17, 30, 0.32);
-  color: #94a3b8;
+  background: color-mix(in oklch, var(--background) 32%, transparent);
+  color: var(--muted-foreground);
   text-align: center;
 }
 
 .appliance-card__assumption-trigger:hover {
-  color: #e2e8f0;
-  background: rgba(56, 189, 248, 0.1);
+  color: var(--foreground);
+  background: color-mix(in oklch, var(--price-accent) 10%, transparent);
 }
 
 .appliance-card__assumption-chevron {
@@ -1193,53 +1203,21 @@ button:disabled {
 .appliance-card__assumption-panel {
   grid-column: 1 / -1;
   width: 100%;
-  border-top: 0.5px solid rgba(148, 163, 184, 0.12);
+  border-top: 0.5px solid color-mix(in oklch, var(--border) 52%, transparent);
   padding-top: 0.65rem;
 }
 
 .appliance-card__assumption-copy {
   max-width: none;
-  color: #94a3b8;
+  color: var(--muted-foreground);
 }
 
 .appliance-card__assumption-copy a {
-  color: #7dd3fc;
+  color: var(--primary);
 }
 
 .site-footer {
-  border-top-color: rgba(148, 163, 184, 0.16) !important;
-}
-
-.dialog-backdrop {
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-}
-
-.dialog-panel {
-  max-height: min(44rem, calc(100svh - 2rem)) !important;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-color: #334155 transparent;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-}
-
-.dialog-panel::-webkit-scrollbar {
-  width: 0.45rem;
-}
-
-.dialog-panel::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.dialog-panel::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: #334155;
-}
-
-body:has(.dialog-backdrop) {
-  overflow: hidden;
+  border-top-color: var(--price-border) !important;
 }
 
 @media (max-width: 64rem) {
@@ -1260,10 +1238,6 @@ body:has(.dialog-backdrop) {
 
   .page-content {
     padding-top: 1.25rem !important;
-  }
-
-  .hero-panel {
-    padding: 1.25rem !important;
   }
 
   .price-hero__actions {
@@ -1339,10 +1313,6 @@ body:has(.dialog-backdrop) {
     max-width: 8rem;
   }
 
-  .dialog-panel {
-    max-height: calc(100svh - 1.5rem) !important;
-    padding: 1.25rem !important;
-  }
 }
 
 @media (max-width: 30rem) {

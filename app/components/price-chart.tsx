@@ -1,7 +1,17 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { ChartLine } from "lucide-react";
 import type { PriceLevel, PricePoint } from "@/lib/price-types";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { Icon } from "./ui-icon";
 
 type PriceChartProps = {
@@ -235,224 +245,234 @@ export function PriceChart({
 
   return (
     <section aria-labelledby="price-chart-heading" className="price-chart">
-      <div className="price-chart__frame rounded-3xl border border-slate-700/70 bg-slate-950/35 p-5 sm:p-6">
-        <div className="price-chart__header">
-          <h2
-            id="price-chart-heading"
-            className="price-chart__title"
-            aria-label="Pörssisähkön hinta"
-          >
-            <Icon name="chart" className="price-chart__title-icon" />
-            <span>Pörssisähkön hinta</span>
-            <span className="price-chart__title-hint">
-              (Valitse aika napsauttamalla pylvästä)
-            </span>
-          </h2>
+      <Card className="price-chart__frame">
+        <CardHeader className="price-chart__header px-5 sm:px-6">
+          <CardTitle className="price-chart__title">
+            <h2
+              id="price-chart-heading"
+              className="contents"
+              aria-label="Pörssisähkön hinta"
+            >
+              <Icon icon={ChartLine} className="price-chart__title-icon" />
+              <span>Pörssisähkön hinta</span>
+              <span className="price-chart__title-hint">
+                (Valitse aika napsauttamalla pylvästä)
+              </span>
+            </h2>
+          </CardTitle>
           {headerContent ? (
             <div className="price-chart__header-tools">{headerContent}</div>
           ) : null}
-        </div>
+        </CardHeader>
 
         {points.length > 0 ? (
           <>
-            <div className="price-chart__plot-layout">
-              <div
-                className="price-chart__plot"
-                role="group"
-                aria-label="Pörssisähkön hintakaavio"
-              >
-                <div className="price-chart__y-axis" aria-hidden="true">
-                  <span className="price-chart__y-unit">snt/kWh</span>
-                  {chartScale.ticks.map((tick) => (
-                    <span
-                      key={tick}
-                      className="price-chart__y-tick"
-                      style={{
-                        bottom: `${getScalePosition(tick, chartScale)}%`,
-                      }}
-                    >
-                      {formatAxisValue(tick)}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="price-chart__plot-area">
-                  <div
-                    className="price-chart__grid-lines"
-                    data-testid="price-chart-grid"
-                    aria-hidden="true"
-                  >
+            <CardContent className="price-chart__content px-5 pb-5 sm:px-6 sm:pb-6">
+              <div className="price-chart__plot-layout">
+                <div
+                  className="price-chart__plot"
+                  role="group"
+                  aria-label="Pörssisähkön hintakaavio"
+                >
+                  <div className="price-chart__y-axis" aria-hidden="true">
+                    <span className="price-chart__y-unit">snt/kWh</span>
                     {chartScale.ticks.map((tick) => (
                       <span
                         key={tick}
-                        className="price-chart__grid-line"
+                        className="price-chart__y-tick"
                         style={{
                           bottom: `${getScalePosition(tick, chartScale)}%`,
                         }}
-                      />
+                      >
+                        {formatAxisValue(tick)}
+                      </span>
                     ))}
                   </div>
-                  <div
-                    className="price-chart__vertical-grid"
-                    data-testid="price-chart-vertical-grid"
-                    style={chartGridStyle}
-                    aria-hidden="true"
-                  >
-                    {points.map((point) => (
+
+                  <div className="price-chart__plot-area">
+                    <div
+                      className="price-chart__grid-lines"
+                      data-testid="price-chart-grid"
+                      aria-hidden="true"
+                    >
+                      {chartScale.ticks.map((tick) => (
+                        <span
+                          key={tick}
+                          className="price-chart__grid-line"
+                          style={{
+                            bottom: `${getScalePosition(tick, chartScale)}%`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <div
+                      className="price-chart__vertical-grid"
+                      data-testid="price-chart-vertical-grid"
+                      style={chartGridStyle}
+                      aria-hidden="true"
+                    >
+                      {points.map((point) => (
+                        <span
+                          key={point.id}
+                          className="price-chart__vertical-grid-line"
+                        />
+                      ))}
+                    </div>
+                    {averagePosition !== null && averageLabel !== null ? (
                       <span
-                        key={point.id}
-                        className="price-chart__vertical-grid-line"
+                        className="price-chart__average-line"
+                        data-testid="price-chart-average-line"
+                        style={{ bottom: `${averagePosition}%` }}
+                        role="img"
+                        aria-label={averageLabel}
                       />
-                    ))}
-                  </div>
-                  {averagePosition !== null && averageLabel !== null ? (
+                    ) : null}
                     <span
-                      className="price-chart__average-line"
-                      data-testid="price-chart-average-line"
-                      style={{ bottom: `${averagePosition}%` }}
-                      role="img"
-                      aria-label={averageLabel}
-                    />
-                  ) : null}
-                  <span
-                    className="price-chart__zero-line"
-                    style={{ bottom: `${zeroPosition}%` }}
-                    aria-hidden="true"
-                  />
-                  {currentTimePosition !== null ? (
-                    <span
-                      className="price-chart__current-time"
-                      data-testid="price-chart-current-time"
-                      style={{ left: `${currentTimePosition}%` }}
+                      className="price-chart__zero-line"
+                      style={{ bottom: `${zeroPosition}%` }}
                       aria-hidden="true"
                     />
-                  ) : null}
-                  <div
-                    className="price-chart__bars grid"
-                    style={chartGridStyle}
-                  >
-                    {points.map((point) => {
-                      const isSelected = point.id === selectedId;
-                      const isHovered = point.id === activePointId;
-                      const showSelectedBar = isSelected && !isHovered;
-                      const pointPrice = getAvailablePointPrice(point);
-                      const isCarriedForward =
-                        showCarriedForwardMarker && point.carriedForward === true;
-                      const levelClass = point.level ?? "unavailable";
-                      const barClass = point.available
-                        ? `price-chart__bar--${point.level ?? "normal"}`
-                        : "price-chart__bar--unavailable";
-                      return (
-                        <div
-                          key={point.id}
-                          className={`price-chart__item${
-                            isHovered ? " price-chart__item--hovered" : ""
-                          }`}
-                          onMouseEnter={() => setHoveredPointId(point.id)}
-                          onMouseLeave={() => setHoveredPointId(null)}
-                        >
-                          <button
-                            type="button"
-                            className={`price-chart__bar-button group flex w-full items-end justify-center rounded-xl px-1 pt-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 disabled:cursor-not-allowed disabled:opacity-50 ${
-                              !point.available
-                                ? "price-chart__bar-button--unavailable"
-                                : ""
-                            } ${isSelected ? "price-chart__bar-button--selected" : ""}`}
-                            aria-label={pointAccessibleLabel(
-                              point,
-                              showCarriedForwardMarker,
+                    {currentTimePosition !== null ? (
+                      <span
+                        className="price-chart__current-time"
+                        data-testid="price-chart-current-time"
+                        style={{ left: `${currentTimePosition}%` }}
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                    <div
+                      className="price-chart__bars grid"
+                      style={chartGridStyle}
+                    >
+                      {points.map((point) => {
+                        const isSelected = point.id === selectedId;
+                        const isHovered = point.id === activePointId;
+                        const showSelectedBar = isSelected && !isHovered;
+                        const pointPrice = getAvailablePointPrice(point);
+                        const isCarriedForward =
+                          showCarriedForwardMarker &&
+                          point.carriedForward === true;
+                        const levelClass = point.level ?? "unavailable";
+                        const barClass = cn(
+                          point.available
+                            ? `price-chart__bar--${point.level ?? "normal"}`
+                            : "price-chart__bar--unavailable",
+                        );
+                        return (
+                          <div
+                            key={point.id}
+                            className={cn(
+                              "price-chart__item",
+                              isHovered && "price-chart__item--hovered",
                             )}
-                            aria-pressed={isSelected}
-                            data-level={levelClass}
-                            data-carried-forward={
-                              isCarriedForward ? "true" : undefined
-                            }
-                            disabled={!point.available}
-                            onBlur={() => setFocusedPointId(null)}
-                            onClick={() => {
-                              if (point.available) onSelect(point.id);
-                            }}
-                            onFocus={() => setFocusedPointId(point.id)}
+                            onMouseEnter={() => setHoveredPointId(point.id)}
+                            onMouseLeave={() => setHoveredPointId(null)}
                           >
-                            <span
-                              aria-hidden="true"
-                              className={`price-chart__bar ${barClass}${
-                                showSelectedBar
-                                  ? " price-chart__bar--selected"
-                                  : ""
-                              }${
-                                isHovered ? " price-chart__bar--hovered" : ""
-                              }${
-                                isCarriedForward
-                                  ? " price-chart__bar--carried"
-                                  : ""
-                              } block w-full rounded-t-lg transition group-focus-visible:bg-sky-200`}
-                              style={getBarStyle(point, chartScale)}
-                            />
-                          </button>
-                          {isHovered && pointPrice !== null ? (
-                            <span
-                              className="price-chart__tooltip"
+                            <button
+                              type="button"
+                              className={cn(
+                                "price-chart__bar-button group flex w-full items-end justify-center px-1 pt-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50",
+                                !point.available &&
+                                  "price-chart__bar-button--unavailable",
+                                isSelected &&
+                                  "price-chart__bar-button--selected",
+                              )}
+                              aria-label={pointAccessibleLabel(
+                                point,
+                                showCarriedForwardMarker,
+                              )}
+                              aria-pressed={isSelected}
                               data-level={levelClass}
-                              role="tooltip"
+                              data-carried-forward={
+                                isCarriedForward ? "true" : undefined
+                              }
+                              disabled={!point.available}
+                              onBlur={() => setFocusedPointId(null)}
+                              onClick={() => {
+                                if (point.available) onSelect(point.id);
+                              }}
+                              onFocus={() => setFocusedPointId(point.id)}
                             >
-                              <span className="price-chart__tooltip-time">
-                                {point.label}
-                              </span>{" "}
-                              <span className="price-chart__tooltip-price">
-                                {formatPrice(pointPrice)}{" "}
-                                <span className="price-chart__tooltip-unit">
-                                  snt/kWh
+                              <span
+                                aria-hidden="true"
+                                className={cn(
+                                  "price-chart__bar block w-full transition group-focus-visible:bg-primary",
+                                  barClass,
+                                  showSelectedBar &&
+                                    "price-chart__bar--selected",
+                                  isHovered && "price-chart__bar--hovered",
+                                  isCarriedForward &&
+                                    "price-chart__bar--carried",
+                                )}
+                                style={getBarStyle(point, chartScale)}
+                              />
+                            </button>
+                            {isHovered && pointPrice !== null ? (
+                              <span
+                                className="price-chart__tooltip"
+                                data-level={levelClass}
+                                role="tooltip"
+                              >
+                                <span className="price-chart__tooltip-time">
+                                  {point.label}
+                                </span>{" "}
+                                <span className="price-chart__tooltip-price">
+                                  {formatPrice(pointPrice)}{" "}
+                                  <span className="price-chart__tooltip-unit">
+                                    snt/kWh
+                                  </span>
                                 </span>
+                                {isCarriedForward ? (
+                                  <span className="price-chart__tooltip-note">
+                                    Puuttunut lähdearvo – käytetty viimeisin julkaistu hinta
+                                  </span>
+                                ) : null}
                               </span>
-                              {isCarriedForward ? (
-                                <span className="price-chart__tooltip-note">
-                                  Puuttunut lähdearvo – käytetty viimeisin julkaistu hinta
-                                </span>
-                              ) : null}
-                            </span>
-                          ) : null}
-                        </div>
-                      );
-                    })}
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div
-                className={`price-chart__axis grid${points.length > 48 ? " price-chart__axis--dense" : ""}`}
-                style={chartGridStyle}
-                aria-hidden="true"
-              >
-                {points.map((point) => {
-                  const { hour, minute, offset } = getPointTimeLabel(point);
-                  const hideOnMobile = shouldHidePointLabelOnMobile(
-                    hour,
-                    minute,
-                  );
-                  return (
-                    <span
-                      key={point.id}
-                      className="price-chart__time-label"
-                      data-minute={minute}
-                      data-mobile-hidden={hideOnMobile ? "true" : undefined}
-                    >
-                      <span className="price-chart__time-label-main">
-                        {formatPointHour(hour)}
-                      </span>
-                      {offset ? (
-                        <span className="price-chart__time-label-offset">
-                          {offset}
+                <div
+                  className={cn(
+                    "price-chart__axis grid",
+                    points.length > 48 && "price-chart__axis--dense",
+                  )}
+                  style={chartGridStyle}
+                  aria-hidden="true"
+                >
+                  {points.map((point) => {
+                    const { hour, minute, offset } = getPointTimeLabel(point);
+                    const hideOnMobile = shouldHidePointLabelOnMobile(
+                      hour,
+                      minute,
+                    );
+                    return (
+                      <span
+                        key={point.id}
+                        className="price-chart__time-label"
+                        data-minute={minute}
+                        data-mobile-hidden={hideOnMobile ? "true" : undefined}
+                      >
+                        <span className="price-chart__time-label-main">
+                          {formatPointHour(hour)}
                         </span>
-                      ) : null}
-                    </span>
-                  );
-                })}
+                        {offset ? (
+                          <span className="price-chart__time-label-offset">
+                            {offset}
+                          </span>
+                        ) : null}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-
-            <div
-              className="price-chart__legend"
+            </CardContent>
+            <CardFooter
+              className="price-chart__legend border-t-0 px-5 pb-5 sm:px-6 sm:pb-6"
               data-testid="price-chart-legend"
               aria-label="Kaavion värit"
             >
@@ -503,14 +523,18 @@ export function PriceChart({
                   </span>
                 </span>
               ) : null}
-            </div>
+            </CardFooter>
           </>
         ) : (
-          <p className="unavailable-panel rounded-2xl border border-dashed border-slate-700 p-6 text-sm text-slate-400">
-            {emptyMessage ?? "Hintajaksoja ei ole tällä hetkellä saatavilla."}
-          </p>
+          <CardContent className="price-chart__content px-5 pb-5 sm:px-6 sm:pb-6">
+            <Alert role="status" className="unavailable-panel border-dashed p-6">
+              <AlertDescription>
+                {emptyMessage ?? "Hintajaksoja ei ole tällä hetkellä saatavilla."}
+              </AlertDescription>
+            </Alert>
+          </CardContent>
         )}
-      </div>
+      </Card>
     </section>
   );
 }

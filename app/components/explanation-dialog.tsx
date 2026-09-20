@@ -1,4 +1,4 @@
-import type { ReactNode, RefObject } from "react";
+import { useRef, type ReactNode, type RefObject } from "react";
 import { XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,7 @@ export function ExplanationDialog({
 }: ExplanationDialogProps) {
   const titleId = `${id}-title`;
   const descriptionId = `${id}-description`;
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const handleOpenChange = (nextOpen: boolean) => {
     if (onOpenChange) {
       onOpenChange(nextOpen);
@@ -47,6 +48,8 @@ export function ExplanationDialog({
       <DialogContent
         id={id}
         showCloseButton={false}
+        initialFocus={closeButtonRef}
+        finalFocus
         className="max-h-[90vh] max-w-2xl overflow-y-auto p-6 sm:p-8"
       >
         <DialogHeader>
@@ -65,6 +68,7 @@ export function ExplanationDialog({
           {children}
         </DialogDescription>
         <DialogClose
+          ref={closeButtonRef}
           render={
             <Button
               variant="ghost"

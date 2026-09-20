@@ -1,13 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent, MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import Image from "next/image";
+import { ArrowUpRight, FileText, Info, Settings } from "lucide-react";
 import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
 import { Icon } from "./ui-icon";
 import { PriceChart } from "./price-chart";
 import { TransferCostPanel } from "./transfer-cost-panel";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+} from "@/components/ui/card";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { cn } from "@/lib/utils";
 import {
   applyPriceMargin,
   calculateUseCostWithTransfer,
@@ -35,21 +55,17 @@ const TRANSFER_SELECTION_STORAGE_KEY = "sahkohetki.transfer-selection";
 
 type LevelCopy = {
   label: string;
-  className: string;
 };
 
 const levelCopy: Record<PriceLevel, LevelCopy> = {
   cheap: {
     label: "Edullinen",
-    className: "text-emerald-300",
   },
   normal: {
     label: "Normaali",
-    className: "text-amber-200",
   },
   high: {
     label: "Korkea",
-    className: "text-rose-300",
   },
 };
 
@@ -377,10 +393,6 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
   const coffeeUse = data.uses.find((use) => use.id === "coffee");
-  const openerRef = useRef<HTMLButtonElement | null>(null);
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const dialogWasOpenRef = useRef(false);
   const transferData = data.transferData;
   const selectedMunicipality = useMemo<MunicipalityTransfer | null>(
     () =>
@@ -647,59 +659,16 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     closeDialog();
   };
 
-  useEffect(() => {
-    if (!openDialog) {
-      if (dialogWasOpenRef.current) {
-        openerRef.current?.focus();
-        dialogWasOpenRef.current = false;
-      }
-      return;
-    }
-
-    dialogWasOpenRef.current = true;
-    closeButtonRef.current?.focus();
-    if (!closeButtonRef.current) dialogRef.current?.focus();
-
-    const handleDialogKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeDialog();
-        return;
-      }
-      if (event.key !== "Tab" || !dialogRef.current) return;
-
-      const focusable = Array.from(
-        dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        ),
-      );
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!dialogRef.current.contains(document.activeElement)) {
-        event.preventDefault();
-        first.focus();
-        return;
-      }
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener("keydown", handleDialogKeyDown);
-    return () => document.removeEventListener("keydown", handleDialogKeyDown);
-  }, [closeDialog, openDialog]);
+  const handleDialogOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) closeDialog();
+    },
+    [closeDialog],
+  );
 
   const openExplanation = (
     name: Exclude<DialogName, null>,
-    event: ReactMouseEvent<HTMLButtonElement>,
   ) => {
-    openerRef.current = event.currentTarget;
     if (name === "settings") {
       setMarginInput(formatMarginInput(priceMargin));
       setMarginError(null);
@@ -751,74 +720,79 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const viewControls = (
     <div className="price-chart__controls">
       <div className="view-control-group">
-        <div
-          className="view-control-options"
-          role="group"
+        <ToggleGroup
           aria-label="Hintatarkkuus"
+          className="view-control-options"
+          value={[mode]}
+          onValueChange={(values) => {
+            const nextMode = values[0] as PriceMode | undefined;
+            if (nextMode) changeMode(nextMode);
+          }}
         >
           {(Object.keys(modeLabels) as PriceMode[]).map((option) => (
-            <button
+            <ToggleGroupItem
               key={option}
-              type="button"
-              className={`view-toggle min-h-11 rounded-xl px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 ${
-                mode === option ? "view-toggle--active" : ""
-              }`}
-              aria-pressed={mode === option}
-              onClick={() => changeMode(option)}
+              value={option}
+              variant="outline"
+              size="sm"
+              className="view-toggle"
             >
               {modeLabels[option]}
-            </button>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
       </div>
       <div className="view-control-group">
-        <div
-          className="view-control-options"
-          role="group"
+        <ToggleGroup
           aria-label="Tarkastelujakso"
+          className="view-control-options"
+          value={[horizon]}
+          onValueChange={(values) => {
+            const nextHorizon = values[0] as Horizon | undefined;
+            if (nextHorizon) changeHorizon(nextHorizon);
+          }}
         >
           {(Object.keys(horizonLabels) as Horizon[]).map((option) => (
-            <button
+            <ToggleGroupItem
               key={option}
-              type="button"
-              className={`view-toggle min-h-11 rounded-xl px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 ${
-                horizon === option
-                  ? "view-toggle--active view-toggle--horizon"
-                  : ""
-              }`}
-              aria-pressed={horizon === option}
-              onClick={() => changeHorizon(option)}
+              value={option}
+              variant="outline"
+              size="sm"
+              className={cn(
+                "view-toggle",
+                option === "tomorrow" && "view-toggle--horizon",
+              )}
             >
               {horizonLabels[option]}
-            </button>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
       </div>
     </div>
   );
 
   return (
-    <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
-      <header className="site-header sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
+    <main className="site-shell min-h-screen">
+      <header className="site-header sticky top-0 z-30 border-b bg-background/95 backdrop-blur-xl">
         <div className="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:gap-5 sm:px-6 lg:px-8">
           <a
             href="#main-content"
-            className="group inline-flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300"
+            className="group inline-flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           >
             <Image
               src="/icon.ico"
               alt=""
               width={32}
               height={32}
-              className="h-8 w-8 rounded-lg"
+              className="size-8"
               aria-hidden="true"
               unoptimized
             />
             <span className="site-brand-text">
-              <span className="block text-sm font-semibold tracking-tight text-white">
+              <span className="block text-sm font-semibold tracking-tight text-foreground">
                 Sähköhetki
               </span>
-              <span className="block text-[0.65rem] uppercase tracking-[0.2em] text-slate-500">
+              <span className="block text-[0.65rem] uppercase tracking-[0.2em] text-muted-foreground">
                 Pörssisähkön hinta
               </span>
             </span>
@@ -829,17 +803,17 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} ${priceMargin > 0 ? "hinta marginaali mukaan lukien" : "spot-hinta"} ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
             >
               <span className="current-value__context flex min-w-0 items-baseline gap-2">
-                <span className="current-value__label text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-sky-300">
+                <span className="current-value__label text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-primary">
                   {isCurrentSelection ? "Nyt" : "Valittu"}
                 </span>
-                <span className="current-value__time truncate font-mono text-xs text-slate-300">
+                <span className="current-value__time truncate font-mono text-xs text-muted-foreground">
                   {selectedPoint?.label ?? "Ei saatavilla"}
                 </span>
               </span>
-              <span className="current-value__price shrink-0 font-mono text-sm font-semibold text-white">
+              <span className="current-value__price shrink-0 font-mono text-sm font-semibold text-foreground">
                 {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
               </span>
-              <span className="current-value__unit shrink-0 text-[0.65rem] text-slate-500">
+              <span className="current-value__unit shrink-0 text-[0.65rem] text-muted-foreground">
                 snt/kWh
               </span>
             </div>
@@ -847,45 +821,51 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               aria-label="Lisätietoja"
               className="flex items-center gap-0.5 sm:gap-1"
             >
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="lg"
                 aria-label="Miten laskemme?"
-                className="site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3"
-                onClick={(event) => openExplanation("formula", event)}
+                className="site-nav-button min-h-9 px-2 sm:px-3"
+                onClick={() => openExplanation("formula")}
               >
-                <Icon name="info" className="h-4 w-4" />
+                <Icon icon={Info} data-icon="inline-start" />
                 <span aria-hidden="true" className="hidden sm:inline">
                   Miten laskemme?
                 </span>
                 <span className="sr-only sm:hidden">Miten laskemme?</span>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="lg"
                 aria-label="Tietolähde"
-                className="site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3"
-                onClick={(event) => openExplanation("source", event)}
+                className="site-nav-button min-h-9 px-2 sm:px-3"
+                onClick={() => openExplanation("source")}
               >
-                <Icon name="source" className="h-4 w-4" />
+                <Icon icon={FileText} data-icon="inline-start" />
                 <span aria-hidden="true" className="hidden sm:inline">
                   Tietolähde
                 </span>
                 <span className="sr-only sm:hidden">Tietolähde</span>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant={priceMargin > 0 ? "secondary" : "ghost"}
+                size="lg"
                 aria-label="Lisää marginaali"
                 aria-describedby={
                   priceMargin > 0 ? "price-margin-status" : undefined
                 }
-                className={`site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3 ${priceMargin > 0 ? "site-nav-button--active" : ""}`}
-                onClick={(event) => openExplanation("settings", event)}
+                className="site-nav-button min-h-9 px-2 sm:px-3"
+                onClick={() => openExplanation("settings")}
               >
-                <Icon name="settings" className="h-4 w-4" />
+                <Icon icon={Settings} data-icon="inline-start" />
                 <span aria-hidden="true" className="hidden sm:inline">
                   Lisää marginaali
                 </span>
                 <span className="sr-only sm:hidden">Lisää marginaali</span>
-              </button>
+              </Button>
               {priceMargin > 0 ? (
                 <span id="price-margin-status" className="sr-only">
                   Marginaali {formatPrice(priceMargin)} snt/kWh käytössä
@@ -898,147 +878,153 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
       <div
         id="main-content"
-        className="page-content mx-auto max-w-7xl space-y-7 px-4 pb-16 pt-6 sm:px-6 lg:px-8 lg:pt-8"
+        className="page-content mx-auto flex max-w-7xl flex-col gap-7 px-4 pb-16 pt-6 sm:px-6 lg:px-8 lg:pt-8"
       >
         <section
           aria-labelledby="selected-heading"
-          className="hero-panel overflow-hidden rounded-3xl border border-slate-700/70 bg-slate-900/80 p-5 shadow-2xl shadow-slate-950/30 sm:p-6"
         >
-          <h1 id="selected-heading" className="sr-only">
-            {heading}
-          </h1>
-          <div className="price-hero__top flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
-            <div className="min-w-0">
-              {selectedPoint ? (
-                <time
-                  className="price-hero__selected-date mb-2 block font-mono text-xs font-medium tracking-wide text-slate-500"
-                  dateTime={selectedPoint.startAt}
-                >
-                  {formatSelectedDate(selectedPoint.startAt)}
-                </time>
-              ) : null}
-              <div className="price-hero__interval flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                <span className="price-hero__clock-dot" aria-hidden="true" />
-                <span>Valittu aikaväli:</span>
-                {isCurrentSelection ? (
-                  <span
-                    className="price-hero__current-badge"
-                    aria-label="Nykyinen aikaväli"
+          <Card className="hero-panel">
+            <CardHeader className="price-hero__top flex flex-wrap items-center justify-between gap-x-6 gap-y-4 p-5 sm:p-6">
+              <h1 id="selected-heading" className="sr-only">
+                {heading}
+              </h1>
+              <div className="min-w-0">
+                {selectedPoint ? (
+                  <time
+                    className="price-hero__selected-date mb-2 block font-mono text-xs font-medium tracking-wide text-muted-foreground"
+                    dateTime={selectedPoint.startAt}
                   >
-                    Nyt
-                  </span>
+                    {formatSelectedDate(selectedPoint.startAt)}
+                  </time>
                 ) : null}
-                <span className="price-hero__interval-value rounded-lg border border-slate-700 bg-slate-950/55 px-2 py-1 font-mono text-slate-200">
-                  {selectedPoint?.label ?? "Ei saatavilla"}
-                </span>
-              </div>
-              <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="hero-price font-mono text-5xl font-semibold tracking-tight text-white sm:text-6xl">
-                  {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
-                </span>
-                <span className="font-mono text-base text-slate-400">
-                  snt / kWh
-                </span>
-                {priceMargin > 0 ? (
-                  <span className="rounded-full border border-sky-300/20 bg-sky-300/10 px-2.5 py-1 font-mono text-xs text-sky-100">
-                    + {formatPrice(priceMargin)} snt marginaali
+                <div className="price-hero__interval flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  <span className="price-hero__clock-dot" aria-hidden="true" />
+                  <span>Valittu aikaväli:</span>
+                  {isCurrentSelection ? (
+                    <Badge
+                      variant="outline"
+                      className="price-hero__current-badge"
+                      aria-label="Nykyinen aikaväli"
+                    >
+                      Nyt
+                    </Badge>
+                  ) : null}
+                  <span className="price-hero__interval-value border border-border bg-muted px-2 py-1 font-mono text-foreground">
+                    {selectedPoint?.label ?? "Ei saatavilla"}
                   </span>
-                ) : null}
+                </div>
+                <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="hero-price font-mono text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
+                    {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
+                  </span>
+                  <span className="font-mono text-base text-muted-foreground">
+                    snt / kWh
+                  </span>
+                  {priceMargin > 0 ? (
+                    <Badge
+                      variant="secondary"
+                      className="font-mono text-xs"
+                    >
+                      + {formatPrice(priceMargin)} snt marginaali
+                    </Badge>
+                  ) : null}
+                </div>
               </div>
-            </div>
 
-            <div className="price-hero__actions flex flex-wrap items-center justify-start gap-3 lg:justify-end">
-              {level ? (
-                <span
-                  className={`level-badge level-badge--${selectedPoint?.level ?? "unavailable"} ${level.className}`}
-                >
-                  {level.label} hinta
-                </span>
-              ) : (
-                <span className="level-badge level-badge--unavailable">
-                  Hintataso ei ole saatavilla
-                </span>
-              )}
-              {priceSummary && !isTomorrowUnavailable ? (
+              <div className="price-hero__actions flex flex-wrap items-center justify-start gap-3 lg:justify-end">
+                {level ? (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "level-badge",
+                      `level-badge--${selectedPoint?.level ?? "unavailable"}`,
+                    )}
+                  >
+                    {level.label} hinta
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="level-badge level-badge--unavailable">
+                    Hintataso ei ole saatavilla
+                  </Badge>
+                )}
+                {priceSummary && !isTomorrowUnavailable ? (
+                  <div
+                    className="price-summary"
+                    role="group"
+                    aria-label="Hintayhteenveto"
+                  >
+                    <div className="price-summary__item price-summary__item--cheap">
+                      <span className="price-summary__label">Halvin</span>
+                      <span className="price-summary__value">
+                        {formatPrice(priceSummary.minimum)}
+                      </span>
+                      <span className="price-summary__unit">snt/kWh</span>
+                    </div>
+                    <div className="price-summary__item price-summary__item--average">
+                      <span className="price-summary__label">Keskihinta</span>
+                      <span className="price-summary__value">
+                        {formatPrice(priceSummary.average)}
+                      </span>
+                      <span className="price-summary__unit">snt/kWh</span>
+                    </div>
+                    <div className="price-summary__item price-summary__item--high">
+                      <span className="price-summary__label">Kallein</span>
+                      <span className="price-summary__value">
+                        {formatPrice(priceSummary.maximum)}
+                      </span>
+                      <span className="price-summary__unit">snt/kWh</span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </CardHeader>
+
+            {selectedPoint && spectrumPosition !== null ? (
+              <CardContent className="p-5 pt-0 sm:p-6 sm:pt-0">
                 <div
-                  className="price-summary"
-                  role="group"
-                  aria-label="Hintayhteenveto"
+                  className="spectrum-widget"
+                  aria-label="Valitun hinnan sijainti hintatasoasteikolla"
+                  role="img"
                 >
-                  <div className="price-summary__item price-summary__item--cheap">
-                    <span className="price-summary__label">Halvin</span>
-                    <span className="price-summary__value">
-                      {formatPrice(priceSummary.minimum)}
+                  <div className="spectrum-track relative mt-3 h-2">
+                    <span
+                      className="spectrum-marker absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+                      style={{
+                        left: `${Math.min(100, Math.max(0, spectrumPosition))}%`,
+                      }}
+                    >
+                      <span aria-hidden="true" className="spectrum-marker__tick" />
                     </span>
-                    <span className="price-summary__unit">snt/kWh</span>
                   </div>
-                  <div className="price-summary__item price-summary__item--average">
-                    <span className="price-summary__label">Keskihinta</span>
-                    <span className="price-summary__value">
-                      {formatPrice(priceSummary.average)}
+                  <div className="spectrum-labels mt-3 flex justify-between gap-3 text-[0.68rem] text-muted-foreground">
+                    <span>
+                      ≤ {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)} snt/kWh
+                      (Edullinen)
                     </span>
-                    <span className="price-summary__unit">snt/kWh</span>
-                  </div>
-                  <div className="price-summary__item price-summary__item--high">
-                    <span className="price-summary__label">Kallein</span>
-                    <span className="price-summary__value">
-                      {formatPrice(priceSummary.maximum)}
+                    <span className="hidden text-center sm:inline">
+                      &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)}–≤{" "}
+                      {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt/kWh
+                      (Normaali)
                     </span>
-                    <span className="price-summary__unit">snt/kWh</span>
+                    <span>
+                      &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt/kWh
+                      (Korkea)
+                    </span>
                   </div>
                 </div>
-              ) : null}
-            </div>
-          </div>
-
-          {selectedPoint && spectrumPosition !== null ? (
-            <div
-              className="spectrum-widget mt-5"
-              aria-label="Valitun hinnan sijainti hintatasoasteikolla"
-              role="img"
-            >
-              <div className="spectrum-track relative mt-3 h-2 rounded-full bg-gradient-to-r from-emerald-400 via-amber-300 to-rose-400">
-                <span
-                  className="spectrum-marker absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-slate-950 bg-white shadow-lg shadow-white/25"
-                  style={{
-                    left: `${Math.min(100, Math.max(0, spectrumPosition))}%`,
-                  }}
-                >
-                  <span aria-hidden="true" className="spectrum-marker__tick" />
-                </span>
-              </div>
-              <div className="spectrum-labels mt-3 flex justify-between gap-3 text-[0.68rem] text-slate-500">
-                <span>
-                  ≤ {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)} snt/kWh
-                  (Edullinen)
-                </span>
-                <span className="hidden text-center sm:inline">
-                  &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.cheapMaxCents)}–≤{" "}
-                  {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt/kWh
-                  (Normaali)
-                </span>
-                <span>
-                  &gt; {formatPrice(PRICE_LEVEL_CUTOFFS.normalMaxCents)} snt/kWh
-                  (Korkea)
-                </span>
-              </div>
-            </div>
-          ) : null}
+              </CardContent>
+            ) : null}
+          </Card>
         </section>
 
         {unavailableMessage && !isTomorrowUnavailable ? (
-          <section
+          <Alert
             role="status"
-            className="unavailable-panel rounded-2xl border border-amber-300/30 bg-amber-300/10 p-5 text-sm leading-7 text-amber-100"
+            className="unavailable-panel p-5 text-sm leading-7"
           >
-            <div className="flex gap-3">
-              <Icon
-                name="info"
-                className="mt-1 h-5 w-5 shrink-0 text-amber-200"
-              />
-              <p>{unavailableMessage}</p>
-            </div>
-          </section>
+            <Icon icon={Info} className="mt-1 shrink-0" />
+            <AlertDescription>{unavailableMessage}</AlertDescription>
+          </Alert>
         ) : null}
 
         {data.status === "ready" ? (
@@ -1060,29 +1046,31 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         {selectedPoint && cheapestPoint ? (
           <section
             aria-labelledby="uses-heading"
-            className="uses-section space-y-5"
+            className="uses-section flex min-w-0 flex-col gap-5"
           >
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
                   Kymmenen arjen sähkönkäyttökohdetta
                 </p>
                 <h2
                   id="uses-heading"
-                  className="mt-2 text-3xl font-semibold tracking-tight text-white"
+                  className="mt-2 text-3xl font-semibold tracking-tight text-foreground"
                 >
                   Mitä sähkönkäyttö maksaa?
                 </h2>
-                <button
+                <Button
                   type="button"
-                  className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-sky-300/35 bg-sky-300/10 px-4 text-sm font-semibold text-sky-100 transition hover:border-sky-300/65 hover:bg-sky-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-                  onClick={(event) => openExplanation("settings", event)}
+                  variant="outline"
+                  size="lg"
+                  className="mt-4 min-h-11"
+                  onClick={() => openExplanation("settings")}
                 >
-                  <Icon name="settings" className="h-4 w-4" />
+                  <Icon icon={Settings} data-icon="inline-start" />
                   Lisää siirto + sähkövero
-                </button>
+                </Button>
               </div>
-              <p className="max-w-md text-sm leading-6 text-slate-400">
+              <p className="max-w-md text-sm leading-6 text-muted-foreground">
                 Arvio perustuu valittuun spot-hintaan
                 {priceMargin > 0 ? " ja asetettuun myyjän marginaaliin" : ""}.
                 Kun verkkoyhtiö on valittu, mukaan lasketaan siirtomaksu ja
@@ -1115,10 +1103,11 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           </section>
         ) : null}
 
-        <footer className="site-footer border-t border-slate-800 pt-6 text-sm leading-7 text-slate-500">
+        <footer className="site-footer pt-6 text-sm leading-7 text-muted-foreground">
+          <Separator className="mb-6" />
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
             <div>
-              <p className="font-medium text-slate-300">
+              <p className="font-medium text-foreground">
                 Sähköhetki näyttää ENTSO-E:n markkinahinnasta muodostetun
                 arvonlisäverollisen spot-hinnan
                 {priceMargin > 0
@@ -1134,22 +1123,22 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               <span>Tiedot haettu: {formatFetchedAt(data.fetchedAt)}</span>
               <a
-                className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+                className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 href={data.source.pricesUrl}
                 target="_blank"
                 rel="noreferrer"
               >
                 {data.source.name}
-                <Icon name="arrow-up-right" className="h-4 w-4" />
+                <Icon icon={ArrowUpRight} className="size-4" />
               </a>
               <a
-                className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+                className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 href={data.source.documentationUrl}
                 target="_blank"
                 rel="noreferrer"
               >
                 API-dokumentaatio
-                <Icon name="arrow-up-right" className="h-4 w-4" />
+                <Icon icon={ArrowUpRight} className="size-4" />
               </a>
             </div>
           </div>
@@ -1160,9 +1149,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         id="formula-dialog"
         title="Miten kustannusarvio lasketaan?"
         open={openDialog === "formula"}
-        onClose={closeDialog}
-        dialogRef={dialogRef}
-        closeButtonRef={closeButtonRef}
+        onOpenChange={handleDialogOpenChange}
       >
         <p>
           Arvio perustuu valittuun spot-hintaan, valitun verkkoyhtiön
@@ -1170,7 +1157,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           käyttötavan kulutukseen. Spot- ja siirtohinnat sisältävät Suomen
           yleisen 25,5 %:n arvonlisäveron.
         </p>
-        <p className="rounded-2xl border border-sky-300/20 bg-sky-300/10 px-4 py-3 font-mono text-sm text-sky-100">
+        <p className="border border-border bg-muted px-4 py-3 font-mono text-sm text-foreground">
           kulutus (kWh) × (spot + marginaali + siirto + sähkövero) (snt/kWh) =
           kustannus (snt)
         </p>
@@ -1197,9 +1184,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         id="source-dialog"
         title="Mistä hintatiedot tulevat?"
         open={openDialog === "source"}
-        onClose={closeDialog}
-        dialogRef={dialogRef}
-        closeButtonRef={closeButtonRef}
+        onOpenChange={handleDialogOpenChange}
       >
         <p>
           Sähköhetki käyttää ENTSO-E:n uusimpia Suomen tarjousalueen
@@ -1227,32 +1212,32 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         </p>
         <div className="flex flex-wrap gap-4 text-sm">
           <a
-            className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+            className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             href={data.source.pricesUrl}
             target="_blank"
             rel="noreferrer"
           >
             ENTSO-E
-            <Icon name="arrow-up-right" className="h-4 w-4" />
+            <Icon icon={ArrowUpRight} className="size-4" />
           </a>
           <a
-            className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+            className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             href={data.source.documentationUrl}
             target="_blank"
             rel="noreferrer"
           >
             API-dokumentaatio
-            <Icon name="arrow-up-right" className="h-4 w-4" />
+            <Icon icon={ArrowUpRight} className="size-4" />
           </a>
         </div>
         <a
-          className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+          className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           href={data.transferData.electricityTax.sourceUrl}
           target="_blank"
           rel="noreferrer"
         >
           Verohallinnon sähköveron verotaulukko
-          <Icon name="arrow-up-right" className="h-4 w-4" />
+          <Icon icon={ArrowUpRight} className="size-4" />
         </a>
       </ExplanationDialog>
 
@@ -1260,75 +1245,66 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         id="settings-dialog"
         title="Lisää marginaali"
         open={openDialog === "settings"}
-        onClose={closeDialog}
-        dialogRef={dialogRef}
-        closeButtonRef={closeButtonRef}
+        onOpenChange={handleDialogOpenChange}
         closeButtonLabel="Sulje lisää marginaali"
       >
-        <form className="space-y-5" onSubmit={applyMargin}>
+        <form className="flex flex-col gap-5" onSubmit={applyMargin}>
           <p>
             Lisää sähköyhtiösi snt/kWh-marginaali, niin se lasketaan mukaan
             jokaiseen markkinahintaan ja kustannusarvioon.
           </p>
-          <div>
-            <label
-              htmlFor="price-margin"
-              className="text-sm font-semibold text-white"
-            >
-              Sähköyhtiön marginaali
-            </label>
-            <div className="mt-2 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 focus-within:border-sky-300/60 focus-within:ring-2 focus-within:ring-sky-300/20">
-              <input
-                id="price-margin"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={marginInput}
-                aria-describedby={
-                  marginError
-                    ? "price-margin-help price-margin-error"
-                    : "price-margin-help"
-                }
-                aria-invalid={marginError ? true : undefined}
-                className="min-w-0 flex-1 bg-transparent font-mono text-xl text-white outline-none placeholder:text-slate-600"
-                onChange={(event) => {
-                  setMarginInput(event.target.value);
-                  if (marginError) setMarginError(null);
-                }}
-              />
-              <span className="font-mono text-sm text-slate-400">snt/kWh</span>
-            </div>
-            <p
-              id="price-margin-help"
-              className="mt-2 text-xs leading-5 text-slate-500"
-            >
-              Käytä desimaalierottimena pilkkua tai pistettä. Nolla palauttaa
-              pelkän markkinahinnan.
-            </p>
-            {marginError ? (
-              <p
-                id="price-margin-error"
-                role="alert"
-                className="mt-2 text-sm text-rose-300"
+          <FieldGroup>
+            <Field data-invalid={marginError ? "true" : undefined}>
+              <FieldLabel
+                htmlFor="price-margin"
               >
-                {marginError}
-              </p>
-            ) : null}
-          </div>
+                Sähköyhtiön marginaali
+              </FieldLabel>
+              <div className="flex items-center gap-3 border border-input bg-background px-4 py-3 focus-within:border-ring focus-within:ring-1 focus-within:ring-ring/50">
+                <Input
+                  id="price-margin"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={marginInput}
+                  aria-describedby={
+                    marginError
+                      ? "price-margin-help price-margin-error"
+                      : "price-margin-help"
+                  }
+                  aria-invalid={marginError ? true : undefined}
+                  className="min-w-0 flex-1 border-0 bg-transparent font-mono text-xl outline-none focus-visible:ring-0"
+                  onChange={(event) => {
+                    setMarginInput(event.target.value);
+                    if (marginError) setMarginError(null);
+                  }}
+                />
+                <span className="font-mono text-sm text-muted-foreground">
+                  snt/kWh
+                </span>
+              </div>
+              <FieldDescription id="price-margin-help">
+                Käytä desimaalierottimena pilkkua tai pistettä. Nolla palauttaa
+                pelkän markkinahinnan.
+              </FieldDescription>
+              {marginError ? (
+                <FieldError id="price-margin-error">{marginError}</FieldError>
+              ) : null}
+            </Field>
+          </FieldGroup>
           <div className="flex flex-wrap gap-3">
-            <button
-              type="submit"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-sky-300 px-4 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-            >
+            <Button type="submit" size="lg" className="min-h-11">
               Käytä marginaalia
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+              variant="outline"
+              size="lg"
+              className="min-h-11"
               onClick={resetMargin}
             >
               Palauta spot-hintaan
-            </button>
+            </Button>
           </div>
         </form>
         <TransferCostPanel
