@@ -311,4 +311,27 @@ describe("ENTSO-E source adapter", () => {
     });
     expect(result.data.fetchedAt).toEqual(expect.any(String));
   });
+
+  it("uses the transfer-cost API projection in the website SSR data", async () => {
+    vi.stubEnv("ENTSOE_TOKEN", "test-token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(response(ENTSOE_XML)),
+    );
+
+    const result = await getExplorerData(
+      new Date("2026-08-24T10:00:00.000Z"),
+    );
+
+    expect(result.transferData.pricing).toEqual({
+      currency: "EUR",
+      vatIncluded: true,
+      energyUnit: "cents-per-kwh",
+      fixedFeeUnit: "euros-per-month",
+    });
+    expect(result.transferData.electricityTax.taxClass).toBe("I");
+    expect(result.transferData.municipalities[0]?.operators[0]).toHaveProperty(
+      "combinedVariableChargeCentsPerKwh",
+    );
+  });
 });

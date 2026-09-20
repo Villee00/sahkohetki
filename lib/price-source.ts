@@ -8,7 +8,7 @@ import {
   type PriceApiResponse,
 } from "./price-api";
 import { buildExplorerData } from "./price-domain";
-import { getTransferData } from "./transfer-source";
+import { getTransferCostApiData } from "./transfer-source";
 import {
   getHelsinkiDateBounds,
   getHelsinkiDateKey,
@@ -387,7 +387,7 @@ const getCachedSourceSnapshot = unstable_cache(
 
 function unavailableExplorerData(
   message: string,
-  transferData = getTransferData(),
+  transferData = getTransferCostApiData(),
 ): ExplorerData {
   return {
     fetchedAt: null,
@@ -405,7 +405,7 @@ function unavailableExplorerData(
 
 export async function getExplorerData(now = new Date()): Promise<ExplorerData> {
   const snapshot = await getCachedSourceSnapshot();
-  const transferData = getTransferData();
+  const transferData = getTransferCostApiData();
   if (snapshot.status === "unavailable") {
     return unavailableExplorerData(snapshot.message, transferData);
   }

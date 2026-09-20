@@ -22,6 +22,8 @@ export type TransferCostTariff = Omit<
   TransferTariff,
   "energyChargeCentsPerKwh"
 > & {
+  /** @deprecated Use transferEnergyChargeCentsPerKwh in new clients. */
+  energyChargeCentsPerKwh: number | null;
   transferEnergyChargeCentsPerKwh: number | null;
   combinedVariableChargeCentsPerKwh: number | null;
 };
@@ -56,6 +58,7 @@ function projectTariff(
     id: tariff.id,
     operatorName: tariff.operatorName,
     monthlyFixedFeeEur: priceAvailable ? tariff.monthlyFixedFeeEur : null,
+    energyChargeCentsPerKwh: transferEnergyChargeCentsPerKwh,
     transferEnergyChargeCentsPerKwh,
     combinedVariableChargeCentsPerKwh:
       transferEnergyChargeCentsPerKwh === null
