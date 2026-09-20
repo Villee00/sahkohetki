@@ -165,7 +165,7 @@ function buildMunicipality(
       const row = rowsByOperator.get(operatorName);
       return row
         ? createTariff(municipalityCode, operatorName, row)
-        : createUnavailableTariff(municipalityCode, operatorName, firstRow);
+        : createUnavailableTariff(municipalityCode, operatorName);
     });
 
   return {
