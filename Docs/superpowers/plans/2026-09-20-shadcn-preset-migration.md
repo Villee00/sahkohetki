@@ -175,7 +175,7 @@ it("renders a labelled controlled dialog and closes through onOpenChange", async
 });
 ```
 
-Add a transfer panel test using the existing `transferDataFixture` extracted from `price-explorer.test.tsx`. Render `TransferCostPanel` with an empty municipality and operator selection, assert both labelled `combobox` controls and the disabled operator state, call `onMunicipalityChange("240")`, rerender with the Kemi municipality, and assert the operator control is enabled. Assert the location button has name `Paikanna minut` and the OpenStreetMap link remains present. Tests must assert accessible roles/names and state, not implementation-specific CSS.
+Add a transfer panel test with a local `TransferData` literal containing municipality `240` (`Kemi`) and two operators: `Kemin Energia ja Vesi Oy` with an available tariff and `Tenergia Oy` with `priceAvailable: false`. Render `TransferCostPanel` with an empty municipality and operator selection, assert both labelled `combobox` controls and the disabled operator state, call `onMunicipalityChange("240")`, rerender with the Kemi municipality, and assert the operator control is enabled. Assert the location button has name `Paikanna minut` and the OpenStreetMap link remains present. Tests must assert accessible roles/names and state, not implementation-specific CSS.
 
 - [ ] **Step 2: Replace the hand-rolled ExplanationDialog**
 
