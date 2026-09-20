@@ -649,6 +649,49 @@ button:disabled {
   margin-bottom: 1.15rem;
 }
 
+.history-trend__tools {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.55rem;
+}
+
+.history-trend__controls {
+  display: inline-flex;
+  gap: 0.2rem;
+  border-radius: 0.75rem;
+  background: rgba(2, 8, 23, 0.3);
+  padding: 0.2rem;
+}
+
+.history-trend__controls button {
+  min-height: 2.2rem;
+  border: 1px solid transparent;
+  border-radius: 0.6rem;
+  background: transparent;
+  padding: 0.35rem 0.7rem;
+  color: #94a3b8;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.history-trend__controls button:hover {
+  color: #e2e8f0;
+}
+
+.history-trend__controls button.is-active {
+  border-color: rgba(125, 211, 252, 0.2);
+  background: rgba(56, 189, 248, 0.14);
+  color: #e0f2fe;
+}
+
 .history-trend__header h2 {
   margin: 0.35rem 0 0;
   color: #f8fafc;
@@ -774,6 +817,11 @@ button:disabled {
   .history-trend__header {
     flex-direction: column;
     gap: 0.75rem;
+  }
+
+  .history-trend__tools {
+    width: 100%;
+    align-items: flex-start;
   }
 
   .history-trend__unit {

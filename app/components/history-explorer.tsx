@@ -4,7 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { HistoryTrendChart } from "./history-trend-chart";
+import {
+  HistoryTrendChart,
+  type HistoryTrendGranularity,
+} from "./history-trend-chart";
 import type {
   HistoryDayCell,
   HistoryGranularity,
@@ -198,6 +201,16 @@ export function HistoryExplorer({ data }: { data: HistoryPageData }) {
     const id = selectionIdForDay(day.dateKey, granularity);
     if (!periods.some((period) => period.id === id)) return;
     setSelectedIds((current) => ({ ...current, [granularity]: id }));
+  };
+  const selectTrendPeriod = (
+    nextGranularity: HistoryTrendGranularity,
+    periodId: string,
+  ) => {
+    setGranularity(nextGranularity);
+    setSelectedIds((current) => ({
+      ...current,
+      [nextGranularity]: periodId,
+    }));
   };
 
   return (
@@ -425,13 +438,11 @@ export function HistoryExplorer({ data }: { data: HistoryPageData }) {
 
             <HistoryTrendChart
               days={data.days}
+              periods={{ week: data.periods.week }}
               basis={basis}
               selectedStartDateKey={selected.startDateKey}
               selectedEndDateKey={selected.endDateKey}
-              onSelectDate={(dateKey) => {
-                const day = data.days.find((candidate) => candidate.dateKey === dateKey);
-                if (day) selectDay(day);
-              }}
+              onSelectPeriod={selectTrendPeriod}
             />
 
             <section

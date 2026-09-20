@@ -145,11 +145,11 @@ it("defaults to the latest complete day and household-facing prices", () => {
   ).toBe("/");
 });
 
-it("shows an accessible daily trend chart with a data table", () => {
+it("defaults to an accessible weekly trend chart with a data table", () => {
   render(<HistoryExplorer data={data} />);
 
   const chart = screen.getByRole("region", {
-    name: "Päivittäinen hintakehitys",
+    name: "Viikoittainen hintakehitys",
   });
   expect(chart).toBeTruthy();
   expect(chart.querySelector("svg")).not.toBeNull();
@@ -158,12 +158,35 @@ it("shows an accessible daily trend chart with a data table", () => {
     chart.querySelectorAll(".history-trend__point.is-selected").length,
   ).toBe(1);
   expect(
-    screen.getByRole("table", { name: "Päivittäiset hintatiedot" }),
+    screen.getByRole("table", { name: "Viikoittaiset hintatiedot" }),
   ).toBeTruthy();
   expect(chart.textContent).toContain("snt/kWh sis. alv.");
 });
 
-it("breaks the daily line around missing dates", () => {
+it("switches the trend chart between weekly and daily views", async () => {
+  const user = userEvent.setup();
+  render(<HistoryExplorer data={data} />);
+
+  const chart = screen.getByRole("region", {
+    name: "Viikoittainen hintakehitys",
+  });
+  await user.click(
+    within(chart).getByRole("button", { name: "Päivä" }),
+  );
+
+  expect(
+    screen.getByRole("region", { name: "Päivittäinen hintakehitys" }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("table", { name: "Päivittäiset hintatiedot" }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: /Valitse päivä 1\.1\.2026/i }),
+  ).toBeTruthy();
+});
+
+it("breaks the daily line around missing dates", async () => {
+  const user = userEvent.setup();
   const fourthDay = period(
     "day:2026-01-04",
     "day",
@@ -191,6 +214,12 @@ it("breaks the daily line around missing dates", () => {
     />,
   );
 
+  await user.click(
+    within(
+      screen.getByRole("region", { name: "Viikoittainen hintakehitys" }),
+    ).getByRole("button", { name: "Päivä" }),
+  );
+
   expect(
     screen
       .getByRole("region", { name: "Päivittäinen hintakehitys" })
@@ -210,12 +239,18 @@ it("switches price basis and period granularity without requesting more data", a
   ).toContain("40,00");
   expect(screen.getAllByText("€/MWh").length).toBeGreaterThan(0);
   expect(
-    screen.getByRole("region", { name: "Päivittäinen hintakehitys" })
+    screen.getByRole("region", { name: "Viikoittainen hintakehitys" })
       .textContent,
   ).toContain("€/MWh");
 
-  await user.click(screen.getByRole("button", { name: "Viikko" }));
-  expect(screen.getByText("29.12.2025–4.1.2026")).toBeTruthy();
+  await user.click(
+    within(
+      screen.getByRole("region", { name: "Historianäkymän valinnat" }),
+    ).getByRole("button", { name: "Viikko" }),
+  );
+  expect(
+    screen.getByRole("heading", { name: "29.12.2025–4.1.2026" }),
+  ).toBeTruthy();
   expect(
     screen.getByRole("region", { name: "29.12.2025–4.1.2026" }).textContent,
   ).toContain("35,00");
@@ -245,6 +280,12 @@ it("shows a day tooltip and selects a day from the trend chart", async () => {
   const user = userEvent.setup();
   render(<HistoryExplorer data={data} />);
 
+  await user.click(
+    within(
+      screen.getByRole("region", { name: "Viikoittainen hintakehitys" }),
+    ).getByRole("button", { name: "Päivä" }),
+  );
+
   const firstPoint = screen.getByRole("button", {
     name: /Valitse päivä 1\.1\.2026/i,
   });
@@ -262,6 +303,25 @@ it("shows a day tooltip and selects a day from the trend chart", async () => {
   secondPoint.focus();
   await user.keyboard("{Enter}");
   expect(screen.getByRole("heading", { name: "2.1.2026" })).toBeTruthy();
+});
+
+it("selects the represented ISO week from the weekly trend chart", async () => {
+  const user = userEvent.setup();
+  render(<HistoryExplorer data={data} />);
+
+  const chart = screen.getByRole("region", {
+    name: "Viikoittainen hintakehitys",
+  });
+  const firstWeek = within(chart).getByRole("button", {
+    name: /Valitse viikko 22\.12\.2025–28\.12\.2025/i,
+  });
+
+  await user.click(firstWeek);
+
+  expect(
+    screen.getByRole("heading", { name: "22.12.2025–28.12.2025" }),
+  ).toBeTruthy();
+  expect(firstWeek.getAttribute("aria-pressed")).toBe("true");
 });
 
 it("keeps missing dates visible, named, and non-selectable", () => {

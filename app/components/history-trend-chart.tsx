@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type {
   HistoryDayCell,
+  HistoryPeriodSummary,
   HistoryPriceBasis,
 } from "../../lib/history-types";
 
@@ -24,16 +25,26 @@ const numberFormatter = new Intl.NumberFormat("fi-FI", {
   maximumFractionDigits: 2,
 });
 
+export type HistoryTrendGranularity = "day" | "week";
+
 type HistoryTrendChartProps = {
   days: readonly HistoryDayCell[];
+  periods: {
+    week: readonly HistoryPeriodSummary[];
+  };
   basis: HistoryPriceBasis;
   selectedStartDateKey: string;
   selectedEndDateKey: string;
-  onSelectDate: (dateKey: string) => void;
+  onSelectPeriod: (
+    granularity: HistoryTrendGranularity,
+    periodId: string,
+  ) => void;
 };
 
 type TrendPoint = {
-  dateKey: string;
+  id: string;
+  startDateKey: string;
+  endDateKey: string;
   value: number | null;
   x: number;
   y: number | null;
@@ -54,15 +65,7 @@ function unitForBasis(basis: HistoryPriceBasis): string {
   return basis === "raw" ? "€/MWh" : "snt/kWh sis. alv.";
 }
 
-function pointAccessibleLabel(
-  point: TrendPoint,
-  unit: string,
-): string {
-  return `Valitse päivä ${dateLabel(point.dateKey)}, keskihinta ${numberFormatter.format(point.value ?? 0)} ${unit}`;
-}
-
-function tooltipX(pointX: number): number {
-  const halfWidth = 68;
+function tooltipX(pointX: number, halfWidth: number): number {
   return Math.min(
     CHART_WIDTH - PLOT_RIGHT - halfWidth,
     Math.max(PLOT_LEFT + halfWidth, pointX),
@@ -73,41 +76,126 @@ function dateLabel(dateKey: string): string {
   return dateFormatter.format(new Date(`${dateKey}T00:00:00.000Z`));
 }
 
+function addDays(dateKey: string, days: number): string {
+  const date = new Date(`${dateKey}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function periodLabel(
+  startDateKey: string,
+  endDateKey: string,
+  granularity: HistoryTrendGranularity,
+): string {
+  if (granularity === "day") return dateLabel(startDateKey);
+  return `${dateLabel(startDateKey)}–${dateLabel(endDateKey)}`;
+}
+
+function pointAccessibleLabel(
+  point: TrendPoint,
+  unit: string,
+  granularity: HistoryTrendGranularity,
+): string {
+  const kind = granularity === "week" ? "viikko" : "päivä";
+  return `Valitse ${kind} ${periodLabel(
+    point.startDateKey,
+    point.endDateKey,
+    granularity,
+  )}, keskihinta ${numberFormatter.format(point.value ?? 0)} ${unit}`;
+}
+
 function yForValue(value: number, minimum: number, maximum: number): number {
   const range = maximum - minimum || 1;
   return PLOT_TOP + ((maximum - value) / range) * PLOT_HEIGHT;
 }
 
-function buildTrendPoints(
-  days: readonly HistoryDayCell[],
+function valueForPeriod(
+  period: HistoryPeriodSummary,
   basis: HistoryPriceBasis,
+): number {
+  return basis === "raw"
+    ? period.average.rawEurPerMwh
+    : period.average.householdCentsPerKwh;
+}
+
+function weeklyTrendData(
+  periods: readonly HistoryPeriodSummary[],
+  basis: HistoryPriceBasis,
+): Array<{
+  id: string;
+  startDateKey: string;
+  endDateKey: string;
+  value: number | null;
+}> {
+  const trendData: Array<{
+    id: string;
+    startDateKey: string;
+    endDateKey: string;
+    value: number | null;
+  }> = [];
+  let previousStartDateKey: string | null = null;
+
+  for (const period of periods) {
+    if (previousStartDateKey) {
+      let gapStartDateKey = addDays(previousStartDateKey, 7);
+      while (gapStartDateKey < period.startDateKey) {
+        trendData.push({
+          id: `gap:${gapStartDateKey}`,
+          startDateKey: gapStartDateKey,
+          endDateKey: addDays(gapStartDateKey, 6),
+          value: null,
+        });
+        gapStartDateKey = addDays(gapStartDateKey, 7);
+      }
+    }
+
+    trendData.push({
+      id: period.id,
+      startDateKey: period.startDateKey,
+      endDateKey: period.endDateKey,
+      value: valueForPeriod(period, basis),
+    });
+    previousStartDateKey = period.startDateKey;
+  }
+
+  return trendData;
+}
+
+function buildTrendPoints(
+  trendData: readonly {
+    id: string;
+    startDateKey: string;
+    endDateKey: string;
+    value: number | null;
+  }[],
   selectedStartDateKey: string,
   selectedEndDateKey: string,
 ): { points: TrendPoint[]; minimum: number; maximum: number } {
-  const values = days.flatMap((day) => {
-    const value = valueForDay(day, basis);
-    return value === null ? [] : [value];
-  });
+  const values = trendData.flatMap((datum) =>
+    datum.value === null ? [] : [datum.value],
+  );
   const minimumValue = values.length > 0 ? Math.min(...values) : 0;
   const maximumValue = values.length > 0 ? Math.max(...values) : 1;
   const padding = Math.max((maximumValue - minimumValue) * 0.08, 1);
   const minimum = minimumValue - padding;
   const maximum = maximumValue + padding;
-  const denominator = Math.max(days.length - 1, 1);
+  const denominator = Math.max(trendData.length - 1, 1);
 
   return {
     minimum,
     maximum,
-    points: days.map((day, index) => {
-      const value = valueForDay(day, basis);
+    points: trendData.map((datum, index) => {
+      const value = datum.value;
       return {
-        dateKey: day.dateKey,
+        id: datum.id,
+        startDateKey: datum.startDateKey,
+        endDateKey: datum.endDateKey,
         value,
         x: PLOT_LEFT + (index / denominator) * PLOT_WIDTH,
         y: value === null ? null : yForValue(value, minimum, maximum),
         selected:
-          day.dateKey >= selectedStartDateKey &&
-          day.dateKey <= selectedEndDateKey,
+          datum.startDateKey <= selectedEndDateKey &&
+          datum.endDateKey >= selectedStartDateKey,
       };
     }),
   };
@@ -135,32 +223,52 @@ function tickValues(minimum: number, maximum: number): number[] {
 
 export function HistoryTrendChart({
   days,
+  periods,
   basis,
   selectedStartDateKey,
   selectedEndDateKey,
-  onSelectDate,
+  onSelectPeriod,
 }: HistoryTrendChartProps) {
-  const [activePointDateKey, setActivePointDateKey] = useState<string | null>(
+  const [trendGranularity, setTrendGranularity] =
+    useState<HistoryTrendGranularity>("week");
+  const [activePointId, setActivePointId] = useState<string | null>(
     null,
   );
+  const trendData =
+    trendGranularity === "week"
+      ? weeklyTrendData(periods.week, basis)
+      : days.map((day) => ({
+          id: `day:${day.dateKey}`,
+          startDateKey: day.dateKey,
+          endDateKey: day.dateKey,
+          value: valueForDay(day, basis),
+        }));
   const { points, minimum, maximum } = buildTrendPoints(
-    days,
-    basis,
+    trendData,
     selectedStartDateKey,
     selectedEndDateKey,
   );
   const segments = lineSegments(points);
   const unit = unitForBasis(basis);
+  const trendLabel =
+    trendGranularity === "week"
+      ? "Viikoittainen hintakehitys"
+      : "Päivittäinen hintakehitys";
+  const tableLabel =
+    trendGranularity === "week"
+      ? "Viikoittaiset hintatiedot"
+      : "Päivittäiset hintatiedot";
   const axisIndexes = [
     ...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1]),
   ];
   const activePoint = points.find(
-    (point) => point.dateKey === activePointDateKey,
+    (point) => point.id === activePointId,
   );
   const hitWidth = Math.max(
     8,
     PLOT_WIDTH / Math.max(points.length - 1, 1),
   );
+  const tooltipHalfWidth = trendGranularity === "week" ? 98 : 68;
 
   return (
     <section
@@ -169,15 +277,44 @@ export function HistoryTrendChart({
     >
       <div className="history-trend__header">
         <div>
-          <p className="history-eyebrow">Päiväkohtainen näkymä</p>
-          <h2 id="history-trend-heading">Päivittäinen hintakehitys</h2>
+          <p className="history-eyebrow">
+            {trendGranularity === "week"
+              ? "Viikkokohtainen näkymä"
+              : "Päiväkohtainen näkymä"}
+          </p>
+          <h2 id="history-trend-heading">{trendLabel}</h2>
           <p className="history-trend__description">
-            Viiva näyttää kunkin täydellisen päivän keskihinnan. Katkos
-            tarkoittaa, että kyseiseltä päivältä puuttuu tietoja. Vie hiiri
+            Viiva näyttää kunkin{" "}
+            {trendGranularity === "week" ? "täydellisen ISO-viikon" : "täydellisen päivän"}{" "}
+            keskihinnan. Katkos tarkoittaa, että tietoja puuttuu. Vie hiiri
             pisteen päälle tai valitse se näppäimistöllä.
           </p>
         </div>
-        <span className="history-trend__unit">{unit}</span>
+        <div className="history-trend__tools">
+          <div
+            className="history-trend__controls"
+            role="group"
+            aria-label="Kaavion aikaväli"
+          >
+            <button
+              type="button"
+              aria-pressed={trendGranularity === "week"}
+              className={trendGranularity === "week" ? "is-active" : ""}
+              onClick={() => setTrendGranularity("week")}
+            >
+              Viikko
+            </button>
+            <button
+              type="button"
+              aria-pressed={trendGranularity === "day"}
+              className={trendGranularity === "day" ? "is-active" : ""}
+              onClick={() => setTrendGranularity("day")}
+            >
+              Päivä
+            </button>
+          </div>
+          <span className="history-trend__unit">{unit}</span>
+        </div>
       </div>
 
       <div className="history-trend__canvas">
@@ -189,7 +326,8 @@ export function HistoryTrendChart({
           preserveAspectRatio="none"
         >
           <desc id="history-trend-description">
-            Päivittäiset {unit} hinnat valitulta historiajaksolta.
+            {trendGranularity === "week" ? "Viikoittaiset" : "Päivittäiset"}{" "}
+            {unit} hinnat valitulta historiajaksolta.
           </desc>
           {tickValues(minimum, maximum).map((value, index) => {
             const y = yForValue(value, minimum, maximum);
@@ -218,7 +356,7 @@ export function HistoryTrendChart({
             if (!point) return null;
             return (
               <text
-                key={point.dateKey}
+                key={point.id}
                 className="history-trend__axis-label"
                 x={point.x}
                 y={CHART_HEIGHT - 8}
@@ -231,7 +369,7 @@ export function HistoryTrendChart({
                 }
                 aria-hidden="true"
               >
-                {dateLabel(point.dateKey)}
+                {dateLabel(point.startDateKey)}
               </text>
             );
           })}
@@ -246,25 +384,29 @@ export function HistoryTrendChart({
           {points.map((point) =>
             point.y === null || point.value === null ? null : (
               <g
-                key={point.dateKey}
+                key={point.id}
                 className={`history-trend__interactive-point${
                   point.selected ? " is-selected" : ""
                 }`}
                 role="button"
                 tabIndex={0}
-                aria-label={pointAccessibleLabel(point, unit)}
+                aria-label={pointAccessibleLabel(
+                  point,
+                  unit,
+                  trendGranularity,
+                )}
                 aria-pressed={point.selected}
-                onBlur={() => setActivePointDateKey(null)}
-                onClick={() => onSelectDate(point.dateKey)}
-                onFocus={() => setActivePointDateKey(point.dateKey)}
+                onBlur={() => setActivePointId(null)}
+                onClick={() => onSelectPeriod(trendGranularity, point.id)}
+                onFocus={() => setActivePointId(point.id)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    onSelectDate(point.dateKey);
+                    onSelectPeriod(trendGranularity, point.id);
                   }
                 }}
-                onMouseEnter={() => setActivePointDateKey(point.dateKey)}
-                onMouseLeave={() => setActivePointDateKey(null)}
+                onMouseEnter={() => setActivePointId(point.id)}
+                onMouseLeave={() => setActivePointId(null)}
               >
                 <rect
                   className="history-trend__hit-area"
@@ -290,15 +432,25 @@ export function HistoryTrendChart({
             <g
               className="history-trend__tooltip"
               role="tooltip"
-              transform={`translate(${tooltipX(activePoint.x)}, ${Math.max(
+              transform={`translate(${tooltipX(activePoint.x, tooltipHalfWidth)}, ${Math.max(
                 PLOT_TOP + 24,
                 activePoint.y - 34,
               )})`}
               pointerEvents="none"
             >
-              <rect x={-68} y={-24} width={136} height={42} rx={7} />
+              <rect
+                x={-tooltipHalfWidth}
+                y={-24}
+                width={tooltipHalfWidth * 2}
+                height={42}
+                rx={7}
+              />
               <text className="history-trend__tooltip-date" x={0} y={-7}>
-                {dateLabel(activePoint.dateKey)}
+                {periodLabel(
+                  activePoint.startDateKey,
+                  activePoint.endDateKey,
+                  trendGranularity,
+                )}
               </text>
               <text className="history-trend__tooltip-price" x={0} y={11}>
                 {numberFormatter.format(activePoint.value)} {unit}
@@ -310,19 +462,27 @@ export function HistoryTrendChart({
 
       <table
         className="history-trend__table sr-only"
-        aria-label="Päivittäiset hintatiedot"
+        aria-label={tableLabel}
       >
-        <caption>Päivittäiset hinnat</caption>
+        <caption>{tableLabel}</caption>
         <thead>
           <tr>
-            <th scope="col">Päivä</th>
+            <th scope="col">
+              {trendGranularity === "week" ? "Viikko" : "Päivä"}
+            </th>
             <th scope="col">Keskihinta ({unit})</th>
           </tr>
         </thead>
         <tbody>
           {points.map((point) => (
-            <tr key={point.dateKey}>
-              <th scope="row">{dateLabel(point.dateKey)}</th>
+            <tr key={point.id}>
+              <th scope="row">
+                {periodLabel(
+                  point.startDateKey,
+                  point.endDateKey,
+                  trendGranularity,
+                )}
+              </th>
               <td>
                 {point.value === null
                   ? "Hintatieto puuttuu"
