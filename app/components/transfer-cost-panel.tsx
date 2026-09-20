@@ -167,7 +167,7 @@ export function TransferCostPanel({
             </Button>
           </div>
           <p className="text-xs leading-5 text-muted-foreground">
-            Sijainti haetaan vain painikkeella. Karttatieto{" "}
+            Sijainti haetaan vain painikkeella. Karttatieto:{" "}
             <a
               href="https://www.openstreetmap.org/copyright"
               target="_blank"
@@ -180,7 +180,7 @@ export function TransferCostPanel({
           </p>
         </Field>
 
-        <Field data-disabled={operatorDisabled ? "" : undefined}>
+        <Field data-disabled={operatorDisabled ? "true" : undefined}>
           <FieldLabel htmlFor="transfer-operator">
             Sähköverkkoyhtiö
           </FieldLabel>

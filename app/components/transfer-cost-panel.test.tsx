@@ -69,8 +69,17 @@ it("labels the transfer selectors and enables operators after a municipality is 
     name: "Sähköverkkoyhtiö",
   }) as HTMLButtonElement;
   expect(operatorControl.disabled).toBe(true);
+  expect(
+    operatorControl
+      .closest('[data-slot="field"]')
+      ?.getAttribute("data-disabled"),
+  ).toBe("true");
   expect(screen.getByRole("button", { name: "Paikanna minut" })).toBeTruthy();
-  expect(screen.getByRole("link", { name: "OpenStreetMap" })).toBeTruthy();
+  const mapSourceLink = screen.getByRole("link", { name: "OpenStreetMap" });
+  expect(mapSourceLink).toBeTruthy();
+  expect(mapSourceLink.parentElement?.textContent).toBe(
+    "Sijainti haetaan vain painikkeella. Karttatieto: OpenStreetMap.",
+  );
 
   onMunicipalityChange("240");
   expect(onMunicipalityChange).toHaveBeenCalledWith("240");
