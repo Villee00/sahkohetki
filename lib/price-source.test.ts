@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchLatestPrices, getExplorerData } from "./price-source";
+import {
+  fetchLatestPrices,
+  getExplorerData,
+  getPriceApiData,
+} from "./price-source";
 
 const serverOnlyBoundary = vi.hoisted(() => ({
   imported: false,
@@ -284,5 +288,27 @@ describe("ENTSO-E source adapter", () => {
     expect(result.message).toMatch(/saatavilla|varmistaa/i);
     expect(result.uses).toHaveLength(10);
     expect(result.transferData.municipalities).toHaveLength(108);
+  });
+
+  it("builds the API projection from the same cached source snapshot", async () => {
+    vi.stubEnv("ENTSOE_TOKEN", "test-token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(response(ENTSOE_XML)),
+    );
+
+    const result = await getPriceApiData(
+      "today",
+      new Date("2026-08-24T10:00:00.000Z"),
+    );
+
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") throw new Error(result.message);
+    expect(result.data).toMatchObject({
+      status: "partial",
+      horizon: { name: "today" },
+      source: { name: "ENTSO-E" },
+    });
+    expect(result.data.fetchedAt).toEqual(expect.any(String));
   });
 });

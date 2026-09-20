@@ -2,6 +2,11 @@ import "server-only";
 import { XMLParser } from "fast-xml-parser";
 import { unstable_cache } from "next/cache";
 import { EVERYDAY_USES } from "./appliances";
+import {
+  buildPriceApiResponse,
+  type PriceApiHorizon,
+  type PriceApiResponse,
+} from "./price-api";
 import { buildExplorerData } from "./price-domain";
 import { getTransferData } from "./transfer-source";
 import {
@@ -335,6 +340,10 @@ export type PriceSourceResult =
   | { status: "ready"; prices: QuarterPrice[] }
   | { status: "unavailable"; message: string };
 
+export type PriceApiResult =
+  | { status: "ready"; data: PriceApiResponse }
+  | { status: "unavailable"; message: string };
+
 export async function fetchLatestPrices(
   fetchImpl: FetchImplementation = fetch,
   now = new Date(),
@@ -407,4 +416,28 @@ export async function getExplorerData(now = new Date()): Promise<ExplorerData> {
     fetchedAt: snapshot.fetchedAt,
     transferData,
   });
+}
+
+export async function getPriceApiData(
+  horizon: PriceApiHorizon,
+  now = new Date(),
+): Promise<PriceApiResult> {
+  const snapshot = await getCachedSourceSnapshot();
+  if (snapshot.status === "unavailable") return snapshot;
+  if (snapshot.fetchedAt === null) {
+    return {
+      status: "unavailable",
+      message: REQUEST_UNAVAILABLE_MESSAGE,
+    };
+  }
+
+  return {
+    status: "ready",
+    data: buildPriceApiResponse({
+      quarterPrices: snapshot.prices,
+      now,
+      fetchedAt: snapshot.fetchedAt,
+      horizon,
+    }),
+  };
 }

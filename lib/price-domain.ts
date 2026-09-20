@@ -390,7 +390,7 @@ function createQuarterPoint(
   };
 }
 
-function buildHorizon(
+function buildRawHorizon(
   sourcePrices: QuarterPrice[],
   quarterByStart: Map<number, QuarterPrice>,
   startMilliseconds: number,
@@ -402,7 +402,7 @@ function buildHorizon(
     slotStart < endMilliseconds;
     slotStart += QUARTER_MILLISECONDS
   ) {
-    quarterHour.push(estimatePoint(createQuarterPoint(slotStart, quarterByStart)));
+    quarterHour.push(createQuarterPoint(slotStart, quarterByStart));
   }
 
   const hourly = [] as PricePoint[];
@@ -412,15 +412,56 @@ function buildHorizon(
     hourStart < endMilliseconds;
     hourStart += HOUR_MILLISECONDS
   ) {
-    hourly.push(
-      estimatePoint(deriveHourlyPoint(sourcePrices, canonicalTimestamp(hourStart))),
-    );
+    hourly.push(deriveHourlyPoint(sourcePrices, canonicalTimestamp(hourStart)));
   }
 
   return {
-    hourly: attachComparisons(classifyPriceLevels(hourly)),
-    quarterHour: attachComparisons(classifyPriceLevels(quarterHour)),
+    hourly: classifyPriceLevels(hourly),
+    quarterHour: classifyPriceLevels(quarterHour),
   };
+}
+
+function buildHorizon(
+  sourcePrices: QuarterPrice[],
+  quarterByStart: Map<number, QuarterPrice>,
+  startMilliseconds: number,
+  endMilliseconds: number,
+): HorizonPoints {
+  const raw = buildRawHorizon(
+    sourcePrices,
+    quarterByStart,
+    startMilliseconds,
+    endMilliseconds,
+  );
+
+  return {
+    hourly: attachComparisons(raw.hourly.map(estimatePoint)),
+    quarterHour: attachComparisons(raw.quarterHour.map(estimatePoint)),
+  };
+}
+
+export function buildPriceHorizon(
+  quarterPrices: QuarterPrice[],
+  startMilliseconds: number,
+  endMilliseconds: number,
+): HorizonPoints {
+  if (
+    !Number.isFinite(startMilliseconds) ||
+    !Number.isFinite(endMilliseconds) ||
+    endMilliseconds <= startMilliseconds
+  ) {
+    throw new RangeError("Invalid price horizon.");
+  }
+
+  const sourcePrices = quarterPrices.filter(
+    (quarter) => validQuarterStartMilliseconds(quarter) !== undefined,
+  );
+  return buildRawHorizon(
+    sourcePrices,
+    indexQuarterPrices(sourcePrices),
+    startMilliseconds,
+    endMilliseconds,
+  );
 }
 
 export function buildExplorerData({
