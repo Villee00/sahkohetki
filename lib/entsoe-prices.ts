@@ -104,7 +104,9 @@ function acknowledgementReason(
     )
     .join(" ")
     .toLowerCase();
-  if (/more than\s+\d+.*document|too many.*document/.test(text)) {
+  if (
+    /more than\s+\d+.*document|too many.*document|exceed.*document/.test(text)
+  ) {
     return "too-many-documents";
   }
   const codes = reasons.flatMap((reason) =>
@@ -157,11 +159,25 @@ export function mergeMarketPriceIntervals(
     }
   }
 
+  const intervals = [...byInterval.values()].sort((left, right) => {
+    const startDifference = Date.parse(left.startAt) - Date.parse(right.startAt);
+    return startDifference !== 0
+      ? startDifference
+      : Date.parse(left.endAt) - Date.parse(right.endAt);
+  });
+  if (
+    intervals.some(
+      (interval, index) =>
+        index > 0 &&
+        Date.parse(interval.startAt) < Date.parse(intervals[index - 1].endAt),
+    )
+  ) {
+    return { status: "unavailable", reason: "schema" };
+  }
+
   return {
     status: "ready",
-    intervals: [...byInterval.values()].sort(
-      (left, right) => Date.parse(left.startAt) - Date.parse(right.startAt),
-    ),
+    intervals,
     documentCount: new Set(latest.map((interval) => interval.documentId)).size,
   };
 }

@@ -116,6 +116,13 @@ describe("ENTSO-E price document parser", () => {
     expect(
       parseEntsoePriceXml(acknowledgement("More than 200 matching documents")),
     ).toEqual({ status: "unavailable", reason: "too-many-documents" });
+    expect(
+      parseEntsoePriceXml(
+        acknowledgement(
+          "The amount of requested data exceeds the allowed limit of 200 documents",
+        ),
+      ),
+    ).toEqual({ status: "unavailable", reason: "too-many-documents" });
     expect(parseEntsoePriceXml("<broken")).toEqual({
       status: "unavailable",
       reason: "schema",
@@ -153,6 +160,18 @@ describe("ENTSO-E price document parser", () => {
       mergeMarketPriceIntervals([
         revised,
         base({ documentId: "document-2", id: "other", priceEurPerMwh: 30 }),
+      ]),
+    ).toEqual({ status: "unavailable", reason: "schema" });
+    expect(
+      mergeMarketPriceIntervals([
+        revised,
+        base({
+          documentId: "document-2",
+          id: "overlapping-hour",
+          endAt: "2026-01-01T01:00:00.000Z",
+          resolutionMinutes: 60,
+          priceEurPerMwh: 25,
+        }),
       ]),
     ).toEqual({ status: "unavailable", reason: "schema" });
   });

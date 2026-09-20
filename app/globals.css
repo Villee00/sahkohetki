@@ -309,6 +309,8 @@ button:disabled {
 
 .history-price > span {
   color: #f8fafc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
   font-size: clamp(3rem, 7vw, 5.25rem);
   font-variant-numeric: tabular-nums;
   font-weight: 740;
@@ -375,6 +377,8 @@ button:disabled {
 .history-metrics strong {
   margin: 0.25rem 0 0.1rem;
   color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
   font-size: 1.45rem;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
