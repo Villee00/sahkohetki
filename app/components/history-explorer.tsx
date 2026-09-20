@@ -275,79 +275,7 @@ export function HistoryExplorer({ data }: { data: HistoryPageData }) {
         {data.status !== "unavailable" && selected ? (
           <>
             <section
-              className="history-toolbar glass-panel"
-              aria-label="Historianäkymän valinnat"
-            >
-              <div
-                className="history-control"
-                role="group"
-                aria-label="Jakson pituus"
-              >
-                {(Object.keys(granularityLabels) as HistoryGranularity[]).map(
-                  (option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      aria-pressed={granularity === option}
-                      className={granularity === option ? "is-active" : ""}
-                      onClick={() => chooseGranularity(option)}
-                    >
-                      {granularityLabels[option]}
-                    </button>
-                  ),
-                )}
-              </div>
-              <div
-                className="history-control"
-                role="group"
-                aria-label="Hintaperuste"
-              >
-                <button
-                  type="button"
-                  aria-pressed={basis === "household"}
-                  className={basis === "household" ? "is-active" : ""}
-                  onClick={() => setBasis("household")}
-                >
-                  Kotitalousarvio
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={basis === "raw"}
-                  className={basis === "raw" ? "is-active" : ""}
-                  onClick={() => setBasis("raw")}
-                >
-                  ENTSO-E-markkinahinta
-                </button>
-              </div>
-              <div className="history-stepper">
-                <button
-                  type="button"
-                  aria-label="Edellinen jakso"
-                  disabled={selectedIndex <= 0}
-                  onClick={() => selectAt(selectedIndex - 1)}
-                >
-                  ←
-                </button>
-                <button
-                  type="button"
-                  aria-label="Seuraava jakso"
-                  disabled={selectedIndex >= periods.length - 1}
-                  onClick={() => selectAt(selectedIndex + 1)}
-                >
-                  →
-                </button>
-              </div>
-            </section>
-
-            <HistoryTrendChart
-              days={data.days}
-              basis={basis}
-              selectedStartDateKey={selected.startDateKey}
-              selectedEndDateKey={selected.endDateKey}
-            />
-
-            <section
-              className="history-summary hero-panel"
+              className="history-summary history-summary--compact hero-panel"
               aria-labelledby="history-period-heading"
             >
               <div className="history-summary__primary">
@@ -429,6 +357,82 @@ export function HistoryExplorer({ data }: { data: HistoryPageData }) {
                 </div>
               </div>
             </section>
+
+            <section
+              className="history-toolbar glass-panel"
+              aria-label="Historianäkymän valinnat"
+            >
+              <div
+                className="history-control"
+                role="group"
+                aria-label="Jakson pituus"
+              >
+                {(Object.keys(granularityLabels) as HistoryGranularity[]).map(
+                  (option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      aria-pressed={granularity === option}
+                      className={granularity === option ? "is-active" : ""}
+                      onClick={() => chooseGranularity(option)}
+                    >
+                      {granularityLabels[option]}
+                    </button>
+                  ),
+                )}
+              </div>
+              <div
+                className="history-control"
+                role="group"
+                aria-label="Hintaperuste"
+              >
+                <button
+                  type="button"
+                  aria-pressed={basis === "household"}
+                  className={basis === "household" ? "is-active" : ""}
+                  onClick={() => setBasis("household")}
+                >
+                  Kotitalousarvio
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={basis === "raw"}
+                  className={basis === "raw" ? "is-active" : ""}
+                  onClick={() => setBasis("raw")}
+                >
+                  ENTSO-E-markkinahinta
+                </button>
+              </div>
+              <div className="history-stepper">
+                <button
+                  type="button"
+                  aria-label="Edellinen jakso"
+                  disabled={selectedIndex <= 0}
+                  onClick={() => selectAt(selectedIndex - 1)}
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  aria-label="Seuraava jakso"
+                  disabled={selectedIndex >= periods.length - 1}
+                  onClick={() => selectAt(selectedIndex + 1)}
+                >
+                  →
+                </button>
+              </div>
+            </section>
+
+            <HistoryTrendChart
+              days={data.days}
+              basis={basis}
+              selectedStartDateKey={selected.startDateKey}
+              selectedEndDateKey={selected.endDateKey}
+              onSelectDate={(dateKey) => {
+                const day = data.days.find((candidate) => candidate.dateKey === dateKey);
+                if (day) selectDay(day);
+              }}
+            />
 
             <section
               className="history-calendar glass-panel"

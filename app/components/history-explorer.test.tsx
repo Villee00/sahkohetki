@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it } from "vitest";
 import type {
@@ -129,6 +129,14 @@ it("defaults to the latest complete day and household-facing prices", () => {
 
   expect(screen.getByRole("heading", { name: "Hintahistoria" })).toBeTruthy();
   const summary = screen.getByRole("region", { name: "2.1.2026" });
+  const toolbar = screen.getByRole("region", {
+    name: "Historianäkymän valinnat",
+  });
+  expect(summary.classList.contains("history-summary--compact")).toBe(true);
+  expect(
+    summary.compareDocumentPosition(toolbar) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
   expect(summary.textContent).toContain("5,02");
   expect(summary.textContent).toContain("snt/kWh (sis. alv.)");
   expect(screen.getByText("Täydellinen")).toBeTruthy();
@@ -220,12 +228,39 @@ it("navigates to the previous period and lets a heatmap cell select a date", asy
   await user.click(screen.getByRole("button", { name: "Edellinen jakso" }));
   expect(screen.getByRole("heading", { name: "1.1.2026" })).toBeTruthy();
   expect(
-    screen.getByRole("button", { name: /2\.1\.2026.*5,02 snt\/kWh/i }),
+    within(
+      screen.getByRole("region", { name: "Vuosi yhdellä silmäyksellä" }),
+    ).getByRole("button", { name: /2\.1\.2026.*5,02 snt\/kWh/i }),
   ).toBeTruthy();
 
   await user.click(
-    screen.getByRole("button", { name: /2\.1\.2026.*5,02 snt\/kWh/i }),
+    within(
+      screen.getByRole("region", { name: "Vuosi yhdellä silmäyksellä" }),
+    ).getByRole("button", { name: /2\.1\.2026.*5,02 snt\/kWh/i }),
   );
+  expect(screen.getByRole("heading", { name: "2.1.2026" })).toBeTruthy();
+});
+
+it("shows a day tooltip and selects a day from the trend chart", async () => {
+  const user = userEvent.setup();
+  render(<HistoryExplorer data={data} />);
+
+  const firstPoint = screen.getByRole("button", {
+    name: /Valitse päivä 1\.1\.2026/i,
+  });
+  await user.hover(firstPoint);
+  expect(screen.getByRole("tooltip").textContent).toContain("1.1.2026");
+  expect(screen.getByRole("tooltip").textContent).toContain("2,51");
+
+  await user.click(firstPoint);
+  expect(screen.getByRole("heading", { name: "1.1.2026" })).toBeTruthy();
+  expect(firstPoint.getAttribute("aria-pressed")).toBe("true");
+
+  const secondPoint = screen.getByRole("button", {
+    name: /Valitse päivä 2\.1\.2026/i,
+  });
+  secondPoint.focus();
+  await user.keyboard("{Enter}");
   expect(screen.getByRole("heading", { name: "2.1.2026" })).toBeTruthy();
 });
 

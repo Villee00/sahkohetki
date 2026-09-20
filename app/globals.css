@@ -270,6 +270,39 @@ button:disabled {
   padding: clamp(1.25rem, 3vw, 2rem);
 }
 
+.history-summary--compact {
+  grid-template-columns: minmax(13rem, 0.62fr) minmax(0, 1.38fr);
+  gap: 1rem;
+  border-radius: 1.15rem;
+  padding: 1rem 1.25rem;
+}
+
+.history-summary--compact .history-summary__primary h2 {
+  margin-top: 0.25rem;
+  font-size: clamp(1.1rem, 2.5vw, 1.45rem);
+}
+
+.history-summary--compact .history-price {
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+}
+
+.history-summary--compact .history-price > span {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  letter-spacing: -0.06em;
+}
+
+.history-summary--compact .history-price small {
+  padding-bottom: 0.15rem;
+  font-size: 0.64rem;
+}
+
+.history-summary--compact .history-normality {
+  margin-top: 0.65rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.64rem;
+}
+
 .history-summary::after {
   position: absolute;
   top: -12rem;
@@ -357,6 +390,11 @@ button:disabled {
   gap: 0.65rem;
 }
 
+.history-summary--compact .history-metrics {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
 .history-metrics article {
   display: grid;
   align-content: center;
@@ -365,6 +403,12 @@ button:disabled {
   border-radius: 1rem;
   background: rgba(2, 8, 23, 0.22);
   padding: 1rem;
+}
+
+.history-summary--compact .history-metrics article {
+  min-height: 0;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.7rem;
 }
 
 .history-metrics span,
@@ -384,10 +428,18 @@ button:disabled {
   line-height: 1.1;
 }
 
+.history-summary--compact .history-metrics strong {
+  font-size: 1.05rem;
+}
+
 .history-percentile {
   grid-column: 1 / -1;
   position: relative;
   padding: 0.35rem 0.2rem 0;
+}
+
+.history-summary--compact .history-percentile {
+  padding-top: 0.1rem;
 }
 
 .history-percentile__track {
@@ -674,6 +726,48 @@ button:disabled {
   fill: #f8fafc;
   stroke: var(--sky);
   stroke-width: 2.5;
+}
+
+.history-trend__interactive-point {
+  cursor: pointer;
+  outline: none;
+}
+
+.history-trend__interactive-point:focus-visible .history-trend__point,
+.history-trend__interactive-point:hover .history-trend__point {
+  stroke: #e0f2fe;
+  stroke-width: 2.5;
+}
+
+.history-trend__hit-area {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.history-trend__tooltip rect {
+  fill: #0b1b2d;
+  stroke: rgba(125, 211, 252, 0.55);
+  stroke-width: 1;
+}
+
+.history-trend__tooltip text {
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.history-trend__tooltip-date,
+.history-trend__tooltip-price {
+  fill: #e2e8f0;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.history-trend__tooltip-price {
+  fill: #bae6fd;
+  font-size: 11px;
 }
 
 @media (max-width: 47.999rem) {
@@ -1840,6 +1934,10 @@ body:has(.dialog-backdrop) {
     grid-template-columns: minmax(13rem, 0.72fr) minmax(22rem, 1.28fr);
   }
 
+  .history-summary--compact {
+    grid-template-columns: minmax(11rem, 0.62fr) minmax(0, 1.38fr);
+  }
+
   .appliance-card--row {
     grid-template-columns: minmax(3.5rem, auto) minmax(0, 1fr) minmax(
         18rem,
@@ -1894,6 +1992,15 @@ body:has(.dialog-backdrop) {
   .history-summary {
     grid-template-columns: 1fr;
     gap: 1.4rem;
+  }
+
+  .history-summary--compact {
+    gap: 0.9rem;
+    padding: 0.9rem 1rem;
+  }
+
+  .history-summary--compact .history-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .history-percentile {

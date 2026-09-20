@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type {
   HistoryDayCell,
   HistoryPriceBasis,
@@ -28,6 +29,7 @@ type HistoryTrendChartProps = {
   basis: HistoryPriceBasis;
   selectedStartDateKey: string;
   selectedEndDateKey: string;
+  onSelectDate: (dateKey: string) => void;
 };
 
 type TrendPoint = {
@@ -50,6 +52,21 @@ function valueForDay(
 
 function unitForBasis(basis: HistoryPriceBasis): string {
   return basis === "raw" ? "€/MWh" : "snt/kWh sis. alv.";
+}
+
+function pointAccessibleLabel(
+  point: TrendPoint,
+  unit: string,
+): string {
+  return `Valitse päivä ${dateLabel(point.dateKey)}, keskihinta ${numberFormatter.format(point.value ?? 0)} ${unit}`;
+}
+
+function tooltipX(pointX: number): number {
+  const halfWidth = 68;
+  return Math.min(
+    CHART_WIDTH - PLOT_RIGHT - halfWidth,
+    Math.max(PLOT_LEFT + halfWidth, pointX),
+  );
 }
 
 function dateLabel(dateKey: string): string {
@@ -121,7 +138,11 @@ export function HistoryTrendChart({
   basis,
   selectedStartDateKey,
   selectedEndDateKey,
+  onSelectDate,
 }: HistoryTrendChartProps) {
+  const [activePointDateKey, setActivePointDateKey] = useState<string | null>(
+    null,
+  );
   const { points, minimum, maximum } = buildTrendPoints(
     days,
     basis,
@@ -133,6 +154,13 @@ export function HistoryTrendChart({
   const axisIndexes = [
     ...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1]),
   ];
+  const activePoint = points.find(
+    (point) => point.dateKey === activePointDateKey,
+  );
+  const hitWidth = Math.max(
+    8,
+    PLOT_WIDTH / Math.max(points.length - 1, 1),
+  );
 
   return (
     <section
@@ -145,7 +173,8 @@ export function HistoryTrendChart({
           <h2 id="history-trend-heading">Päivittäinen hintakehitys</h2>
           <p className="history-trend__description">
             Viiva näyttää kunkin täydellisen päivän keskihinnan. Katkos
-            tarkoittaa, että kyseiseltä päivältä puuttuu tietoja.
+            tarkoittaa, että kyseiseltä päivältä puuttuu tietoja. Vie hiiri
+            pisteen päälle tai valitse se näppäimistöllä.
           </p>
         </div>
         <span className="history-trend__unit">{unit}</span>
@@ -155,7 +184,7 @@ export function HistoryTrendChart({
         <svg
           className="history-trend__svg"
           viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-          role="img"
+          role="group"
           aria-labelledby="history-trend-heading history-trend-description"
           preserveAspectRatio="none"
         >
@@ -215,19 +244,67 @@ export function HistoryTrendChart({
             />
           ))}
           {points.map((point) =>
-            point.y === null ? null : (
-              <circle
+            point.y === null || point.value === null ? null : (
+              <g
                 key={point.dateKey}
-                className={`history-trend__point${
+                className={`history-trend__interactive-point${
                   point.selected ? " is-selected" : ""
                 }`}
-                cx={point.x}
-                cy={point.y}
-                r={point.selected ? 4 : 2.5}
-                aria-hidden="true"
-              />
+                role="button"
+                tabIndex={0}
+                aria-label={pointAccessibleLabel(point, unit)}
+                aria-pressed={point.selected}
+                onBlur={() => setActivePointDateKey(null)}
+                onClick={() => onSelectDate(point.dateKey)}
+                onFocus={() => setActivePointDateKey(point.dateKey)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelectDate(point.dateKey);
+                  }
+                }}
+                onMouseEnter={() => setActivePointDateKey(point.dateKey)}
+                onMouseLeave={() => setActivePointDateKey(null)}
+              >
+                <rect
+                  className="history-trend__hit-area"
+                  x={point.x - hitWidth / 2}
+                  y={PLOT_TOP}
+                  width={hitWidth}
+                  height={PLOT_HEIGHT}
+                  aria-hidden="true"
+                />
+                <circle
+                  className={`history-trend__point${
+                    point.selected ? " is-selected" : ""
+                  }`}
+                  cx={point.x}
+                  cy={point.y}
+                  r={point.selected ? 4 : 2.5}
+                  aria-hidden="true"
+                />
+              </g>
             ),
           )}
+          {activePoint && activePoint.y !== null && activePoint.value !== null ? (
+            <g
+              className="history-trend__tooltip"
+              role="tooltip"
+              transform={`translate(${tooltipX(activePoint.x)}, ${Math.max(
+                PLOT_TOP + 24,
+                activePoint.y - 34,
+              )})`}
+              pointerEvents="none"
+            >
+              <rect x={-68} y={-24} width={136} height={42} rx={7} />
+              <text className="history-trend__tooltip-date" x={0} y={-7}>
+                {dateLabel(activePoint.dateKey)}
+              </text>
+              <text className="history-trend__tooltip-price" x={0} y={11}>
+                {numberFormatter.format(activePoint.value)} {unit}
+              </text>
+            </g>
+          ) : null}
         </svg>
       </div>
 
