@@ -8,6 +8,7 @@ import {
   FileText,
   Heater,
   Info,
+  LocateFixed,
   Microwave,
   Monitor,
   Settings,
@@ -27,6 +28,7 @@ export type IconName =
   | "coffee"
   | "computer"
   | "info"
+  | "locate"
   | "dishwasher"
   | "dryer"
   | "heat-pump"
@@ -50,6 +52,7 @@ const iconComponents: Record<IconName, LucideIcon> = {
   coffee: Coffee,
   computer: Monitor,
   info: Info,
+  locate: LocateFixed,
   dishwasher: WashingMachine,
   dryer: Wind,
   "heat-pump": AirVent,

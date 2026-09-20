@@ -226,22 +226,43 @@ it("keeps explanation controls explicitly named at every breakpoint", () => {
   expect(sourceButton.getAttribute("aria-label")).toBe("Tietolähde");
 });
 
+it("keeps transfer controls in the settings modal and opens it from the usage section", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  expect(screen.queryByRole("combobox", { name: "Kunta" })).toBeNull();
+
+  await user.click(
+    screen.getByRole("button", { name: "Lisää siirto + sähkövero" }),
+  );
+
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
+  expect(within(dialog).getByRole("combobox", { name: "Kunta" })).toBeTruthy();
+  expect(
+    within(dialog).getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+  ).toBeTruthy();
+  expect(
+    within(dialog).getByText(
+      "Lisää siirtomaksu ja sähkövero käyttökustannusarvioihin.",
+    ),
+  ).toBeTruthy();
+});
+
 it("applies the supplier margin to displayed prices and appliance estimates", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={dataWithTransferData} />);
 
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
   await user.selectOptions(
-    screen.getByRole("combobox", { name: "Kunta" }),
+    within(dialog).getByRole("combobox", { name: "Kunta" }),
     "240",
   );
   await user.selectOptions(
-    screen.getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+    within(dialog).getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
     "240:Kemin Energia ja Vesi Oy",
   );
 
-  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
-
-  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
   const marginInput = within(dialog).getByLabelText("Sähköyhtiön marginaali");
   await user.clear(marginInput);
   await user.type(marginInput, "3");
@@ -270,8 +291,12 @@ it("requires a DSO choice before recalculating use examples", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={dataWithTransferData} />);
 
-  const municipalitySelect = screen.getByRole("combobox", { name: "Kunta" });
-  const operatorSelect = screen.getByRole("combobox", {
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
+  const municipalitySelect = within(dialog).getByRole("combobox", {
+    name: "Kunta",
+  });
+  const operatorSelect = within(dialog).getByRole("combobox", {
     name: "Sähköverkkoyhtiö",
   });
 
@@ -292,16 +317,109 @@ it("requires a DSO choice before recalculating use examples", async () => {
   expect(screen.getByText(/10[,.]10 €\/kk/)).toBeTruthy();
 });
 
+it("selects the municipality returned by the location lookup", async () => {
+  const user = userEvent.setup();
+  const getCurrentPosition = vi.fn(
+    (success: (position: GeolocationPosition) => void) => {
+      success({
+        coords: {
+          latitude: 65.736,
+          longitude: 24.563,
+        } as GeolocationCoordinates,
+        timestamp: Date.now(),
+      } as GeolocationPosition);
+    },
+  );
+  Object.defineProperty(navigator, "geolocation", {
+    configurable: true,
+    value: { getCurrentPosition },
+  });
+  const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    ok: true,
+    json: async () => ({ municipalityCode: "240", municipalityName: "Kemi" }),
+  } as Response);
+
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
+  const locateButton = within(dialog).getByRole("button", {
+    name: "Paikanna minut",
+  });
+  expect(locateButton.getAttribute("aria-label")).toBe("Paikanna minut");
+  expect(locateButton.textContent).toBe("");
+
+  await user.click(locateButton);
+
+  await waitFor(() => {
+    expect(
+      (within(dialog).getByRole("combobox", {
+        name: "Kunta",
+      }) as HTMLSelectElement).value,
+    ).toBe("240");
+  });
+  expect(
+    (within(dialog).getByRole("combobox", {
+      name: "Sähköverkkoyhtiö",
+    }) as HTMLSelectElement).value,
+  ).toBe("");
+  expect(screen.getByRole("status").textContent).toContain("Kemi");
+  expect(getCurrentPosition).toHaveBeenCalledOnce();
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/api/municipality-by-location",
+    expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ latitude: 65.736, longitude: 24.563 }),
+    }),
+  );
+});
+
+it("shows a Finnish retry message when location lookup fails", async () => {
+  const user = userEvent.setup();
+  Object.defineProperty(navigator, "geolocation", {
+    configurable: true,
+    value: {
+      getCurrentPosition: (
+        success: (position: GeolocationPosition) => void,
+      ) =>
+        success({
+          coords: {
+            latitude: 65.736,
+            longitude: 24.563,
+          } as GeolocationCoordinates,
+          timestamp: Date.now(),
+        } as GeolocationPosition),
+    },
+  });
+  vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Failed to fetch"));
+
+  render(<PriceExplorer data={dataWithTransferData} />);
+
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
+  await user.click(
+    within(dialog).getByRole("button", { name: "Paikanna minut" }),
+  );
+
+  await waitFor(() => {
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Sijaintia ei voitu selvittää juuri nyt",
+    );
+  });
+});
+
 it("restores a saved municipality and DSO selection", async () => {
   const user = userEvent.setup();
   const firstRender = render(<PriceExplorer data={dataWithTransferData} />);
 
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const firstDialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
   await user.selectOptions(
-    screen.getByRole("combobox", { name: "Kunta" }),
+    within(firstDialog).getByRole("combobox", { name: "Kunta" }),
     "240",
   );
   await user.selectOptions(
-    screen.getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+    within(firstDialog).getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
     "240:Kemin Energia ja Vesi Oy",
   );
   expect(window.localStorage.getItem("sahkohetki.transfer-selection")).toContain(
@@ -310,14 +428,19 @@ it("restores a saved municipality and DSO selection", async () => {
 
   firstRender.unmount();
   render(<PriceExplorer data={dataWithTransferData} />);
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const restoredDialog = screen.getByRole("dialog", {
+    name: "Lisää marginaali",
+  });
 
   await waitFor(() => {
     expect(
-      (screen.getByRole("combobox", { name: "Kunta" }) as HTMLSelectElement)
-        .value,
+      (within(restoredDialog).getByRole("combobox", {
+        name: "Kunta",
+      }) as HTMLSelectElement).value,
     ).toBe("240");
     expect(
-      (screen.getByRole("combobox", {
+      (within(restoredDialog).getByRole("combobox", {
         name: "Sähköverkkoyhtiö",
       }) as HTMLSelectElement).value,
     ).toBe("240:Kemin Energia ja Vesi Oy");
@@ -328,12 +451,14 @@ it("shows unavailable pricing instead of calculating for an unpriced operator", 
   const user = userEvent.setup();
   render(<PriceExplorer data={dataWithTransferData} />);
 
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
   await user.selectOptions(
-    screen.getByRole("combobox", { name: "Kunta" }),
+    within(dialog).getByRole("combobox", { name: "Kunta" }),
     "240",
   );
   await user.selectOptions(
-    screen.getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+    within(dialog).getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
     "240:Tenergia Oy",
   );
 
@@ -350,18 +475,22 @@ it("automatically selects the only operator for a municipality", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={dataWithTransferData} />);
 
+  await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
+  const dialog = screen.getByRole("dialog", { name: "Lisää marginaali" });
   await user.selectOptions(
-    screen.getByRole("combobox", { name: "Kunta" }),
+    within(dialog).getByRole("combobox", { name: "Kunta" }),
     "564",
   );
 
   expect(
-    (screen.getByRole("combobox", {
+    (within(dialog).getByRole("combobox", {
       name: "Sähköverkkoyhtiö",
     }) as HTMLSelectElement).value,
   ).toBe("564:Oulun Energia Sähköverkko Oy");
   expect(
-    screen.getByRole("group", { name: "Valitun siirtotariffin tiedot" }),
+    within(dialog).getByRole("group", {
+      name: "Valitun siirtotariffin tiedot",
+    }),
   ).toBeTruthy();
 });
 
@@ -407,6 +536,15 @@ it("keeps the settings form controls inside the keyboard focus trap", async () =
   const resetButton = within(dialog).getByRole("button", {
     name: "Palauta spot-hintaan",
   });
+  const municipalitySelect = within(dialog).getByRole("combobox", {
+    name: "Kunta",
+  });
+  const locateButton = within(dialog).getByRole("button", {
+    name: "Paikanna minut",
+  });
+  const mapSourceLink = within(dialog).getByRole("link", {
+    name: "OpenStreetMap",
+  });
 
   expect(document.activeElement).toBe(closeButton);
   await user.tab();
@@ -416,9 +554,15 @@ it("keeps the settings form controls inside the keyboard focus trap", async () =
   await user.tab();
   expect(document.activeElement).toBe(resetButton);
   await user.tab();
+  expect(document.activeElement).toBe(municipalitySelect);
+  await user.tab();
+  expect(document.activeElement).toBe(locateButton);
+  await user.tab();
+  expect(document.activeElement).toBe(mapSourceLink);
+  await user.tab();
   expect(document.activeElement).toBe(closeButton);
   await user.tab({ shift: true });
-  expect(document.activeElement).toBe(resetButton);
+  expect(document.activeElement).toBe(mapSourceLink);
 });
 
 it("associates an invalid margin with its validation message", async () => {

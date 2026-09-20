@@ -28,6 +28,7 @@ import type {
 type PriceMode = "hourly" | "quarterHour";
 type Horizon = "today" | "tomorrow";
 type DialogName = "formula" | "source" | "settings" | null;
+type LocationStatus = "idle" | "locating" | "success" | "error";
 
 const PRICE_MARGIN_STORAGE_KEY = "sahkohetki.price-margin";
 const TRANSFER_SELECTION_STORAGE_KEY = "sahkohetki.transfer-selection";
@@ -89,6 +90,27 @@ const HOUR_MILLISECONDS = 60 * 60 * 1000;
 
 function formatPrice(price: number): string {
   return priceFormatter.format(price);
+}
+
+function isMunicipalityLocationResponse(
+  value: unknown,
+): value is { municipalityCode: string; municipalityName: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { municipalityCode?: unknown }).municipalityCode ===
+      "string" &&
+    typeof (value as { municipalityName?: unknown }).municipalityName ===
+      "string"
+  );
+}
+
+function getLocationResponseMessage(value: unknown): string | null {
+  return typeof value === "object" &&
+    value !== null &&
+    typeof (value as { message?: unknown }).message === "string"
+    ? (value as { message: string }).message
+    : null;
 }
 
 function getTransferUseEstimate(
@@ -349,6 +371,8 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const [marginError, setMarginError] = useState<string | null>(null);
   const [selectedMunicipalityCode, setSelectedMunicipalityCode] = useState("");
   const [selectedOperatorId, setSelectedOperatorId] = useState("");
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
   const coffeeUse = data.uses.find((use) => use.id === "coffee");
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -516,6 +540,81 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
   const changeOperator = (operatorId: string) => {
     setSelectedOperatorId(operatorId);
+  };
+
+  const locateMunicipality = () => {
+    setLocationMessage(null);
+
+    if (!navigator.geolocation) {
+      setLocationStatus("error");
+      setLocationMessage("Selain ei tue sijainnin hakua.");
+      return;
+    }
+
+    setLocationStatus("locating");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        void (async () => {
+          try {
+            const response = await fetch("/api/municipality-by-location", {
+              method: "POST",
+              headers: {
+                accept: "application/json",
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+              }),
+              cache: "no-store",
+            });
+            const payload: unknown = await response.json().catch(() => null);
+
+            if (!response.ok) {
+              setLocationStatus("error");
+              setLocationMessage(
+                getLocationResponseMessage(payload) ??
+                  "Sijaintikuntaa ei voitu selvittää.",
+              );
+              return;
+            }
+            if (!isMunicipalityLocationResponse(payload)) {
+              setLocationStatus("error");
+              setLocationMessage("Sijaintikuntaa ei voitu selvittää.");
+              return;
+            }
+
+            changeMunicipality(payload.municipalityCode);
+            setLocationStatus("success");
+            setLocationMessage(
+              `Kunta valittu sijainnin perusteella: ${payload.municipalityName}.`,
+            );
+          } catch {
+            setLocationStatus("error");
+            setLocationMessage(
+              "Sijaintia ei voitu selvittää juuri nyt. Yritä uudelleen.",
+            );
+          }
+        })();
+      },
+      (error) => {
+        setLocationStatus("error");
+        setLocationMessage(
+          error.code === 1
+            ? "Sijainnin käyttö estettiin. Salli paikannus selaimen asetuksissa."
+            : error.code === 2
+              ? "Sijaintia ei voitu määrittää."
+              : error.code === 3
+                ? "Sijainnin haku aikakatkaistiin. Yritä uudelleen."
+                : "Sijaintia ei voitu hakea.",
+        );
+      },
+      {
+        enableHighAccuracy: false,
+        maximumAge: 5 * 60 * 1000,
+        timeout: 10 * 1000,
+      },
+    );
   };
 
   const closeDialog = useCallback(() => {
@@ -952,23 +1051,13 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           />
         ) : null}
 
-        <TransferCostPanel
-          data={transferData}
-          selectedMunicipalityCode={selectedMunicipalityCode}
-          selectedOperatorId={selectedOperatorId}
-          selectedMunicipality={selectedMunicipality}
-          selectedTariff={selectedTransferTariff}
-          onMunicipalityChange={changeMunicipality}
-          onOperatorChange={changeOperator}
-        />
-
         {selectedPoint && cheapestPoint ? (
           <section
             aria-labelledby="uses-heading"
             className="uses-section space-y-5"
           >
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
                   Kymmenen arjen sähkönkäyttökohdetta
                 </p>
@@ -978,6 +1067,14 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 >
                   Mitä sähkönkäyttö maksaa?
                 </h2>
+                <button
+                  type="button"
+                  className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-sky-300/35 bg-sky-300/10 px-4 text-sm font-semibold text-sky-100 transition hover:border-sky-300/65 hover:bg-sky-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+                  onClick={(event) => openExplanation("settings", event)}
+                >
+                  <Icon name="settings" className="h-4 w-4" />
+                  Lisää siirto + sähkövero
+                </button>
               </div>
               <p className="max-w-md text-sm leading-6 text-slate-400">
                 Arvio perustuu valittuun spot-hintaan
@@ -1228,6 +1325,18 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             </button>
           </div>
         </form>
+        <TransferCostPanel
+          data={transferData}
+          selectedMunicipalityCode={selectedMunicipalityCode}
+          selectedOperatorId={selectedOperatorId}
+          selectedMunicipality={selectedMunicipality}
+          selectedTariff={selectedTransferTariff}
+          onMunicipalityChange={changeMunicipality}
+          onOperatorChange={changeOperator}
+          onLocate={locateMunicipality}
+          locationStatus={locationStatus}
+          locationMessage={locationMessage}
+        />
       </ExplanationDialog>
     </main>
   );
