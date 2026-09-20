@@ -95,6 +95,30 @@ describe("price API projection", () => {
     );
   });
 
+  it("marks a fully missing internal hour as an incomplete hour", () => {
+    const missingHourStarts = new Set([
+      "2026-08-22T13:00:00.000Z",
+      "2026-08-22T13:15:00.000Z",
+      "2026-08-22T13:30:00.000Z",
+      "2026-08-22T13:45:00.000Z",
+    ]);
+    const response = buildPriceApiResponse({
+      quarterPrices: sourceFrom("2026-08-21T21:00:00.000Z", 192).filter(
+        (price) => !missingHourStarts.has(price.startAt),
+      ),
+      now: new Date("2026-08-22T12:07:00.000Z"),
+      fetchedAt: "2026-08-22T12:10:00.000Z",
+      horizon: "today",
+    });
+
+    expect(response.missing).toContainEqual({
+      granularity: "hour",
+      startAt: "2026-08-22T13:00:00.000Z",
+      endAt: "2026-08-22T14:00:00.000Z",
+      reason: "incomplete-hour",
+    });
+  });
+
   it("returns an explicit partial response when tomorrow has not been published", () => {
     const response = buildPriceApiResponse({
       quarterPrices: sourceFrom("2026-08-21T21:00:00.000Z", 96),

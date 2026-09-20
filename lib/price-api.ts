@@ -128,12 +128,20 @@ function mapMissingIntervals(horizon: HorizonPoints): PriceApiMissing[] {
           quarterStart >= hourStart &&
           quarterStart < hourStart + HOUR_MILLISECONDS,
       );
+      const hasAvailableQuarterBefore = availableQuarterStarts.some(
+        (quarterStart) => quarterStart < hourStart,
+      );
+      const hasAvailableQuarterAfter = availableQuarterStarts.some(
+        (quarterStart) => quarterStart >= hourStart + HOUR_MILLISECONDS,
+      );
 
       return {
         granularity: "hour" as const,
         startAt: point.startAt,
         endAt: point.endAt,
-        reason: hasAvailableQuarter
+        reason:
+          hasAvailableQuarter ||
+          (hasAvailableQuarterBefore && hasAvailableQuarterAfter)
           ? ("incomplete-hour" as const)
           : ("not-published" as const),
       };
