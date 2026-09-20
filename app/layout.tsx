@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Geist, Roboto } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const robotoHeading = Roboto({subsets:['latin'],variable:'--font-heading'});
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const siteUrl = "https://sahkohetki.fi";
 
@@ -25,7 +31,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fi">
+    <html lang="fi" className={cn("font-sans", geist.variable, robotoHeading.variable)}>
       <body>
         <script
           type="application/ld+json"
