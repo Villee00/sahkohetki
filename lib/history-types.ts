@@ -73,6 +73,7 @@ export type HistoryFailureReason =
   | "configuration"
   | "request"
   | "rate-limit"
+  | "too-many-documents"
   | "acknowledgement"
   | "schema"
   | "no-data";
