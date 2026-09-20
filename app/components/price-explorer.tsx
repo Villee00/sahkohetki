@@ -914,7 +914,10 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                   </span>
                 </div>
                 <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <span className="hero-price font-mono text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
+                  <span
+                    className="hero-price font-mono text-5xl font-semibold tracking-tight text-foreground sm:text-6xl"
+                    data-testid="selected-price"
+                  >
                     {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
                   </span>
                   <span className="font-mono text-base text-muted-foreground">
@@ -989,6 +992,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                   <div className="spectrum-track relative mt-3 h-2">
                     <span
                       className="spectrum-marker absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+                      data-testid="price-spectrum-marker"
                       style={{
                         left: `${Math.min(100, Math.max(0, spectrumPosition))}%`,
                       }}

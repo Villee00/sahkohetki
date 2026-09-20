@@ -57,7 +57,7 @@ const carriedPoint = {
   carriedForward: true,
 };
 
-it("lets a keyboard-accessible chart button select an available interval", async () => {
+it("lets a focused available chart button select an interval with Enter", async () => {
   const user = userEvent.setup();
   const onSelect = vi.fn();
   render(
@@ -65,8 +65,39 @@ it("lets a keyboard-accessible chart button select an available interval", async
   );
   const button = screen.getByRole("button", { name: /10:15/ });
   expect(button.getAttribute("aria-pressed")).toBe("true");
-  await user.click(button);
+  button.focus();
+  expect(document.activeElement).toBe(button);
+  await user.keyboard("{Enter}");
   expect(onSelect).toHaveBeenCalledWith(point.id);
+});
+
+it("keeps unavailable chart intervals disabled and unselectable", async () => {
+  const user = userEvent.setup();
+  const onSelect = vi.fn();
+  render(
+    <PriceChart
+      points={[
+        point,
+        {
+          ...higherPoint,
+          id: "quarter-unavailable-keyboard",
+          label: "10:30–10:45",
+          priceCentsPerKwh: null,
+          available: false,
+        },
+      ]}
+      selectedId={point.id}
+      onSelect={onSelect}
+    />,
+  );
+
+  const unavailableButton = screen.getByRole("button", {
+    name: /hinta ei ole saatavilla/,
+  });
+  expect((unavailableButton as HTMLButtonElement).disabled).toBe(true);
+
+  await user.click(unavailableButton);
+  expect(onSelect).not.toHaveBeenCalled();
 });
 
 it("shows a fast styled tooltip and highlights the hovered interval", async () => {

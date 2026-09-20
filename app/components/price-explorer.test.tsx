@@ -223,6 +223,21 @@ it("changes precision and horizon through controlled ToggleGroups", async () => 
   ).toBe("true");
 });
 
+it("styles the active ToggleGroupItem through its generated pressed state", () => {
+  const styles = readFileSync(`${process.cwd()}/app/globals.css`, "utf8");
+  const activeToggleRule =
+    styles.match(
+      /\.view-toggle\[aria-pressed="true"\]\s*\{([\s\S]*?)\n\}/,
+    )?.[1] ?? "";
+
+  expect(activeToggleRule).toMatch(
+    /background:\s*var\(--accent\)\s*!important;/,
+  );
+  expect(activeToggleRule).toMatch(
+    /color:\s*var\(--accent-foreground\)\s*!important;/,
+  );
+});
+
 it("opens settings, validates the margin Field, and returns focus on close", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={dataWithUses} />);
@@ -257,12 +272,21 @@ it("moves focus into the dialog, traps Tab, and restores the opener", async () =
   const dialog = screen.getByRole("dialog");
   const closeButton = screen.getByRole("button", { name: "Sulje selite" });
   expect(dialog).toBeTruthy();
-  await waitFor(() => expect(document.activeElement).toBe(closeButton));
+  await waitFor(() => {
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(closeButton);
+  });
 
   await user.tab();
-  expect(document.activeElement).not.toBe(opener);
+  await waitFor(() => {
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(closeButton);
+  });
   await user.tab({ shift: true });
-  expect(document.activeElement).not.toBe(opener);
+  await waitFor(() => {
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(closeButton);
+  });
 
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("dialog")).toBeNull();
@@ -327,7 +351,7 @@ it("applies the supplier margin to displayed prices and appliance estimates", as
 
   expect(screen.queryByRole("dialog", { name: "Lisää marginaali" })).toBeNull();
   expect(screen.getByRole("banner").textContent).toContain("15,00");
-  expect(document.querySelector(".hero-price")?.textContent).toBe("15,00");
+  expect(screen.getByTestId("selected-price").textContent).toBe("15,00");
   expect(
     screen
       .getByRole("heading", { name: "Kahvinkeitin", hidden: true })
@@ -589,7 +613,7 @@ it("restores a saved margin and clears it when returning to market price", async
   render(<PriceExplorer data={dataWithUses} />);
 
   await waitFor(() => {
-    expect(document.querySelector(".hero-price")?.textContent).toBe("15,50");
+    expect(screen.getByTestId("selected-price").textContent).toBe("15,50");
   });
 
   await user.click(screen.getByRole("button", { name: "Lisää marginaali" }));
@@ -603,7 +627,7 @@ it("restores a saved margin and clears it when returning to market price", async
     within(dialog).getByRole("button", { name: "Palauta spot-hintaan" }),
   );
 
-  expect(document.querySelector(".hero-price")?.textContent).toBe("12,00");
+  expect(screen.getByTestId("selected-price").textContent).toBe("12,00");
   expect(window.localStorage.getItem("sahkohetki.price-margin")).toBeNull();
 });
 
@@ -618,17 +642,29 @@ it("keeps the settings form controls inside the generated dialog focus trap", as
   const closeButton = within(dialog).getByRole("button", {
     name: "Sulje lisää marginaali",
   });
+  const firstTabbable = within(dialog).getByRole("textbox", {
+    name: "Sähköyhtiön marginaali",
+  });
 
   expect(closeButton).toBeTruthy();
-  await waitFor(() => expect(document.activeElement).toBe(closeButton));
+  await waitFor(() => {
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(closeButton);
+  });
 
-  for (let index = 0; index < 10; index += 1) {
-    await user.tab();
-    expect(document.activeElement).not.toBe(opener);
-  }
-
+  firstTabbable.focus();
   await user.tab({ shift: true });
-  expect(document.activeElement).not.toBe(opener);
+  await waitFor(() => {
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(closeButton);
+  });
+
+  closeButton.focus();
+  await user.tab();
+  await waitFor(() => {
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(firstTabbable);
+  });
 });
 
 it("associates an invalid margin with its validation message", async () => {
@@ -727,7 +763,7 @@ it("does not repeat the summary prices in the spectrum labels", () => {
 it("keeps a just-over-one-cent price in the low part of the price scale", () => {
   render(<PriceExplorer data={lowRangeData} />);
 
-  const marker = document.querySelector<HTMLElement>(".spectrum-marker");
+  const marker = screen.getByTestId("price-spectrum-marker");
   expect(marker).not.toBeNull();
   expect(Number.parseFloat(marker?.style.left ?? "100")).toBeLessThan(50);
   expect(screen.getByText("Edullinen hinta")).toBeTruthy();
@@ -749,7 +785,7 @@ it("places a sub-cent price near the start of the price scale", () => {
 
   render(<PriceExplorer data={nearZeroData} />);
 
-  const marker = document.querySelector<HTMLElement>(".spectrum-marker");
+  const marker = screen.getByTestId("price-spectrum-marker");
   expect(marker).not.toBeNull();
   expect(Number.parseFloat(marker?.style.left ?? "100")).toBeCloseTo(2.95, 4);
 });
@@ -867,13 +903,21 @@ it("shows carried-forward markers only in the 15-minute chart", async () => {
 
   render(<PriceExplorer data={dataWithCarriedPoint} />);
 
-  expect(document.querySelector(".price-chart__bar--carried")).toBeNull();
+  expect(
+    screen.queryByRole("button", {
+      name: /täydennetty viimeisimmällä julkaistulla hinnalla/,
+    }),
+  ).toBeNull();
 
   await user.click(
     screen.getByRole("button", { name: "15 minuutin tarkkuus" }),
   );
 
-  expect(document.querySelector(".price-chart__bar--carried")).not.toBeNull();
+  expect(
+    screen.getByRole("button", {
+      name: /täydennetty viimeisimmällä julkaistulla hinnalla/,
+    }),
+  ).toBeTruthy();
 });
 
 it("shows the current-time line only on today's horizon", async () => {

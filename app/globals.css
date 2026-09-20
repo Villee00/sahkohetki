@@ -443,14 +443,14 @@ button:disabled {
   color: var(--foreground) !important;
 }
 
-.view-toggle--active {
+.view-toggle[aria-pressed="true"] {
   border-color: var(--ring);
   background: var(--accent) !important;
   color: var(--accent-foreground) !important;
   box-shadow: inset 0 1px 0 color-mix(in oklch, var(--foreground) 8%, transparent), 0 4px 14px color-mix(in oklch, var(--price-accent) 12%, transparent);
 }
 
-.view-toggle--horizon.view-toggle--active {
+.view-toggle--horizon[aria-pressed="true"] {
   background: var(--secondary) !important;
   color: var(--secondary-foreground) !important;
 }
