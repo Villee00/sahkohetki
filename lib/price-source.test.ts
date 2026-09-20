@@ -8,6 +8,11 @@ import {
 const serverOnlyBoundary = vi.hoisted(() => ({
   imported: false,
   cacheKey: [] as string[],
+  cacheRevalidate: undefined as number | undefined,
+  cacheEntries: new Map<
+    string,
+    { cachedAt: number; value: unknown }
+  >(),
 }));
 
 vi.mock("server-only", () => {
@@ -19,9 +24,26 @@ vi.mock("next/cache", () => ({
   unstable_cache: (
     loader: () => Promise<unknown>,
     keyParts: string[],
+    options?: { revalidate?: number },
   ) => {
     serverOnlyBoundary.cacheKey = keyParts;
-    return loader;
+    serverOnlyBoundary.cacheRevalidate = options?.revalidate;
+    return async () => {
+      const cacheKey = keyParts.join("|");
+      const cached = serverOnlyBoundary.cacheEntries.get(cacheKey);
+      const isFresh =
+        cached !== undefined &&
+        (options?.revalidate === undefined ||
+          Date.now() - cached.cachedAt < options.revalidate * 1000);
+      if (isFresh) return cached.value;
+
+      const value = await loader();
+      serverOnlyBoundary.cacheEntries.set(cacheKey, {
+        cachedAt: Date.now(),
+        value,
+      });
+      return value;
+    };
   },
 }));
 
@@ -80,6 +102,14 @@ const ENTSOE_DISJOINT_XML = ENTSOE_XML.replace(
   </TimeSeries>`,
 );
 
+const ENTSOE_NOT_PUBLISHED_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<Acknowledgement_MarketDocument xmlns="urn:iec62325.351:tc57wg16:451-6:acknowledgementdocument:7:0">
+  <Reason>
+    <code>999</code>
+    <text>No matching data found</text>
+  </Reason>
+</Acknowledgement_MarketDocument>`;
+
 function response(body: string, status = 200): Response {
   return new Response(body, {
     status,
@@ -91,6 +121,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  serverOnlyBoundary.cacheEntries.clear();
 });
 
 describe("ENTSO-E source adapter", () => {
@@ -102,6 +133,7 @@ describe("ENTSO-E source adapter", () => {
     expect(serverOnlyBoundary.cacheKey).toEqual([
       "sahkohetki-entsoe-latest-prices-vat-inclusive-v1",
     ]);
+    expect(serverOnlyBoundary.cacheRevalidate).toBe(12 * 60 * 60);
   });
 
   it("requests Finnish day-ahead prices and converts EUR/MWh to VAT-inclusive cents per kWh", async () => {
@@ -242,6 +274,20 @@ describe("ENTSO-E source adapter", () => {
     ).resolves.toMatchObject({ status: "unavailable" });
   });
 
+  it("recognizes ENTSO-E's no-matching-data acknowledgement as not published yet", async () => {
+    vi.stubEnv("ENTSOE_TOKEN", "test-token");
+
+    const result = await fetchLatestPrices(
+      vi.fn().mockResolvedValue(response(ENTSOE_NOT_PUBLISHED_XML)),
+      new Date("2026-08-24T12:30:00.000Z"),
+    );
+
+    expect(result).toMatchObject({
+      status: "unavailable",
+      reason: "not-published",
+    });
+  });
+
   it("fails closed for rejected requests and unsupported price periods", async () => {
     vi.stubEnv("ENTSOE_TOKEN", "test-token");
     const unsupportedResolution = ENTSOE_XML.replace("PT15M", "PT60M");
@@ -333,5 +379,56 @@ describe("ENTSO-E source adapter", () => {
     expect(result.transferData.municipalities[0]?.operators[0]).toHaveProperty(
       "combinedVariableChargeCentsPerKwh",
     );
+  });
+
+  it("does not retry an unpublished result until five minutes have elapsed", async () => {
+    vi.stubEnv("ENTSOE_TOKEN", "test-token");
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-24T12:30:00.000Z"));
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(response(ENTSOE_NOT_PUBLISHED_XML))
+      .mockResolvedValueOnce(response(ENTSOE_XML));
+    vi.stubGlobal("fetch", fetchImpl);
+
+    await getExplorerData(new Date("2026-08-24T12:30:00.000Z"));
+    await getExplorerData(new Date("2026-08-24T12:31:00.000Z"));
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(5 * 60 * 1000);
+    await getExplorerData(new Date("2026-08-24T12:35:00.000Z"));
+    await getExplorerData(new Date("2026-08-24T12:36:00.000Z"));
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("serves the last successful snapshot during the unpublished retry window", async () => {
+    vi.stubEnv("ENTSOE_TOKEN", "test-token");
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-24T12:30:00.000Z"));
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(response(ENTSOE_XML))
+      .mockResolvedValueOnce(response(ENTSOE_NOT_PUBLISHED_XML));
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const initial = await getExplorerData(
+      new Date("2026-08-24T12:30:00.000Z"),
+    );
+    vi.advanceTimersByTime(12 * 60 * 60 * 1000);
+    const failedRefresh = await getExplorerData(
+      new Date("2026-08-25T00:30:00.000Z"),
+    );
+    const duringRetryWindow = await getExplorerData(
+      new Date("2026-08-25T00:31:00.000Z"),
+    );
+
+    expect(initial.status).toBe("ready");
+    expect(failedRefresh.status).toBe("unavailable");
+    expect(duringRetryWindow).toMatchObject({
+      status: "ready",
+      fetchedAt: initial.fetchedAt,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 });

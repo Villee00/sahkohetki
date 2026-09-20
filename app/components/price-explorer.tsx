@@ -124,10 +124,13 @@ function getTransferUseEstimate(
   if (
     !point ||
     !point.available ||
-    point.priceCentsPerKwh === null ||
-    !tariff?.priceAvailable ||
-    tariff.transferEnergyChargeCentsPerKwh === null
+    point.priceCentsPerKwh === null
   ) {
+    return null;
+  }
+
+  if (!tariff) return point.estimates?.[use.id] ?? null;
+  if (!tariff.priceAvailable || tariff.transferEnergyChargeCentsPerKwh === null) {
     return null;
   }
 
@@ -744,6 +747,9 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
       : !selectedTransferTariff?.priceAvailable
         ? "Siirtohinta ei ole saatavilla"
         : "Valitse saatavilla oleva aikaväli";
+  const useCostLabel = selectedTransferTariff
+    ? "ARVIOITU KUSTANNUS SÄHKÖ + SIIRTO + VERO"
+    : "ARVIOITU KUSTANNUS SPOT-HINNALLA";
   const viewControls = (
     <div className="price-chart__controls">
       <div className="view-control-group">
@@ -1102,7 +1108,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                     key={use.id}
                     use={use}
                     estimate={estimate}
-                    costLabel="ARVIOITU KUSTANNUS SÄHKÖ + SIIRTO + VERO"
+                    costLabel={useCostLabel}
                     emptyMessage={useCostEmptyMessage}
                   />
                 );
