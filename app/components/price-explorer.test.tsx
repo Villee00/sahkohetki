@@ -876,6 +876,37 @@ it("defaults to today's calendar-day horizon", () => {
   expect(screen.getByRole("button", { name: "Huomenna" })).toBeTruthy();
 });
 
+it("restores today's current interval after viewing unavailable tomorrow prices", async () => {
+  const user = userEvent.setup();
+  const midnightPoint: PricePoint = {
+    ...cheapestPoint,
+    id: "hour-midnight",
+    startAt: "2026-08-21T21:00:00.000Z",
+    endAt: "2026-08-21T22:00:00.000Z",
+    label: "00:00–01:00",
+  };
+  const dataWithMidnight = {
+    ...data,
+    today: {
+      hourly: [midnightPoint, expensivePoint, cheapestPoint],
+      quarterHour: data.today.quarterHour,
+    },
+  };
+
+  render(<PriceExplorer data={dataWithMidnight} />);
+
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
+    "13:00–14:00",
+  );
+
+  await user.click(screen.getByRole("button", { name: "Huomenna" }));
+  await user.click(screen.getByRole("button", { name: "Tänään" }));
+
+  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
+    "13:00–14:00",
+  );
+});
+
 it("shows carried-forward markers only in the 15-minute chart", async () => {
   const user = userEvent.setup();
   const dataWithCarriedPoint: ExplorerData = {
