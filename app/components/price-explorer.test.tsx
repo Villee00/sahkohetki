@@ -1106,3 +1106,14 @@ it("links the live explorer to the history page", () => {
   ).toBeTruthy();
   expect(tools).not.toBeNull();
 });
+
+it("keeps header action labels compact until the desktop breakpoint", () => {
+  render(<PriceExplorer data={data} />);
+
+  for (const name of ["Miten laskemme?", "Tietolähde", "Lisää marginaali"]) {
+    const button = screen.getByRole("button", { name });
+    expect(
+      button.querySelector('span[aria-hidden="true"]')?.className,
+    ).toContain("lg:inline");
+  }
+});

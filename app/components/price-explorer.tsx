@@ -850,10 +850,10 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             onClick={(event) => openExplanation("formula", event)}
           >
             <Icon name="info" className="h-4 w-4" />
-            <span aria-hidden="true" className="hidden sm:inline">
+            <span aria-hidden="true" className="hidden lg:inline">
               Miten laskemme?
             </span>
-            <span className="sr-only sm:hidden">Miten laskemme?</span>
+            <span className="sr-only lg:hidden">Miten laskemme?</span>
           </button>
           <button
             type="button"
@@ -862,10 +862,10 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             onClick={(event) => openExplanation("source", event)}
           >
             <Icon name="source" className="h-4 w-4" />
-            <span aria-hidden="true" className="hidden sm:inline">
+            <span aria-hidden="true" className="hidden lg:inline">
               Tietolähde
             </span>
-            <span className="sr-only sm:hidden">Tietolähde</span>
+            <span className="sr-only lg:hidden">Tietolähde</span>
           </button>
           <button
             type="button"
@@ -877,10 +877,10 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             onClick={(event) => openExplanation("settings", event)}
           >
             <Icon name="settings" className="h-4 w-4" />
-            <span aria-hidden="true" className="hidden sm:inline">
+            <span aria-hidden="true" className="hidden lg:inline">
               Lisää marginaali
             </span>
-            <span className="sr-only sm:hidden">Lisää marginaali</span>
+            <span className="sr-only lg:hidden">Lisää marginaali</span>
           </button>
           {priceMargin > 0 ? (
             <span id="price-margin-status" className="sr-only">
