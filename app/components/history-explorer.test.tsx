@@ -143,6 +143,15 @@ it("defaults to the latest complete day and household-facing prices", () => {
   expect(
     screen.getByRole("link", { name: "Tänään" }).getAttribute("href"),
   ).toBe("/");
+  expect(
+    screen.getByRole("link", { name: "Historia" }).getAttribute("href"),
+  ).toBe("/historia");
+  expect(
+    screen.getByRole("link", { name: "Historia" }).getAttribute("aria-current"),
+  ).toBe("page");
+  const header = screen.getByRole("banner");
+  expect(header.querySelector(".site-header__inner")).not.toBeNull();
+  expect(header.querySelector(".site-header__tools")).not.toBeNull();
 });
 
 it("defaults to an accessible weekly trend chart with a data table", () => {

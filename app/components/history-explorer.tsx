@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { CSSProperties } from "react";
@@ -8,6 +7,7 @@ import {
   HistoryTrendChart,
   type HistoryTrendGranularity,
 } from "./history-trend-chart";
+import { SiteHeader } from "./site-header";
 import type {
   HistoryDayCell,
   HistoryGranularity,
@@ -215,46 +215,23 @@ export function HistoryExplorer({ data }: { data: HistoryPageData }) {
 
   return (
     <main className="site-shell history-shell min-h-screen text-slate-100">
-      <header className="site-header sticky top-0 z-30 border-b border-slate-800/80">
-        <div className="site-header__inner mx-auto flex items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8">
+      <SiteHeader brandHref="/">
+        <nav aria-label="Päänavigaatio" className="flex items-center gap-1">
           <Link
             href="/"
-            className="group inline-flex items-center gap-3 rounded-lg"
+            className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-3 text-sm text-slate-300"
           >
-            <Image
-              src="/icon.ico"
-              alt=""
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-lg"
-              aria-hidden="true"
-              unoptimized
-            />
-            <span className="site-brand-text">
-              <span className="block text-sm font-semibold tracking-tight text-white">
-                Sähköhetki
-              </span>
-              <span className="block text-[0.65rem] uppercase tracking-[0.2em] text-slate-500">
-                Pörssisähkön hinta
-              </span>
-            </span>
+            Tänään
           </Link>
-          <nav aria-label="Päänavigaatio" className="flex items-center gap-1">
-            <Link
-              href="/"
-              className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-3 text-sm text-slate-300"
-            >
-              Tänään
-            </Link>
-            <span
-              className="site-nav-button site-nav-button--active inline-flex min-h-9 items-center rounded-xl px-3 text-sm"
-              aria-current="page"
-            >
-              Historia
-            </span>
-          </nav>
-        </div>
-      </header>
+          <Link
+            href="/historia"
+            className="site-nav-button site-nav-button--active inline-flex min-h-9 items-center rounded-xl px-3 text-sm"
+            aria-current="page"
+          >
+            Historia
+          </Link>
+        </nav>
+      </SiteHeader>
 
       <div className="page-content mx-auto space-y-6 px-4 pb-16 pt-7 sm:px-6 lg:px-8">
         <section className="history-intro" aria-labelledby="history-heading">

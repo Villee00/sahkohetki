@@ -32,6 +32,15 @@ type RangeSummary = {
   longestExpensiveStreakHours: number;
 };
 
+type IndexedInterval = {
+  interval: MarketPriceInterval;
+  startMs: number;
+  endMs: number;
+  minutes: number;
+};
+
+type IntervalIndex = IndexedInterval[];
+
 function parseDateKey(dateKey: string): Date {
   const date = new Date(`${dateKey}T00:00:00.000Z`);
   if (
@@ -83,42 +92,93 @@ function householdPrice(rawEurPerMwh: number): number {
   return (rawEurPerMwh / 10) * (1 + FINNISH_GENERAL_VAT_RATE);
 }
 
-function intervalsInside(
+function createIntervalIndex(
   intervals: readonly MarketPriceInterval[],
-  start: number,
-  end: number,
-): MarketPriceInterval[] {
-  return intervals.filter((interval) => {
-    const intervalStart = Date.parse(interval.startAt);
-    const intervalEnd = Date.parse(interval.endAt);
-    return intervalStart >= start && intervalEnd <= end;
+): IntervalIndex {
+  const indexed = intervals.map((interval) => {
+    const startMs = Date.parse(interval.startAt);
+    const endMs = Date.parse(interval.endAt);
+    return {
+      interval,
+      startMs,
+      endMs,
+      minutes: (endMs - startMs) / MINUTE_MILLISECONDS,
+    };
   });
+  indexed.sort((left, right) => {
+    const leftStart = Number.isFinite(left.startMs)
+      ? left.startMs
+      : Number.POSITIVE_INFINITY;
+    const rightStart = Number.isFinite(right.startMs)
+      ? right.startMs
+      : Number.POSITIVE_INFINITY;
+    return leftStart - rightStart || left.endMs - right.endMs;
+  });
+  return indexed.filter(
+    (candidate) =>
+      Number.isFinite(candidate.startMs) && Number.isFinite(candidate.endMs),
+  );
+}
+
+function firstIntervalAtOrAfter(
+  intervals: readonly IndexedInterval[],
+  start: number,
+): number {
+  let low = 0;
+  let high = intervals.length;
+  while (low < high) {
+    const middle = low + Math.floor((high - low) / 2);
+    if (intervals[middle].startMs < start) low = middle + 1;
+    else high = middle;
+  }
+  return low;
 }
 
 function summarizeRange(
-  intervals: readonly MarketPriceInterval[],
+  index: IntervalIndex,
   start: number,
   end: number,
 ): RangeSummary | null {
-  const sorted = intervalsInside(intervals, start, end).sort(
-    (left, right) => Date.parse(left.startAt) - Date.parse(right.startAt),
-  );
+  const sorted = index;
+  const first = firstIntervalAtOrAfter(sorted, start);
   let cursor = start;
   let weightedRaw = 0;
   let negativeMinutes = 0;
-  for (const interval of sorted) {
-    const intervalStart = Date.parse(interval.startAt);
-    const intervalEnd = Date.parse(interval.endAt);
+  const hours = new Map<number, { cursor: number; weightedRaw: number }>();
+  for (
+    let indexPosition = first;
+    indexPosition < sorted.length;
+    indexPosition += 1
+  ) {
+    const indexed = sorted[indexPosition];
+    const intervalStart = indexed.startMs;
+    const intervalEnd = indexed.endMs;
+    if (intervalStart >= end) break;
     if (
       intervalStart !== cursor ||
-      !Number.isFinite(intervalEnd) ||
-      intervalEnd <= intervalStart
+      intervalEnd <= intervalStart ||
+      intervalEnd > end
     ) {
       return null;
     }
-    const minutes = (intervalEnd - intervalStart) / MINUTE_MILLISECONDS;
-    weightedRaw += interval.priceEurPerMwh * minutes;
-    if (interval.priceEurPerMwh < 0) negativeMinutes += minutes;
+    const minutes = indexed.minutes;
+    weightedRaw += indexed.interval.priceEurPerMwh * minutes;
+    if (indexed.interval.priceEurPerMwh < 0) negativeMinutes += minutes;
+
+    const hourIndex = Math.floor((intervalStart - start) / HOUR_MILLISECONDS);
+    const hourStart = start + hourIndex * HOUR_MILLISECONDS;
+    const hourEnd = Math.min(hourStart + HOUR_MILLISECONDS, end);
+    const hour = hours.get(hourIndex) ?? {
+      cursor: hourStart,
+      weightedRaw: 0,
+    };
+    if (intervalStart !== hour.cursor || intervalEnd > hourEnd) {
+      hour.cursor = Number.NaN;
+    } else if (Number.isFinite(hour.cursor)) {
+      hour.weightedRaw += indexed.interval.priceEurPerMwh * minutes;
+      hour.cursor = intervalEnd;
+    }
+    hours.set(hourIndex, hour);
     cursor = intervalEnd;
   }
   if (cursor !== end) return null;
@@ -129,25 +189,12 @@ function summarizeRange(
   let longestStreak = 0;
   for (let hourStart = start; hourStart < end; hourStart += HOUR_MILLISECONDS) {
     const hourEnd = Math.min(hourStart + HOUR_MILLISECONDS, end);
-    const hourIntervals = intervalsInside(sorted, hourStart, hourEnd);
-    let hourCursor = hourStart;
-    let hourWeightedRaw = 0;
-    for (const interval of hourIntervals) {
-      const intervalStart = Date.parse(interval.startAt);
-      const intervalEnd = Date.parse(interval.endAt);
-      if (intervalStart !== hourCursor) {
-        hourCursor = -1;
-        break;
-      }
-      hourWeightedRaw +=
-        interval.priceEurPerMwh *
-        ((intervalEnd - intervalStart) / MINUTE_MILLISECONDS);
-      hourCursor = intervalEnd;
-    }
     const hourMinutes = (hourEnd - hourStart) / MINUTE_MILLISECONDS;
+    const hourIndex = Math.floor((hourStart - start) / HOUR_MILLISECONDS);
+    const hour = hours.get(hourIndex);
     const expensive =
-      hourCursor === hourEnd &&
-      householdPrice(hourWeightedRaw / hourMinutes) >
+      hour?.cursor === hourEnd &&
+      householdPrice(hour.weightedRaw / hourMinutes) >
         PRICE_LEVEL_CUTOFFS.normalMaxCents;
     currentStreak = expensive ? currentStreak + 1 : 0;
     longestStreak = Math.max(longestStreak, currentStreak);
@@ -214,16 +261,17 @@ function emptyRanks(): Pick<
 }
 
 function periodSummary(
-  intervals: readonly MarketPriceInterval[],
+  index: IntervalIndex,
   granularity: HistoryGranularity,
   idKey: string,
   startDateKey: string,
   endDateKey: string,
   previousId: string,
+  rangeSummary?: RangeSummary | null,
 ): HistoryPeriodSummary | null {
   const start = Date.parse(getHelsinkiDateBounds(startDateKey).startAt);
   const end = Date.parse(getHelsinkiDateBounds(endDateKey).endAt);
-  const summary = summarizeRange(intervals, start, end);
+  const summary = rangeSummary ?? summarizeRange(index, start, end);
   if (!summary) return null;
   return {
     id: `${granularity}:${idKey}`,
@@ -280,22 +328,23 @@ export function buildHistoryPageData({
   requestedRange,
   missingRanges = [],
 }: BuildHistoryPageDataInput): HistoryPageData {
-  const sortedIntervals = [...intervals].sort(
-    (left, right) => Date.parse(left.startAt) - Date.parse(right.startAt),
-  );
-  const firstDateKey = sortedIntervals[0]
-    ? getHelsinkiDateKey(sortedIntervals[0].startAt)
+  const intervalIndex = createIntervalIndex(intervals);
+  const firstInterval = intervalIndex[0]?.interval;
+  const firstDateKey = firstInterval
+    ? getHelsinkiDateKey(firstInterval.startAt)
     : null;
   const calendarStartDateKey =
     status === "unavailable"
       ? null
       : (requestedRange?.startDateKey ?? firstDateKey);
+  const daySummaries = new Map<string, RangeSummary>();
   const days: HistoryDayCell[] = calendarStartDateKey
     ? dateRange(calendarStartDateKey, throughDateKey).map((dateKey) => {
         const bounds = getHelsinkiDateBounds(dateKey);
         const start = Date.parse(bounds.startAt);
         const end = Date.parse(bounds.endAt);
-        const summary = summarizeRange(sortedIntervals, start, end);
+        const summary = summarizeRange(intervalIndex, start, end);
+        if (summary) daySummaries.set(dateKey, summary);
         return {
           dateKey,
           complete: summary !== null,
@@ -309,12 +358,13 @@ export function buildHistoryPageData({
     if (!day.complete) return [];
     const previousDate = addDays(day.dateKey, -1);
     const summary = periodSummary(
-      sortedIntervals,
+      intervalIndex,
       "day",
       day.dateKey,
       day.dateKey,
       day.dateKey,
       `day:${previousDate}`,
+      daySummaries.get(day.dateKey),
     );
     return summary ? [summary] : [];
   });
@@ -327,7 +377,7 @@ export function buildHistoryPageData({
     if (endDateKey > throughDateKey) return [];
     const previousStart = addDays(startDateKey, -7);
     const summary = periodSummary(
-      sortedIntervals,
+      intervalIndex,
       "week",
       startDateKey,
       startDateKey,
@@ -343,7 +393,7 @@ export function buildHistoryPageData({
     const endDateKey = lastDateOfMonth(monthKey);
     if (endDateKey > throughDateKey) return [];
     const summary = periodSummary(
-      sortedIntervals,
+      intervalIndex,
       "month",
       monthKey,
       startDateKey,

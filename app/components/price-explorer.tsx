@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, MouseEvent as ReactMouseEvent } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
 import { Icon } from "./ui-icon";
 import { PriceChart } from "./price-chart";
 import { TransferCostPanel } from "./transfer-cost-panel";
+import { SiteHeader } from "./site-header";
 import {
   applyPriceMargin,
   calculateUseCostWithTransfer,
@@ -800,108 +800,82 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
   return (
     <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
-      <header className="site-header sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
-        <div className="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:gap-5 sm:px-6 lg:px-8">
-          <a
-            href="#main-content"
-            className="group inline-flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300"
-          >
-            <Image
-              src="/icon.ico"
-              alt=""
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-lg"
-              aria-hidden="true"
-              unoptimized
-            />
-            <span className="site-brand-text">
-              <span className="block text-sm font-semibold tracking-tight text-white">
-                Sähköhetki
-              </span>
-              <span className="block text-[0.65rem] uppercase tracking-[0.2em] text-slate-500">
-                Pörssisähkön hinta
-              </span>
+      <SiteHeader brandHref="#main-content">
+        <div
+          className="current-value flex min-w-0 items-center gap-2"
+          aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} ${priceMargin > 0 ? "hinta marginaali mukaan lukien" : "spot-hinta"} ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
+        >
+          <span className="current-value__context flex min-w-0 items-baseline gap-2">
+            <span className="current-value__label text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-sky-300">
+              {isCurrentSelection ? "Nyt" : "Valittu"}
             </span>
-          </a>
-          <div className="site-header__tools flex min-w-0 items-center gap-1 sm:gap-2">
-            <div
-              className="current-value flex min-w-0 items-center gap-2"
-              aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} ${priceMargin > 0 ? "hinta marginaali mukaan lukien" : "spot-hinta"} ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
-            >
-              <span className="current-value__context flex min-w-0 items-baseline gap-2">
-                <span className="current-value__label text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-sky-300">
-                  {isCurrentSelection ? "Nyt" : "Valittu"}
-                </span>
-                <span className="current-value__time truncate font-mono text-xs text-slate-300">
-                  {selectedPoint?.label ?? "Ei saatavilla"}
-                </span>
-              </span>
-              <span className="current-value__price shrink-0 font-mono text-sm font-semibold text-white">
-                {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
-              </span>
-              <span className="current-value__unit shrink-0 text-[0.65rem] text-slate-500">
-                snt/kWh
-              </span>
-            </div>
-            <nav
-              aria-label="Lisätietoja"
-              className="flex items-center gap-0.5 sm:gap-1"
-            >
-              <Link
-                href="/historia"
-                className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white sm:px-3"
-              >
-                Historia
-              </Link>
-              <button
-                type="button"
-                aria-label="Miten laskemme?"
-                className="site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3"
-                onClick={(event) => openExplanation("formula", event)}
-              >
-                <Icon name="info" className="h-4 w-4" />
-                <span aria-hidden="true" className="hidden sm:inline">
-                  Miten laskemme?
-                </span>
-                <span className="sr-only sm:hidden">Miten laskemme?</span>
-              </button>
-              <button
-                type="button"
-                aria-label="Tietolähde"
-                className="site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3"
-                onClick={(event) => openExplanation("source", event)}
-              >
-                <Icon name="source" className="h-4 w-4" />
-                <span aria-hidden="true" className="hidden sm:inline">
-                  Tietolähde
-                </span>
-                <span className="sr-only sm:hidden">Tietolähde</span>
-              </button>
-              <button
-                type="button"
-                aria-label="Lisää marginaali"
-                aria-describedby={
-                  priceMargin > 0 ? "price-margin-status" : undefined
-                }
-                className={`site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3 ${priceMargin > 0 ? "site-nav-button--active" : ""}`}
-                onClick={(event) => openExplanation("settings", event)}
-              >
-                <Icon name="settings" className="h-4 w-4" />
-                <span aria-hidden="true" className="hidden sm:inline">
-                  Lisää marginaali
-                </span>
-                <span className="sr-only sm:hidden">Lisää marginaali</span>
-              </button>
-              {priceMargin > 0 ? (
-                <span id="price-margin-status" className="sr-only">
-                  Marginaali {formatPrice(priceMargin)} snt/kWh käytössä
-                </span>
-              ) : null}
-            </nav>
-          </div>
+            <span className="current-value__time truncate font-mono text-xs text-slate-300">
+              {selectedPoint?.label ?? "Ei saatavilla"}
+            </span>
+          </span>
+          <span className="current-value__price shrink-0 font-mono text-sm font-semibold text-white">
+            {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
+          </span>
+          <span className="current-value__unit shrink-0 text-[0.65rem] text-slate-500">
+            snt/kWh
+          </span>
         </div>
-      </header>
+        <nav
+          aria-label="Lisätietoja"
+          className="flex items-center gap-0.5 sm:gap-1"
+        >
+          <Link
+            href="/historia"
+            className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white sm:px-3"
+          >
+            Historia
+          </Link>
+          <button
+            type="button"
+            aria-label="Miten laskemme?"
+            className="site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3"
+            onClick={(event) => openExplanation("formula", event)}
+          >
+            <Icon name="info" className="h-4 w-4" />
+            <span aria-hidden="true" className="hidden sm:inline">
+              Miten laskemme?
+            </span>
+            <span className="sr-only sm:hidden">Miten laskemme?</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Tietolähde"
+            className="site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3"
+            onClick={(event) => openExplanation("source", event)}
+          >
+            <Icon name="source" className="h-4 w-4" />
+            <span aria-hidden="true" className="hidden sm:inline">
+              Tietolähde
+            </span>
+            <span className="sr-only sm:hidden">Tietolähde</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Lisää marginaali"
+            aria-describedby={
+              priceMargin > 0 ? "price-margin-status" : undefined
+            }
+            className={`site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3 ${priceMargin > 0 ? "site-nav-button--active" : ""}`}
+            onClick={(event) => openExplanation("settings", event)}
+          >
+            <Icon name="settings" className="h-4 w-4" />
+            <span aria-hidden="true" className="hidden sm:inline">
+              Lisää marginaali
+            </span>
+            <span className="sr-only sm:hidden">Lisää marginaali</span>
+          </button>
+          {priceMargin > 0 ? (
+            <span id="price-margin-status" className="sr-only">
+              Marginaali {formatPrice(priceMargin)} snt/kWh käytössä
+            </span>
+          ) : null}
+        </nav>
+      </SiteHeader>
 
       <div
         id="main-content"
