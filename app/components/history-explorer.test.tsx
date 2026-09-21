@@ -151,7 +151,24 @@ it("defaults to the latest complete day and household-facing prices", () => {
   ).toBe("page");
   const header = screen.getByRole("banner");
   expect(header.querySelector(".site-header__inner")).not.toBeNull();
-  expect(header.querySelector(".site-header__tools")).not.toBeNull();
+  const brandGroup = header.querySelector(".site-header__brand-group");
+  const tools = header.querySelector(".site-header__tools");
+  expect(brandGroup).not.toBeNull();
+  expect(
+    within(brandGroup as HTMLElement).getByRole("link", {
+      name: "Historia",
+    }),
+  ).toBeTruthy();
+  expect(
+    within(brandGroup as HTMLElement).getByRole("navigation", {
+      name: "Päänavigaatio",
+    }).firstElementChild?.textContent,
+  ).toBe("Historia");
+  expect(
+    (brandGroup as Node).compareDocumentPosition(tools as Node) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(tools).not.toBeNull();
 });
 
 it("defaults to an accessible weekly trend chart with a data table", () => {

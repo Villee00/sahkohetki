@@ -1084,7 +1084,20 @@ it("shows natural Finnish copy in the calculation and source explanations", asyn
 it("links the live explorer to the history page", () => {
   render(<PriceExplorer data={data} />);
 
+  const historyLink = screen.getByRole("link", { name: "Historia" });
+  expect(historyLink.getAttribute("href")).toBe("/historia");
+  const header = screen.getByRole("banner");
+  const brandGroup = header.querySelector(".site-header__brand-group");
+  const tools = header.querySelector(".site-header__tools");
+  expect(brandGroup).not.toBeNull();
   expect(
-    screen.getByRole("link", { name: "Historia" }).getAttribute("href"),
-  ).toBe("/historia");
+    within(brandGroup as HTMLElement).getByRole("link", {
+      name: "Historia",
+    }),
+  ).toBe(historyLink);
+  expect(
+    (brandGroup as Node).compareDocumentPosition(tools as Node) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(tools).not.toBeNull();
 });

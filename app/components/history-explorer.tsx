@@ -215,23 +215,26 @@ export function HistoryExplorer({ data }: { data: HistoryPageData }) {
 
   return (
     <main className="site-shell history-shell min-h-screen text-slate-100">
-      <SiteHeader brandHref="/">
-        <nav aria-label="Päänavigaatio" className="flex items-center gap-1">
-          <Link
-            href="/"
-            className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-3 text-sm text-slate-300"
-          >
-            Tänään
-          </Link>
-          <Link
-            href="/historia"
-            className="site-nav-button site-nav-button--active inline-flex min-h-9 items-center rounded-xl px-3 text-sm"
-            aria-current="page"
-          >
-            Historia
-          </Link>
-        </nav>
-      </SiteHeader>
+      <SiteHeader
+        brandHref="/"
+        navigation={
+          <nav aria-label="Päänavigaatio" className="flex items-center gap-1">
+            <Link
+              href="/historia"
+              className="site-nav-button site-nav-button--active inline-flex min-h-9 items-center rounded-xl px-3 text-sm"
+              aria-current="page"
+            >
+              Historia
+            </Link>
+            <Link
+              href="/"
+              className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-3 text-sm text-slate-300"
+            >
+              Tänään
+            </Link>
+          </nav>
+        }
+      />
 
       <div className="page-content mx-auto space-y-6 px-4 pb-16 pt-7 sm:px-6 lg:px-8">
         <section className="history-intro" aria-labelledby="history-heading">

@@ -800,7 +800,19 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
   return (
     <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
-      <SiteHeader brandHref="#main-content">
+      <SiteHeader
+        brandHref="#main-content"
+        navigation={
+          <nav aria-label="Päänavigaatio" className="flex items-center gap-0.5 sm:gap-1">
+            <Link
+              href="/historia"
+              className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white sm:px-3"
+            >
+              Historia
+            </Link>
+          </nav>
+        }
+      >
         <div
           className="current-value flex min-w-0 items-center gap-2"
           aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} ${priceMargin > 0 ? "hinta marginaali mukaan lukien" : "spot-hinta"} ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
@@ -824,12 +836,6 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           aria-label="Lisätietoja"
           className="flex items-center gap-0.5 sm:gap-1"
         >
-          <Link
-            href="/historia"
-            className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white sm:px-3"
-          >
-            Historia
-          </Link>
           <button
             type="button"
             aria-label="Miten laskemme?"
