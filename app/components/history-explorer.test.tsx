@@ -141,7 +141,7 @@ it("defaults to the latest complete day and household-facing prices", () => {
   expect(summary.textContent).toContain("snt/kWh (sis. alv.)");
   expect(screen.getByText("Täydellinen")).toBeTruthy();
   expect(
-    screen.getByRole("link", { name: "Tänään" }).getAttribute("href"),
+    screen.getByRole("link", { name: "Nyt" }).getAttribute("href"),
   ).toBe("/");
   expect(
     screen.getByRole("link", { name: "Historia" }).getAttribute("href"),
@@ -164,6 +164,9 @@ it("defaults to the latest complete day and household-facing prices", () => {
       name: "Päänavigaatio",
     }).firstElementChild?.textContent,
   ).toBe("Historia");
+  expect(
+    within(brandGroup as HTMLElement).getByRole("link", { name: "Nyt" }),
+  ).toBeTruthy();
   expect(
     (brandGroup as Node).compareDocumentPosition(tools as Node) &
       Node.DOCUMENT_POSITION_FOLLOWING,

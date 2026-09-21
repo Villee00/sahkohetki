@@ -810,6 +810,13 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             >
               Historia
             </Link>
+            <Link
+              href="/"
+              aria-current="page"
+              className="site-nav-button site-nav-button--active inline-flex min-h-9 items-center rounded-xl px-2 text-sm transition hover:bg-white/5 hover:text-white sm:px-3"
+            >
+              Nyt
+            </Link>
           </nav>
         }
       >

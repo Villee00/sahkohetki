@@ -230,7 +230,7 @@ export function HistoryExplorer({ data }: { data: HistoryPageData }) {
               href="/"
               className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-3 text-sm text-slate-300"
             >
-              Tänään
+              Nyt
             </Link>
           </nav>
         }

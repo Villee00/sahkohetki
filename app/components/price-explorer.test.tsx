@@ -1086,6 +1086,8 @@ it("links the live explorer to the history page", () => {
 
   const historyLink = screen.getByRole("link", { name: "Historia" });
   expect(historyLink.getAttribute("href")).toBe("/historia");
+  const nowLink = screen.getByRole("link", { name: "Nyt" });
+  expect(nowLink.getAttribute("href")).toBe("/");
   const header = screen.getByRole("banner");
   const brandGroup = header.querySelector(".site-header__brand-group");
   const tools = header.querySelector(".site-header__tools");
@@ -1095,6 +1097,9 @@ it("links the live explorer to the history page", () => {
       name: "Historia",
     }),
   ).toBe(historyLink);
+  expect(
+    within(brandGroup as HTMLElement).getByRole("link", { name: "Nyt" }),
+  ).toBe(nowLink);
   expect(
     (brandGroup as Node).compareDocumentPosition(tools as Node) &
       Node.DOCUMENT_POSITION_FOLLOWING,
