@@ -48,7 +48,7 @@ export function SiteHeader({
             {navigation}
           </div>
         </div>
-        <div className="site-header__tools flex min-w-0 items-center gap-1 sm:gap-2">
+        <div className="site-header__tools flex min-w-0 flex-wrap items-center gap-1 sm:gap-2">
           {children}
         </div>
       </div>

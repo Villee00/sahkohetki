@@ -821,7 +821,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         }
       >
         <div
-          className="current-value flex min-w-0 items-center gap-2"
+          className="current-value flex shrink-0 items-center gap-2"
           aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} ${priceMargin > 0 ? "hinta marginaali mukaan lukien" : "spot-hinta"} ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
         >
           <span className="current-value__context flex min-w-0 items-baseline gap-2">
@@ -841,7 +841,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         </div>
         <nav
           aria-label="Lisätietoja"
-          className="flex items-center gap-0.5 sm:gap-1"
+          className="ml-auto flex items-center gap-0.5 sm:gap-1"
         >
           <button
             type="button"

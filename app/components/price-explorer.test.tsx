@@ -1110,6 +1110,14 @@ it("links the live explorer to the history page", () => {
 it("keeps header action labels compact until the desktop breakpoint", () => {
   render(<PriceExplorer data={data} />);
 
+  const header = screen.getByRole("banner");
+  expect(header.querySelector(".site-header__tools")?.className).toContain(
+    "flex-wrap",
+  );
+  expect(header.querySelector(".current-value")?.className).toContain(
+    "shrink-0",
+  );
+
   for (const name of ["Miten laskemme?", "Tietolähde", "Lisää marginaali"]) {
     const button = screen.getByRole("button", { name });
     expect(
