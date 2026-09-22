@@ -1,10 +1,11 @@
+import { useEffect } from "react";
 import type { ReactNode, RefObject } from "react";
+import { motion } from "motion/react";
 import { Icon } from "./ui-icon";
 
 type ExplanationDialogProps = {
   id: string;
   title: string;
-  open: boolean;
   onClose: () => void;
   dialogRef: RefObject<HTMLDivElement | null>;
   closeButtonRef: RefObject<HTMLButtonElement | null>;
@@ -15,27 +16,33 @@ type ExplanationDialogProps = {
 export function ExplanationDialog({
   id,
   title,
-  open,
   onClose,
   dialogRef,
   closeButtonRef,
   closeButtonLabel = "Sulje selite",
   children,
 }: ExplanationDialogProps) {
-  if (!open) return null;
-
   const titleId = `${id}-title`;
   const descriptionId = `${id}-description`;
 
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+    if (!closeButtonRef.current) dialogRef.current?.focus();
+  }, [closeButtonRef, dialogRef]);
+
   return (
-    <div
+    <motion.div
       className="dialog-backdrop fixed inset-0 z-50 flex items-end justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:items-center sm:p-6"
       role="presentation"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div
+      <motion.div
         ref={dialogRef}
         id={id}
         role="dialog"
@@ -44,6 +51,10 @@ export function ExplanationDialog({
         aria-describedby={descriptionId}
         tabIndex={-1}
         className="dialog-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 text-slate-200 shadow-2xl shadow-black/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300 sm:p-8"
+        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 16, scale: 0.98 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-6">
@@ -71,7 +82,7 @@ export function ExplanationDialog({
         >
           {children}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

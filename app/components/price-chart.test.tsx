@@ -381,6 +381,38 @@ it("keeps unavailable intervals in the chart without changing the scale", () => 
   ).toBe(true);
 });
 
+it("anchors negative bars below the zero line while preserving available semantics", () => {
+  render(
+    <PriceChart
+      points={[
+        {
+          ...point,
+          id: "quarter-negative",
+          priceCentsPerKwh: -2.5,
+          level: "cheap",
+        },
+      ]}
+      selectedId="quarter-negative"
+      onSelect={vi.fn()}
+    />,
+  );
+
+  const button = screen.getByRole("button", { name: /−2,50/ });
+  const bar = button.querySelector<HTMLElement>(".price-chart__bar");
+  expect(button.getAttribute("aria-pressed")).toBe("true");
+  expect(button.hasAttribute("disabled")).toBe(false);
+  expect(Number.parseFloat(bar?.style.bottom ?? "0")).toBeLessThan(20);
+  expect(Number.parseFloat(bar?.style.height ?? "0")).toBeGreaterThan(0);
+});
+
+it("settles chart bars with CSS height and bottom transitions", () => {
+  const styles = readFileSync(`${process.cwd()}/app/globals.css`, "utf8");
+  const barRule = styles.match(/\.price-chart__bar\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+
+  expect(barRule).toMatch(/transition:[^;]*height/);
+  expect(barRule).toMatch(/transition:[^;]*bottom/);
+});
+
 it("calculates the daily average from available intervals only", () => {
   render(
     <PriceChart
