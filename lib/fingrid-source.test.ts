@@ -131,8 +131,8 @@ describe("Fingrid forecast source", () => {
     expect(requestUrl.origin + requestUrl.pathname).toBe(
       "https://data.fingrid.fi/api/data",
     );
-    expect(requestUrl.searchParams.get("datasets")).toBe(
-      Object.values(FINGRID_DATASET_IDS).join(","),
+    expect(requestUrl.searchParams.getAll("datasets")).toEqual(
+      Object.values(FINGRID_DATASET_IDS).map(String),
     );
     expect(requestUrl.searchParams.get("startTime")).toBe(
       "2026-09-22T11:00:00.000Z",
@@ -142,6 +142,8 @@ describe("Fingrid forecast source", () => {
     );
     expect(requestUrl.searchParams.get("oneRowPerTimePeriod")).toBe("false");
     expect(requestUrl.searchParams.get("pageSize")).toBe("20000");
+    expect(requestUrl.searchParams.has("sortBy")).toBe(false);
+    expect(requestUrl.searchParams.has("sortOrder")).toBe(false);
     expect(requestUrl.searchParams.has("apiKey")).toBe(false);
     expect(requestInit).toMatchObject({
       cache: "no-store",

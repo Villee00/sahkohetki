@@ -295,10 +295,9 @@ function buildRequestUrl(now: Date): string | null {
   const horizonStart =
     Math.floor(nowMilliseconds / HOUR_MILLISECONDS) * HOUR_MILLISECONDS;
   const url = new URL(API_URL);
-  url.searchParams.set(
-    "datasets",
-    Object.values(FINGRID_DATASET_IDS).join(","),
-  );
+  for (const datasetId of Object.values(FINGRID_DATASET_IDS)) {
+    url.searchParams.append("datasets", String(datasetId));
+  }
   url.searchParams.set(
     "startTime",
     canonicalTimestamp(horizonStart - HOUR_MILLISECONDS),
@@ -311,8 +310,6 @@ function buildRequestUrl(now: Date): string | null {
   url.searchParams.set("oneRowPerTimePeriod", "false");
   url.searchParams.set("pageSize", String(PAGE_SIZE));
   url.searchParams.set("locale", "en");
-  url.searchParams.set("sortBy", "startTime");
-  url.searchParams.set("sortOrder", "asc");
   return url.toString();
 }
 
