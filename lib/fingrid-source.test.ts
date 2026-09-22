@@ -138,7 +138,7 @@ describe("Fingrid forecast source", () => {
       "2026-09-22T11:00:00.000Z",
     );
     expect(requestUrl.searchParams.get("endTime")).toBe(
-      "2026-09-25T12:00:00.000Z",
+      "2026-09-25T13:00:00.000Z",
     );
     expect(requestUrl.searchParams.get("oneRowPerTimePeriod")).toBe("false");
     expect(requestUrl.searchParams.get("pageSize")).toBe("20000");
@@ -220,6 +220,72 @@ describe("Fingrid forecast source", () => {
     if (result.status !== "ready") throw new Error(result.message);
     expect(result.observations).toHaveLength(1);
     expect(result.observations[0].series).toBe("production");
+  });
+
+  it("does not present current-only data as a 72-hour forecast", async () => {
+    vi.stubEnv("FINGRID_API_KEY", "test-key");
+    const currentRows = COMPLETE_ROWS.filter((sourceRow) =>
+      [192, 193, 194, 336].includes(Number(sourceRow.datasetId)),
+    );
+
+    const result = await fetchFingridObservations(
+      vi.fn().mockResolvedValue(jsonResponse({ data: currentRows })),
+      new Date("2026-09-22T12:02:00.000Z"),
+    );
+
+    expect(result).toMatchObject({ status: "unavailable", reason: "schema" });
+  });
+
+  it("does not present renewable context alone as the main forecast", async () => {
+    vi.stubEnv("FINGRID_API_KEY", "test-key");
+    const result = await fetchFingridObservations(
+      vi.fn().mockResolvedValue(
+        jsonResponse({ data: [row(245, "2026-09-22T12:00:00.000Z", 2_500)] }),
+      ),
+      new Date("2026-09-22T12:02:00.000Z"),
+    );
+
+    expect(result).toMatchObject({ status: "unavailable", reason: "schema" });
+  });
+
+  it("uses the last completed current interval when a newer interval lies in the future", async () => {
+    vi.stubEnv("FINGRID_API_KEY", "test-key");
+    const completed = row(192, "2026-09-22T11:57:00.000Z", 8_800, 3);
+    const future = row(192, "2026-09-22T12:00:00.000Z", 9_500, 3);
+    const result = await fetchFingridObservations(
+      vi.fn().mockResolvedValue(
+        jsonResponse({ data: [...COMPLETE_ROWS.slice(0, 6), completed, future] }),
+      ),
+      new Date("2026-09-22T12:02:00.000Z"),
+    );
+
+    expect(result).toMatchObject({
+      status: "ready",
+      current: {
+        production: { valueMw: 8_800, observedAt: "2026-09-22T12:00:00.000Z" },
+      },
+    });
+  });
+
+  it("uses the latest source revision for duplicate current intervals", async () => {
+    vi.stubEnv("FINGRID_API_KEY", "test-key");
+    const interval = row(192, "2026-09-22T11:57:00.000Z", 8_800, 3);
+    const newerRevision = {
+      ...interval,
+      value: 8_900,
+      modifiedAt: "2026-09-22T12:01:00.000Z",
+    };
+    const result = await fetchFingridObservations(
+      vi.fn().mockResolvedValue(
+        jsonResponse({ data: [...COMPLETE_ROWS.slice(0, 6), interval, newerRevision] }),
+      ),
+      new Date("2026-09-22T12:02:00.000Z"),
+    );
+
+    expect(result).toMatchObject({
+      status: "ready",
+      current: { production: { valueMw: 8_900 } },
+    });
   });
 
   it("hides current values older than ten minutes without losing forecasts", async () => {

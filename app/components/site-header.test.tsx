@@ -17,6 +17,14 @@ describe("SiteHeader", () => {
     expect(forecastLink.getAttribute("aria-current")).toBeNull();
   });
 
+  it("offers a keyboard route past the shared navigation to page content", () => {
+    render(<SiteHeader activeRoute="forecast" />);
+
+    expect(screen.getByRole("link", { name: "Siirry sisältöön" }).getAttribute("href")).toBe(
+      "#main-content",
+    );
+  });
+
   it("marks the forecast route and keeps complete labels available on mobile", () => {
     render(<SiteHeader activeRoute="forecast" />);
 

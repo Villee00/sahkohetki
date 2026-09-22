@@ -116,4 +116,24 @@ describe("ForecastChart", () => {
       "1",
     );
   });
+
+  it("distinguishes repeated Helsinki hours in keyboard selection labels", () => {
+    const repeatedHours = [
+      { ...point("2026-10-25T00:00:00.000Z", 9_000, 10_000), label: "03:00–03:00 (UTC+3→UTC+2)" },
+      { ...point("2026-10-25T01:00:00.000Z", 9_100, 10_100), label: "03:00–04:00 (UTC+2)" },
+    ];
+    render(
+      <ForecastChart
+        points={repeatedHours}
+        selectedId={repeatedHours[0].id}
+        currentTime={null}
+        onSelect={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /UTC\+3→UTC\+2/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /03:00–04:00 \(UTC\+2\)/ })).toBeTruthy();
+    expect(screen.getByText("03.00 UTC+3")).toBeTruthy();
+    expect(screen.getByText("03.00 UTC+2")).toBeTruthy();
+  });
 });

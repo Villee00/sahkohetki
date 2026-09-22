@@ -235,6 +235,29 @@ describe("ForecastExplorer", () => {
     expect(current.textContent).toMatch(/Normaali/);
   });
 
+  it("shows distinct clock offsets for the repeated autumn hour in summary and table", async () => {
+    const user = userEvent.setup();
+    const first = interval("2026-10-25T00:00:00.000Z", 9_000, 10_000, {
+      label: "03:00–03:00 (UTC+3→UTC+2)",
+    });
+    const second = interval("2026-10-25T01:00:00.000Z", 9_100, 10_100, {
+      label: "03:00–04:00 (UTC+2)",
+    });
+    renderExplorer({
+      ...readySnapshot,
+      generatedAt: "2026-10-25T00:30:00.000Z",
+      hourly: [first, second],
+    });
+
+    expect(screen.getByTestId("selected-hour-summary").textContent).toContain("UTC+3→UTC+2");
+    await user.click(screen.getByRole("button", { name: "Seuraava tunti" }));
+    expect(screen.getByTestId("selected-hour-summary").textContent).toContain("UTC+2");
+    await user.click(screen.getByText("Näytä ennuste taulukkona"));
+    const table = screen.getByRole("table", { name: /72 tunnin sähköennuste/i });
+    expect(within(table).getByText(/UTC\+3→UTC\+2/)).toBeTruthy();
+    expect(within(table).getByText(/03:00–04:00 \(UTC\+2\)/)).toBeTruthy();
+  });
+
   it("renders a useful Finnish unavailable state when the API key is not configured", () => {
     renderExplorer({
       status: "unavailable",

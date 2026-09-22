@@ -28,6 +28,9 @@ export function SiteHeader({
 }: SiteHeaderProps) {
   return (
     <header className="site-header sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
+      <a href="#main-content" className="site-skip-link">
+        Siirry sisältöön
+      </a>
       <div className="site-header__inner mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 sm:gap-x-5 sm:px-6 lg:flex-nowrap lg:px-8">
         <Link
           href="/"

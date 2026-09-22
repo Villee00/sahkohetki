@@ -113,16 +113,23 @@ function seriesSegments(
 
 function selectionLabel(point: ForecastInterval): string {
   const time = accessibleHourFormatter.format(new Date(point.startAt));
+  const interval = point.label ? `, ${point.label}` : "";
   if (
     !point.available ||
     point.productionMw === null ||
     point.consumptionMw === null
   ) {
-    return `Valitse tunti ${time}, tiedot puuttuvat`;
+    return `Valitse tunti ${time}${interval}, tiedot puuttuvat`;
   }
-  return `Valitse tunti ${time}, tuotanto ${formatPower(
+  return `Valitse tunti ${time}${interval}, tuotanto ${formatPower(
     point.productionMw,
   )} MW, kulutus ${formatPower(point.consumptionMw)} MW`;
+}
+
+function axisHourLabel(point: ForecastInterval): string {
+  const hour = hourFormatter.format(new Date(point.startAt));
+  const offset = point.label.match(/\((UTC[+-]\d{1,2})/);
+  return offset ? `${hour} ${offset[1]}` : hour;
 }
 
 function currentPosition(
@@ -456,7 +463,7 @@ export function ForecastChart({
                   textAnchor="middle"
                   className="forecast-chart__time-label"
                 >
-                  {hourFormatter.format(new Date(point.startAt))}
+                  {axisHourLabel(point)}
                 </text>
               ) : null,
             )}

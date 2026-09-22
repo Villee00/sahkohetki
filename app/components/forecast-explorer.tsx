@@ -53,6 +53,13 @@ const dateTimeFormatter = new Intl.DateTimeFormat("fi-FI", {
   minute: "2-digit",
 });
 
+const dateFormatter = new Intl.DateTimeFormat("fi-FI", {
+  timeZone: "Europe/Helsinki",
+  weekday: "short",
+  day: "numeric",
+  month: "numeric",
+});
+
 function formatPower(value: number | null, signed = false): string {
   if (value === null || !Number.isFinite(value)) return "—";
   const rounded = Math.round(value);
@@ -71,6 +78,7 @@ function formatHourRange(point: ForecastInterval): string {
   const start = new Date(point.startAt);
   const end = new Date(point.endAt);
   const weekday = weekdayFormatter.format(start).replace(".", "");
+  if (point.label) return `${weekday} ${point.label}`;
   const startHour = clockFormatter.format(start).split(".")[0];
   const endHour = clockFormatter.format(end).split(".")[0];
   return `${weekday} ${startHour}–${endHour}`;
@@ -374,7 +382,9 @@ function ForecastTable({ points }: { points: ForecastInterval[] }) {
               <tr key={point.id}>
                 <th scope="row">
                   <time dateTime={point.startAt}>
-                    {dateTimeFormatter.format(new Date(point.startAt))}
+                    {point.label
+                      ? `${dateFormatter.format(new Date(point.startAt))} ${point.label}`
+                      : dateTimeFormatter.format(new Date(point.startAt))}
                   </time>
                 </th>
                 <td>

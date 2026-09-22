@@ -29,10 +29,11 @@ two seconds. See [Fingrid API instructions](https://data.fingrid.fi/en/instructi
 The adapter currently calls the operation URL
 https://data.fingrid.fi/api/data once for all ten datasets and keeps the key
 server-side. It serializes each selected ID as a repeated `datasets` query
-parameter, matching Fingrid's first-party download client. The operation path,
-authenticated response envelope, and the numeric sign convention of dataset
-194 remain live-key validation items; they are not all specified by the public
-instructions page.
+parameter, matching Fingrid's first-party download client. The operation path
+and authenticated response envelope remain live-key validation items; they are
+not fully specified by the public instructions page. Dataset 194's import sign
+is supported by a first-party data sample and related Fingrid border-flow
+descriptions, as detailed below.
 
 ## Official API facts
 
@@ -246,6 +247,17 @@ updated every three minutes ([dataset 193](https://data.fingrid.fi/en/datasets/1
 and net export from Finland, based on real-time operation-control-system
 measurements, in MW at three-minute periods and updated every three minutes
 ([dataset 194](https://data.fingrid.fi/en/datasets/194)).
+
+The public first-party download response inspected on 2026-09-22 showed
+production (192) near 6,111 MW, consumption (193) near 8,459 MW, and net
+import/export (194) near −2,343 MW over the same period. Those values are
+consistent with a negative source value for net import and a positive app
+value after negation. Fingrid's individual [FI–SE3 border-flow
+dataset](https://data.fingrid.fi/en/datasets/32) explicitly uses positive for
+export and negative for import. Applying that sign convention to dataset 194
+is an inference supported by the sample; the dataset 194 text does not state
+the numeric sign explicitly. Verify the authenticated source response once a
+real API key is available.
 
 These three values are shown separately from the forecast. They are not mixed
 into the 72-hour production forecast or used to imply that future imports are

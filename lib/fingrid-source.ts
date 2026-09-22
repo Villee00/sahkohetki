@@ -73,11 +73,13 @@ type ParsedRow = {
   startMilliseconds: number;
   endMilliseconds: number;
   value: number;
+  modifiedMilliseconds: number | null;
 };
 
 type CurrentCandidate = {
   value: number;
   observedAtMilliseconds: number;
+  modifiedMilliseconds: number | null;
 };
 
 class FingridRefreshError extends Error {
@@ -140,22 +142,37 @@ function parseRow(value: unknown): ParsedRow | null {
     return null;
   }
 
-  return { datasetId, startMilliseconds, endMilliseconds, value: rowValue };
+  return {
+    datasetId,
+    startMilliseconds,
+    endMilliseconds,
+    value: rowValue,
+    modifiedMilliseconds: timestampMilliseconds(value.modifiedAt),
+  };
 }
 
 function setLatestCandidate(
   candidates: Map<number, CurrentCandidate>,
   row: ParsedRow,
+  nowMilliseconds: number,
 ): void {
   const observedAtMilliseconds = Math.max(
     row.startMilliseconds,
     row.endMilliseconds,
   );
+  if (observedAtMilliseconds > nowMilliseconds) return;
   const previous = candidates.get(row.datasetId);
-  if (!previous || previous.observedAtMilliseconds < observedAtMilliseconds) {
+  if (
+    !previous ||
+    previous.observedAtMilliseconds < observedAtMilliseconds ||
+    (previous.observedAtMilliseconds === observedAtMilliseconds &&
+      (row.modifiedMilliseconds ?? Number.NEGATIVE_INFINITY) >
+        (previous.modifiedMilliseconds ?? Number.NEGATIVE_INFINITY))
+  ) {
     candidates.set(row.datasetId, {
       value: row.value,
       observedAtMilliseconds,
+      modifiedMilliseconds: row.modifiedMilliseconds,
     });
   }
 }
@@ -304,7 +321,7 @@ function buildRequestUrl(now: Date): string | null {
   );
   url.searchParams.set(
     "endTime",
-    canonicalTimestamp(horizonStart + 72 * HOUR_MILLISECONDS),
+    canonicalTimestamp(horizonStart + 73 * HOUR_MILLISECONDS),
   );
   url.searchParams.set("format", "json");
   url.searchParams.set("oneRowPerTimePeriod", "false");
@@ -367,7 +384,6 @@ export async function fetchFingridObservations(
 
   const observations: ForecastObservation[] = [];
   const currentCandidates = new Map<number, CurrentCandidate>();
-  let validRowCount = 0;
 
   for (const value of body.data) {
     const parsed = parseRow(value);
@@ -382,7 +398,6 @@ export async function fetchFingridObservations(
         endAt: canonicalTimestamp(parsed.endMilliseconds),
         valueMw: parsed.value,
       });
-      validRowCount += 1;
       continue;
     }
 
@@ -392,12 +407,17 @@ export async function fetchFingridObservations(
       parsed.datasetId === FINGRID_DATASET_IDS.currentNetImportExport ||
       parsed.datasetId === FINGRID_DATASET_IDS.electricityShortageStatus
     ) {
-      setLatestCandidate(currentCandidates, parsed);
-      validRowCount += 1;
+      setLatestCandidate(currentCandidates, parsed, now.getTime());
     }
   }
 
-  if (validRowCount === 0) {
+  if (
+    !observations.some(
+      (observation) =>
+        observation.series === "production" ||
+        observation.series === "consumption",
+    )
+  ) {
     return {
       status: "unavailable",
       reason: "schema",

@@ -86,13 +86,30 @@ button:disabled {
   box-shadow: 0 12px 32px rgba(2, 8, 23, 0.18);
 }
 
+.site-skip-link {
+  position: absolute;
+  top: 0.5rem;
+  left: 1rem;
+  z-index: 50;
+  transform: translateY(-200%);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  background: #e0f2fe;
+  color: #07111e;
+  font-weight: 700;
+}
+
+.site-skip-link:focus-visible {
+  transform: none;
+}
+
 .site-header__inner,
 .page-content {
   max-width: 72rem !important;
 }
 
 .site-header__context {
-  display: none;
+  min-width: 0;
 }
 
 .site-route-nav {
@@ -127,12 +144,6 @@ button:disabled {
   border-color: rgba(125, 211, 252, 0.28);
   background: rgba(56, 189, 248, 0.12);
   color: #e0f2fe;
-}
-
-@media (min-width: 640px) {
-  .site-header__context {
-    display: block;
-  }
 }
 
 @media (min-width: 1024px) {
@@ -1567,8 +1578,8 @@ body:has(.dialog-backdrop) {
 
 .forecast-chart__canvas {
   position: relative;
-  width: 72rem;
-  min-width: 72rem;
+  width: 300%;
+  min-width: 0;
   scroll-snap-align: start;
 }
 

@@ -43,6 +43,13 @@ The Fingrid dataset selection and limitations are recorded in
 Both data integrations degrade to an explicit unavailable state when their key
 is missing, so the app can still be developed without credentials.
 
+After adding `FINGRID_API_KEY`, restart the server and check
+`/api/v1/electricity-forecast` with real data before release. Confirm that it
+returns `status: "ready"`, production and consumption fill expected hours, and
+the measured net-import direction agrees with Fingrid. The public download
+client informed the query and response handling, but the authenticated
+`/api/data` operation still needs this live-key check.
+
 ## Checks
 
 ```bash
