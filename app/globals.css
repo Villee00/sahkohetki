@@ -81,6 +81,10 @@ button:disabled {
   box-shadow: 0 12px 32px rgba(2, 8, 23, 0.18);
 }
 
+.mobile-price-float {
+  display: none;
+}
+
 .site-header__inner,
 .page-content {
   max-width: 72rem !important;
@@ -1276,6 +1280,70 @@ body:has(.dialog-backdrop) {
 @media (max-width: 47.999rem) {
   .site-header__inner {
     gap: 0.5rem;
+  }
+
+  .site-header .current-value {
+    display: none;
+  }
+
+  .mobile-price-float {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+    border-bottom: 1px solid var(--line);
+    padding: 0.65rem 1rem;
+    background: rgba(7, 17, 30, 0.96);
+    box-shadow: 0 14px 28px rgba(2, 8, 23, 0.32);
+    backdrop-filter: blur(16px);
+    pointer-events: none;
+  }
+
+  .mobile-price-float__context {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .mobile-price-float__label {
+    flex-shrink: 0;
+    color: #7dd3fc;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .mobile-price-float__time {
+    min-width: 0;
+    overflow: hidden;
+    color: #cbd5e1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-price-float__value {
+    flex-shrink: 0;
+    color: #f8fafc;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+
+  .mobile-price-float__unit {
+    color: #94a3b8;
+    font-size: 0.65rem;
+    font-weight: 400;
   }
 
   .page-content {

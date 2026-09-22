@@ -487,6 +487,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     getInitialSelection(data),
   );
+  const [isMobilePriceFloating, setIsMobilePriceFloating] = useState(false);
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [openDialog, setOpenDialog] = useState<DialogName>(null);
   const [priceMargin, setPriceMargin] = useState(0);
@@ -501,6 +502,8 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const openDialogRef = useRef<DialogName>(null);
+  const headerInnerRef = useRef<HTMLDivElement | null>(null);
+  const selectedPriceContentRef = useRef<HTMLDivElement | null>(null);
   const transferData = data.transferData;
   const selectedMunicipality = useMemo<TransferCostMunicipality | null>(
     () =>
@@ -574,6 +577,26 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     const intervalId = window.setInterval(updateCurrentTime, 60_000);
     return () => window.clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    const updateFloatingPrice = () => {
+      const priceContentTop =
+        selectedPriceContentRef.current?.getBoundingClientRect().top;
+      const headerBottom =
+        headerInnerRef.current?.getBoundingClientRect().bottom;
+      if (priceContentTop === undefined || headerBottom === undefined) return;
+
+      setIsMobilePriceFloating(priceContentTop <= headerBottom);
+    };
+
+    updateFloatingPrice();
+    window.addEventListener("scroll", updateFloatingPrice, { passive: true });
+    window.addEventListener("resize", updateFloatingPrice);
+    return () => {
+      window.removeEventListener("scroll", updateFloatingPrice);
+      window.removeEventListener("resize", updateFloatingPrice);
+    };
+  }, [horizon, isTomorrowUnavailable, mode, priceMargin, selectedPoint]);
 
   useEffect(() => {
     let restoreTimeout: number | undefined;
@@ -1143,7 +1166,10 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     <MotionConfig reducedMotion="user">
       <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
       <header className="site-header sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
-        <div className="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:gap-5 sm:px-6 lg:px-8">
+        <div
+          ref={headerInnerRef}
+          className="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:gap-5 sm:px-6 lg:px-8"
+        >
           <a
             href="#main-content"
             className="group inline-flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300"
@@ -1237,6 +1263,40 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             </nav>
           </div>
         </div>
+        <AnimatePresence initial={false}>
+          {isMobilePriceFloating ? (
+            <motion.div
+              key="mobile-selected-price"
+              className="mobile-price-float"
+              role="status"
+              aria-live="polite"
+              aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} ${priceMargin > 0 ? "hinta marginaali mukaan lukien" : "spot-hinta"} ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
+              initial={{ opacity: 0, y: "-0.3rem" }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: "-0.3rem" }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+            >
+              <span className="mobile-price-float__context">
+                <span className="mobile-price-float__label">
+                  {isCurrentSelection ? "Nyt" : "Valittu"}
+                </span>
+                <HeroValueTransition
+                  itemKey={selectedPoint?.id ?? "unavailable"}
+                  className="mobile-price-float__time"
+                  value={selectedPoint?.label ?? "Ei saatavilla"}
+                />
+              </span>
+              <span className="mobile-price-float__value">
+                <HeroPriceTransition
+                  itemKey={selectedPoint?.id ?? "unavailable"}
+                  className="mobile-price-float__number"
+                  value={selectedPrice}
+                />
+                <span className="mobile-price-float__unit"> snt/kWh</span>
+              </span>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </header>
 
       <div
@@ -1250,7 +1310,10 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           <h1 id="selected-heading" className="sr-only">
             {heading}
           </h1>
-          <div className="price-hero__top flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+          <div
+            ref={selectedPriceContentRef}
+            className="price-hero__top flex flex-wrap items-center justify-between gap-x-6 gap-y-4"
+          >
             <div className="min-w-0">
               {selectedPoint ? (
                 <time
