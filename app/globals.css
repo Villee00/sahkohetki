@@ -199,6 +199,7 @@ button:disabled {
 }
 
 .price-hero__animated-slot {
+  position: relative;
   display: inline-grid;
   align-items: center;
   vertical-align: baseline;
