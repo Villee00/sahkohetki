@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it } from "vitest";
 import { MotionConfig } from "motion/react";
@@ -110,7 +116,7 @@ it("keeps the assumption panel mounted while it closes before removing it", asyn
   const panel = row.querySelector(".appliance-card__assumption-panel");
   expect(panel).toBeTruthy();
 
-  await user.click(disclosure);
+  fireEvent.click(disclosure);
 
   expect(row.querySelector(".appliance-card__assumption-panel")).toBe(panel);
   expect(disclosure.getAttribute("aria-expanded")).toBe("false");
