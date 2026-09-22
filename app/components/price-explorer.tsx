@@ -782,9 +782,15 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     const nextPoints = (
       nextHorizon === "today" ? adjustedToday : adjustedTomorrow
     )[mode];
+    const preferredId =
+      nextHorizon === "today"
+        ? mode === "hourly"
+          ? data.currentHourId
+          : data.currentQuarterId
+        : null;
     setHorizon(nextHorizon);
     setSelectedId((currentId) =>
-      getSelectionForPoints(nextPoints, currentId, null),
+      getSelectionForPoints(nextPoints, currentId, preferredId),
     );
   };
 
