@@ -648,7 +648,9 @@ it("restores a saved margin and clears it when returning to market price", async
   );
 
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  expect(document.querySelector(".hero-price")?.textContent).toBe("12,00");
+  await waitFor(() => {
+    expect(document.querySelector(".hero-price")?.textContent).toBe("12,00");
+  });
   expect(window.localStorage.getItem("sahkohetki.price-margin")).toBeNull();
 });
 
