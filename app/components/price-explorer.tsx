@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent, MouseEvent as ReactMouseEvent } from "react";
+import type {
+  FormEvent,
+  MouseEvent as ReactMouseEvent,
+  ReactNode,
+} from "react";
+import { AnimatePresence, MotionConfig } from "motion/react";
 import Image from "next/image";
 import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
@@ -382,7 +387,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const dialogWasOpenRef = useRef(false);
+  const openDialogRef = useRef<DialogName>(null);
   const transferData = data.transferData;
   const selectedMunicipality = useMemo<TransferCostMunicipality | null>(
     () =>
@@ -623,6 +628,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   };
 
   const closeDialog = useCallback(() => {
+    openDialogRef.current = null;
     setOpenDialog(null);
   }, []);
 
@@ -650,28 +656,19 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   };
 
   useEffect(() => {
-    if (!openDialog) {
-      if (dialogWasOpenRef.current) {
-        openerRef.current?.focus();
-        dialogWasOpenRef.current = false;
-      }
-      return;
-    }
-
-    dialogWasOpenRef.current = true;
-    closeButtonRef.current?.focus();
-    if (!closeButtonRef.current) dialogRef.current?.focus();
-
     const handleDialogKeyDown = (event: KeyboardEvent) => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
       if (event.key === "Escape") {
         event.preventDefault();
         closeDialog();
         return;
       }
-      if (event.key !== "Tab" || !dialogRef.current) return;
+      if (event.key !== "Tab") return;
 
       const focusable = Array.from(
-        dialogRef.current.querySelectorAll<HTMLElement>(
+        dialog.querySelectorAll<HTMLElement>(
           'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ),
       );
@@ -679,7 +676,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (!dialogRef.current.contains(document.activeElement)) {
+      if (!dialog.contains(document.activeElement)) {
         event.preventDefault();
         first.focus();
         return;
@@ -695,19 +692,26 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
     document.addEventListener("keydown", handleDialogKeyDown);
     return () => document.removeEventListener("keydown", handleDialogKeyDown);
-  }, [closeDialog, openDialog]);
+  }, [closeDialog]);
 
   const openExplanation = (
     name: Exclude<DialogName, null>,
     event: ReactMouseEvent<HTMLButtonElement>,
   ) => {
     openerRef.current = event.currentTarget;
+    openDialogRef.current = name;
     if (name === "settings") {
       setMarginInput(formatMarginInput(priceMargin));
       setMarginError(null);
     }
     setOpenDialog(name);
   };
+
+  const handleDialogExitComplete = useCallback(() => {
+    if (openDialogRef.current !== null) return;
+    openerRef.current?.focus();
+    openerRef.current = null;
+  }, []);
 
   const changeMode = (nextMode: PriceMode) => {
     const nextPoints = (horizon === "today" ? adjustedToday : adjustedTomorrow)[
@@ -799,8 +803,208 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     </div>
   );
 
+  const dialogConfigs: Record<
+    Exclude<DialogName, null>,
+    {
+      id: string;
+      title: string;
+      closeButtonLabel?: string;
+      children: ReactNode;
+    }
+  > = {
+    formula: {
+      id: "formula-dialog",
+      title: "Miten kustannusarvio lasketaan?",
+      children: (
+        <>
+          <p>
+            Arvio perustuu valittuun spot-hintaan, valitun verkkoyhtiön
+            siirtomaksuun, kotitalouden sähköveroon ja kunkin ennalta
+            määritellyn käyttötavan kulutukseen. Spot- ja siirtohinnat
+            sisältävät Suomen yleisen 25,5 %:n arvonlisäveron.
+          </p>
+          <p className="rounded-2xl border border-sky-300/20 bg-sky-300/10 px-4 py-3 font-mono text-sm text-sky-100">
+            kulutus (kWh) × (spot + marginaali + siirto + sähkövero) (snt/kWh)
+            = kustannus (snt)
+          </p>
+          <p>
+            Esimerkiksi kahvinkeittimen vertailukulutus on {""}
+            {coffeeUse
+              ? `${consumptionFormatter.format(coffeeUse.consumptionKwh)} kWh`
+              : "luettelossa määritelty kulutus"}
+            . Laskennassa säilytetään täysi tarkkuus, ja kustannus pyöristetään
+            näytettäessä kahteen desimaaliin.
+          </p>
+          <p>
+            Kuukausittaista perusmaksua ei kohdisteta yksittäiseen käyttöön,
+            vaan se näytetään valitun tariffin tiedoissa.{" "}
+            {priceMargin > 0
+              ? "Asetettu " +
+                formatPrice(priceMargin) +
+                " snt/kWh sähkönmyyjän marginaali on mukana."
+              : "Sähkönmyyjän marginaali ei sisälly, ellet lisää sitä hinta-asetuksista."}
+          </p>
+        </>
+      ),
+    },
+    source: {
+      id: "source-dialog",
+      title: "Mistä hintatiedot tulevat?",
+      children: (
+        <>
+          <p>
+            Sähköhetki käyttää ENTSO-E:n uusimpia Suomen tarjousalueen
+            spot-hintoja 15 minuutin tarkkuudella. Näytetty hinta sisältää
+            Suomen yleisen 25,5 %:n arvonlisäveron.{" "}
+            {priceMargin > 0
+              ? "Näytettyihin hintoihin on lisätty " +
+                formatPrice(priceMargin) +
+                " snt/kWh marginaali."
+              : "ENTSO-E:n markkinahinta muunnetaan senttiä/kWh-yksikköön ja verolliseksi hinnaksi."}{" "}
+            Palvelin tarkistaa lähteen tiedot ja muodostaa niiden perusteella
+            näkymään tuntikeskiarvot sekä 15 minuutin hinnat.
+          </p>
+          <p>
+            Siirtohinnat luetaan tämän näkymän CSV-snapshotista kunnittain.
+            Verkkoyhtiö valitaan erikseen silloin, kun kunnassa on useampi
+            vaihtoehto. Sähkövero perustuu Verohallinnon voimassa olevaan
+            verotaulukkoon.
+          </p>
+          <p>
+            Tiedot haetaan ja säilytetään palvelimella noin 12 tuntia. Sivu ei
+            hae hintoja uudelleen selaimessa. Puuttuvan hinnan tilalla
+            käytetään 15 minuutin näkymässä viimeisintä saatavilla olevaa
+            hintaa, ja se merkitään kaaviossa viivoituksella.
+          </p>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <a
+              className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+              href={data.source.pricesUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              ENTSO-E
+              <Icon name="arrow-up-right" className="h-4 w-4" />
+            </a>
+            <a
+              className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+              href={data.source.documentationUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              API-dokumentaatio
+              <Icon name="arrow-up-right" className="h-4 w-4" />
+            </a>
+          </div>
+          <a
+            className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+            href={data.transferData.electricityTax.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Verohallinnon sähköveron verotaulukko
+            <Icon name="arrow-up-right" className="h-4 w-4" />
+          </a>
+        </>
+      ),
+    },
+    settings: {
+      id: "settings-dialog",
+      title: "Lisää marginaali",
+      closeButtonLabel: "Sulje lisää marginaali",
+      children: (
+        <>
+          <form className="space-y-5" onSubmit={applyMargin}>
+            <p>
+              Lisää sähköyhtiösi snt/kWh-marginaali, niin se lasketaan mukaan
+              jokaiseen markkinahintaan ja kustannusarvioon.
+            </p>
+            <div>
+              <label
+                htmlFor="price-margin"
+                className="text-sm font-semibold text-white"
+              >
+                Sähköyhtiön marginaali
+              </label>
+              <div className="mt-2 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 focus-within:border-sky-300/60 focus-within:ring-2 focus-within:ring-sky-300/20">
+                <input
+                  id="price-margin"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={marginInput}
+                  aria-describedby={
+                    marginError
+                      ? "price-margin-help price-margin-error"
+                      : "price-margin-help"
+                  }
+                  aria-invalid={marginError ? true : undefined}
+                  className="min-w-0 flex-1 bg-transparent font-mono text-xl text-white outline-none placeholder:text-slate-600"
+                  onChange={(event) => {
+                    setMarginInput(event.target.value);
+                    if (marginError) setMarginError(null);
+                  }}
+                />
+                <span className="font-mono text-sm text-slate-400">
+                  snt/kWh
+                </span>
+              </div>
+              <p
+                id="price-margin-help"
+                className="mt-2 text-xs leading-5 text-slate-500"
+              >
+                Käytä desimaalierottimena pilkkua tai pistettä. Nolla palauttaa
+                pelkän markkinahinnan.
+              </p>
+              {marginError ? (
+                <p
+                  id="price-margin-error"
+                  role="alert"
+                  className="mt-2 text-sm text-rose-300"
+                >
+                  {marginError}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="submit"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-sky-300 px-4 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+              >
+                Käytä marginaalia
+              </button>
+              <button
+                type="button"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+                onClick={resetMargin}
+              >
+                Palauta spot-hintaan
+              </button>
+            </div>
+          </form>
+          <TransferCostPanel
+            data={transferData}
+            selectedMunicipalityCode={selectedMunicipalityCode}
+            selectedOperatorId={selectedOperatorId}
+            selectedMunicipality={selectedMunicipality}
+            selectedTariff={selectedTransferTariff}
+            onMunicipalityChange={changeMunicipality}
+            onOperatorChange={changeOperator}
+            onLocate={locateMunicipality}
+            locationStatus={locationStatus}
+            locationMessage={locationMessage}
+          />
+        </>
+      ),
+    },
+  };
+  const activeDialogConfig = openDialog
+    ? dialogConfigs[openDialog]
+    : null;
+
   return (
-    <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
+    <MotionConfig reducedMotion="user">
+      <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
       <header className="site-header sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
         <div className="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:gap-5 sm:px-6 lg:px-8">
           <a
@@ -1158,194 +1362,26 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         </footer>
       </div>
 
-      <ExplanationDialog
-        id="formula-dialog"
-        title="Miten kustannusarvio lasketaan?"
-        open={openDialog === "formula"}
-        onClose={closeDialog}
-        dialogRef={dialogRef}
-        closeButtonRef={closeButtonRef}
+      <AnimatePresence
+        initial={false}
+        mode="wait"
+        onExitComplete={handleDialogExitComplete}
       >
-        <p>
-          Arvio perustuu valittuun spot-hintaan, valitun verkkoyhtiön
-          siirtomaksuun, kotitalouden sähköveroon ja kunkin ennalta määritellyn
-          käyttötavan kulutukseen. Spot- ja siirtohinnat sisältävät Suomen
-          yleisen 25,5 %:n arvonlisäveron.
-        </p>
-        <p className="rounded-2xl border border-sky-300/20 bg-sky-300/10 px-4 py-3 font-mono text-sm text-sky-100">
-          kulutus (kWh) × (spot + marginaali + siirto + sähkövero) (snt/kWh) =
-          kustannus (snt)
-        </p>
-        <p>
-          Esimerkiksi kahvinkeittimen vertailukulutus on{" "}
-          {coffeeUse
-            ? `${consumptionFormatter.format(coffeeUse.consumptionKwh)} kWh`
-            : "luettelossa määritelty kulutus"}
-          . Laskennassa säilytetään täysi tarkkuus, ja kustannus pyöristetään
-          näytettäessä kahteen desimaaliin.
-        </p>
-        <p>
-          Kuukausittaista perusmaksua ei kohdisteta yksittäiseen käyttöön,
-          vaan se näytetään valitun tariffin tiedoissa.{" "}
-          {priceMargin > 0
-            ? "Asetettu " +
-              formatPrice(priceMargin) +
-              " snt/kWh sähkönmyyjän marginaali on mukana."
-            : "Sähkönmyyjän marginaali ei sisälly, ellet lisää sitä hinta-asetuksista."}
-        </p>
-      </ExplanationDialog>
-
-      <ExplanationDialog
-        id="source-dialog"
-        title="Mistä hintatiedot tulevat?"
-        open={openDialog === "source"}
-        onClose={closeDialog}
-        dialogRef={dialogRef}
-        closeButtonRef={closeButtonRef}
-      >
-        <p>
-          Sähköhetki käyttää ENTSO-E:n uusimpia Suomen tarjousalueen
-          spot-hintoja 15 minuutin tarkkuudella. Näytetty hinta sisältää
-          Suomen yleisen 25,5 %:n arvonlisäveron.{" "}
-          {priceMargin > 0
-            ? "Näytettyihin hintoihin on lisätty " +
-              formatPrice(priceMargin) +
-              " snt/kWh marginaali."
-            : "ENTSO-E:n markkinahinta muunnetaan senttiä/kWh-yksikköön ja verolliseksi hinnaksi."}{" "}
-          Palvelin tarkistaa lähteen tiedot ja muodostaa niiden perusteella
-          näkymään tuntikeskiarvot sekä 15 minuutin hinnat.
-        </p>
-        <p>
-          Siirtohinnat luetaan tämän näkymän CSV-snapshotista kunnittain.
-          Verkkoyhtiö valitaan erikseen silloin, kun kunnassa on useampi
-          vaihtoehto. Sähkövero perustuu Verohallinnon voimassa olevaan
-          verotaulukkoon.
-        </p>
-        <p>
-          Tiedot haetaan ja säilytetään palvelimella noin 12 tuntia. Sivu ei hae
-          hintoja uudelleen selaimessa. Puuttuvan hinnan tilalla käytetään 15
-          minuutin näkymässä viimeisintä saatavilla olevaa hintaa, ja se
-          merkitään kaaviossa viivoituksella.
-        </p>
-        <div className="flex flex-wrap gap-4 text-sm">
-          <a
-            className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-            href={data.source.pricesUrl}
-            target="_blank"
-            rel="noreferrer"
+        {activeDialogConfig ? (
+          <ExplanationDialog
+            key={openDialog}
+            id={activeDialogConfig.id}
+            title={activeDialogConfig.title}
+            onClose={closeDialog}
+            dialogRef={dialogRef}
+            closeButtonRef={closeButtonRef}
+            closeButtonLabel={activeDialogConfig.closeButtonLabel}
           >
-            ENTSO-E
-            <Icon name="arrow-up-right" className="h-4 w-4" />
-          </a>
-          <a
-            className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-            href={data.source.documentationUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            API-dokumentaatio
-            <Icon name="arrow-up-right" className="h-4 w-4" />
-          </a>
-        </div>
-        <a
-          className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-          href={data.transferData.electricityTax.sourceUrl}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Verohallinnon sähköveron verotaulukko
-          <Icon name="arrow-up-right" className="h-4 w-4" />
-        </a>
-      </ExplanationDialog>
-
-      <ExplanationDialog
-        id="settings-dialog"
-        title="Lisää marginaali"
-        open={openDialog === "settings"}
-        onClose={closeDialog}
-        dialogRef={dialogRef}
-        closeButtonRef={closeButtonRef}
-        closeButtonLabel="Sulje lisää marginaali"
-      >
-        <form className="space-y-5" onSubmit={applyMargin}>
-          <p>
-            Lisää sähköyhtiösi snt/kWh-marginaali, niin se lasketaan mukaan
-            jokaiseen markkinahintaan ja kustannusarvioon.
-          </p>
-          <div>
-            <label
-              htmlFor="price-margin"
-              className="text-sm font-semibold text-white"
-            >
-              Sähköyhtiön marginaali
-            </label>
-            <div className="mt-2 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 focus-within:border-sky-300/60 focus-within:ring-2 focus-within:ring-sky-300/20">
-              <input
-                id="price-margin"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={marginInput}
-                aria-describedby={
-                  marginError
-                    ? "price-margin-help price-margin-error"
-                    : "price-margin-help"
-                }
-                aria-invalid={marginError ? true : undefined}
-                className="min-w-0 flex-1 bg-transparent font-mono text-xl text-white outline-none placeholder:text-slate-600"
-                onChange={(event) => {
-                  setMarginInput(event.target.value);
-                  if (marginError) setMarginError(null);
-                }}
-              />
-              <span className="font-mono text-sm text-slate-400">snt/kWh</span>
-            </div>
-            <p
-              id="price-margin-help"
-              className="mt-2 text-xs leading-5 text-slate-500"
-            >
-              Käytä desimaalierottimena pilkkua tai pistettä. Nolla palauttaa
-              pelkän markkinahinnan.
-            </p>
-            {marginError ? (
-              <p
-                id="price-margin-error"
-                role="alert"
-                className="mt-2 text-sm text-rose-300"
-              >
-                {marginError}
-              </p>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="submit"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-sky-300 px-4 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-            >
-              Käytä marginaalia
-            </button>
-            <button
-              type="button"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-              onClick={resetMargin}
-            >
-              Palauta spot-hintaan
-            </button>
-          </div>
-        </form>
-        <TransferCostPanel
-          data={transferData}
-          selectedMunicipalityCode={selectedMunicipalityCode}
-          selectedOperatorId={selectedOperatorId}
-          selectedMunicipality={selectedMunicipality}
-          selectedTariff={selectedTransferTariff}
-          onMunicipalityChange={changeMunicipality}
-          onOperatorChange={changeOperator}
-          onLocate={locateMunicipality}
-          locationStatus={locationStatus}
-          locationMessage={locationMessage}
-        />
-      </ExplanationDialog>
+            {activeDialogConfig.children}
+          </ExplanationDialog>
+        ) : null}
+      </AnimatePresence>
     </main>
+    </MotionConfig>
   );
 }

@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -229,8 +230,45 @@ it("moves focus into the dialog, traps Tab, and restores the opener", async () =
   expect(document.activeElement).toBe(closeButton);
 
   await user.keyboard("{Escape}");
-  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  await user.tab();
+  expect(document.activeElement).toBe(closeButton);
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(document.activeElement).toBe(opener);
+});
+
+it("closes from the backdrop after its exit and restores the opener", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  const opener = screen.getByRole("button", { name: "Tietolähde" });
+  await user.click(opener);
+
+  const backdrop = document.querySelector<HTMLElement>(".dialog-backdrop");
+  expect(backdrop).not.toBeNull();
+  fireEvent.click(backdrop as HTMLElement);
+
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(document.activeElement).toBe(opener);
+});
+
+it("keeps one keyed dialog during an explanation switch", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  await user.click(screen.getByRole("button", { name: "Miten laskemme?" }));
+  fireEvent.click(screen.getByRole("button", { name: "Tietolähde" }));
+
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  expect(screen.getByRole("dialog").id).toBe("formula-dialog");
+
+  await waitFor(() => {
+    expect(
+      screen.getByRole("dialog", { name: "Mistä hintatiedot tulevat?" }),
+    ).toBeTruthy();
+  });
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
 });
 
 it("keeps explanation controls explicitly named at every breakpoint", () => {
@@ -287,7 +325,11 @@ it("applies the supplier margin to displayed prices and appliance estimates", as
     within(dialog).getByRole("button", { name: "Käytä marginaalia" }),
   );
 
-  expect(screen.queryByRole("dialog", { name: "Lisää marginaali" })).toBeNull();
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: "Lisää marginaali" }),
+    ).toBeNull(),
+  );
   expect(screen.getByRole("banner").textContent).toContain("15,00");
   expect(document.querySelector(".hero-price")?.textContent).toBe("15,00");
   expect(
@@ -605,6 +647,7 @@ it("restores a saved margin and clears it when returning to market price", async
     within(dialog).getByRole("button", { name: "Palauta spot-hintaan" }),
   );
 
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(document.querySelector(".hero-price")?.textContent).toBe("12,00");
   expect(window.localStorage.getItem("sahkohetki.price-margin")).toBeNull();
 });
@@ -1063,6 +1106,7 @@ it("shows natural Finnish copy in the calculation and source explanations", asyn
   );
 
   await user.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   await user.click(screen.getByRole("button", { name: "Tietolähde" }));
   const sourceDialog = screen.getByRole("dialog");
   expect(sourceDialog.textContent).toContain(
