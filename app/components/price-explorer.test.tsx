@@ -1101,6 +1101,11 @@ it("links the live explorer to the history page", () => {
     within(brandGroup as HTMLElement).getByRole("link", { name: "Nyt" }),
   ).toBe(nowLink);
   expect(
+    within(brandGroup as HTMLElement).getByRole("navigation", {
+      name: "Päänavigaatio",
+    }).firstElementChild,
+  ).toBe(nowLink);
+  expect(
     (brandGroup as Node).compareDocumentPosition(tools as Node) &
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();

@@ -277,6 +277,10 @@ button:disabled {
   padding: 1rem 1.25rem;
 }
 
+.history-selection-sticky {
+  display: none;
+}
+
 .history-summary--compact .history-summary__primary h2 {
   margin-top: 0.25rem;
   font-size: clamp(1.1rem, 2.5vw, 1.45rem);
@@ -2047,6 +2051,57 @@ body:has(.dialog-backdrop) {
   .history-summary--compact {
     gap: 0.9rem;
     padding: 0.9rem 1rem;
+  }
+
+  .history-selection-sticky {
+    position: sticky;
+    top: 3.3125rem;
+    z-index: 25;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.15rem 0.8rem;
+    margin-inline: -0.25rem;
+    border: 1px solid rgba(125, 211, 252, 0.22);
+    border-radius: 0.9rem;
+    padding: 0.55rem 0.75rem;
+    background: rgba(8, 18, 33, 0.94);
+    box-shadow: 0 12px 30px rgba(2, 8, 23, 0.3);
+    backdrop-filter: blur(16px);
+  }
+
+  .history-selection-sticky__label {
+    grid-column: 1 / -1;
+    color: #7dd3fc;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .history-selection-sticky strong {
+    overflow: hidden;
+    color: #f8fafc;
+    font-size: 0.9rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .history-selection-sticky__price {
+    color: #e0f2fe;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      monospace;
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .history-selection-sticky__price small {
+    color: #64748b;
+    font-size: 0.58rem;
+    font-weight: 600;
   }
 
   .history-summary--compact .history-metrics {

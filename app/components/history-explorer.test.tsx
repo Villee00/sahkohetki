@@ -163,7 +163,7 @@ it("defaults to the latest complete day and household-facing prices", () => {
     within(brandGroup as HTMLElement).getByRole("navigation", {
       name: "Päänavigaatio",
     }).firstElementChild?.textContent,
-  ).toBe("Historia");
+  ).toBe("Nyt");
   expect(
     within(brandGroup as HTMLElement).getByRole("link", { name: "Nyt" }),
   ).toBeTruthy();
@@ -172,6 +172,30 @@ it("defaults to the latest complete day and household-facing prices", () => {
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
   expect(tools).not.toBeNull();
+});
+
+it("keeps the selected period visible in an updating mobile status bar", async () => {
+  const user = userEvent.setup();
+  render(<HistoryExplorer data={data} />);
+
+  const selectionStatus = screen.getByRole("status", {
+    name: "Valittu jakso",
+  });
+  expect(selectionStatus.textContent).toContain("Valittu päivä");
+  expect(selectionStatus.textContent).toContain("2.1.2026");
+  expect(selectionStatus.textContent).toContain("5,02 snt/kWh");
+
+  await user.click(
+    within(
+      screen.getByRole("region", { name: "Viikoittainen hintakehitys" }),
+    ).getByRole("button", { name: "Päivä" }),
+  );
+  await user.click(
+    screen.getByRole("button", { name: /Valitse päivä 1\.1\.2026/i }),
+  );
+
+  expect(selectionStatus.textContent).toContain("1.1.2026");
+  expect(selectionStatus.textContent).toContain("2,51 snt/kWh");
 });
 
 it("defaults to an accessible weekly trend chart with a data table", () => {
@@ -373,9 +397,9 @@ it("explains partial and unavailable source states in Finnish", () => {
       }}
     />,
   );
-  expect(screen.getByRole("status").textContent).toContain(
-    "Osa historiatiedoista puuttuu.",
-  );
+  expect(
+    screen.getByText("Osa historiatiedoista puuttuu.").getAttribute("role"),
+  ).toBe("status");
 
   rerender(
     <HistoryExplorer

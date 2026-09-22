@@ -220,17 +220,17 @@ export function HistoryExplorer({ data }: { data: HistoryPageData }) {
         navigation={
           <nav aria-label="Päänavigaatio" className="flex items-center gap-1">
             <Link
+              href="/"
+              className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-3 text-sm text-slate-300"
+            >
+              Nyt
+            </Link>
+            <Link
               href="/historia"
               className="site-nav-button site-nav-button--active inline-flex min-h-9 items-center rounded-xl px-3 text-sm"
               aria-current="page"
             >
               Historia
-            </Link>
-            <Link
-              href="/"
-              className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-3 text-sm text-slate-300"
-            >
-              Nyt
             </Link>
           </nav>
         }
@@ -350,6 +350,22 @@ export function HistoryExplorer({ data }: { data: HistoryPageData }) {
                 </div>
               </div>
             </section>
+
+            <div
+              className="history-selection-sticky"
+              role="status"
+              aria-label="Valittu jakso"
+              aria-atomic="true"
+            >
+              <span className="history-selection-sticky__label">
+                Valittu {granularityLabels[granularity].toLowerCase()}
+              </span>
+              <strong>{formatPeriod(selected)}</strong>
+              <span className="history-selection-sticky__price">
+                {numberFormatter.format(selectedPrice!)}{" "}
+                <small>{compactUnit(basis)}</small>
+              </span>
+            </div>
 
             <section
               className="history-toolbar glass-panel"
