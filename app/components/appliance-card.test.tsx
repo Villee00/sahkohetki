@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it } from "vitest";
+import { MotionConfig } from "motion/react";
 import { ApplianceCard } from "./appliance-card";
 import { getEverydayUse } from "../../lib/appliances";
 import type { CostEstimate } from "../../lib/price-types";
@@ -74,6 +75,9 @@ it("keeps the disclosure trigger anchored while its panel opens beneath the row"
 
   expect(chevron.tagName).toBe("BUTTON");
   expect(chevron.getAttribute("aria-expanded")).toBe("false");
+  expect(chevron.getAttribute("aria-controls")).toBe(
+    "appliance-coffee-assumption",
+  );
   expect(row.querySelector(".appliance-card__assumption-panel")).toBeNull();
 
   await user.click(chevron);
@@ -82,7 +86,37 @@ it("keeps the disclosure trigger anchored while its panel opens beneath the row"
   expect(chevron.getAttribute("aria-expanded")).toBe("true");
   expect(panel).toBeTruthy();
   expect(panel?.parentElement).toBe(row);
+  expect(panel?.id).toBe("appliance-coffee-assumption");
   expect(screen.getByText(/Vertailuarvo sisältää noin litran kahvin valmistuksen ja lämpölevyn käytön/)).toBeTruthy();
+});
+
+it("keeps the assumption panel mounted while it closes before removing it", async () => {
+  const user = userEvent.setup();
+  const use = getEverydayUse("coffee");
+  if (!use) throw new Error("Expected the coffee use to be in the catalog.");
+
+  render(
+    <MotionConfig reducedMotion="never">
+      <ApplianceCard use={use} estimate={estimate} />
+    </MotionConfig>,
+  );
+
+  const row = screen.getByRole("article");
+  const disclosure = screen.getByRole("button", {
+    name: "Kahvinkeitin: näytä oletus ja rajaus",
+  });
+
+  await user.click(disclosure);
+  const panel = row.querySelector(".appliance-card__assumption-panel");
+  expect(panel).toBeTruthy();
+
+  await user.click(disclosure);
+
+  expect(row.querySelector(".appliance-card__assumption-panel")).toBe(panel);
+  expect(disclosure.getAttribute("aria-expanded")).toBe("false");
+  await waitFor(() => {
+    expect(row.querySelector(".appliance-card__assumption-panel")).toBeNull();
+  });
 });
 
 it("renders the heat-pump card with its dedicated icon", () => {

@@ -1,4 +1,9 @@
 import { useState } from "react";
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotionConfig,
+} from "motion/react";
 import type { EverydayUse } from "@/lib/appliances";
 import type { CostEstimate } from "@/lib/price-types";
 import { Icon } from "./ui-icon";
@@ -42,6 +47,10 @@ export function ApplianceCard({
   emptyMessage,
 }: ApplianceCardProps) {
   const [assumptionOpen, setAssumptionOpen] = useState(false);
+  const reducedMotion = useReducedMotionConfig();
+  const assumptionPanelTransition = reducedMotion
+    ? { duration: 0 }
+    : { duration: 0.18, ease: "easeOut" as const };
 
   return (
     <article className="appliance-card appliance-card--row rounded-2xl border border-slate-700/70 bg-slate-900/70 p-4 sm:p-5">
@@ -131,25 +140,32 @@ export function ApplianceCard({
           strokeWidth={1.5}
         />
       </button>
-      {assumptionOpen ? (
-        <div
-          id={`appliance-${use.id}-assumption`}
-          className="appliance-card__assumption-panel text-xs text-slate-500"
-        >
-          <p className="appliance-card__assumption-copy leading-5">
-            {use.assumption} Lähde:{" "}
-            <a
-              href={use.source.url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-            >
-              {use.source.label}
-            </a>
-            . Tarkistettu {formatReviewedOn(use.reviewedOn)}.
-          </p>
-        </div>
-      ) : null}
+      <AnimatePresence initial={false}>
+        {assumptionOpen ? (
+          <motion.div
+            key="assumption-panel"
+            id={`appliance-${use.id}-assumption`}
+            className="appliance-card__assumption-panel text-xs text-slate-500"
+            initial={reducedMotion ? false : { height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={assumptionPanelTransition}
+          >
+            <p className="appliance-card__assumption-copy leading-5">
+              {use.assumption} Lähde:{" "}
+              <a
+                href={use.source.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+              >
+                {use.source.label}
+              </a>
+              . Tarkistettu {formatReviewedOn(use.reviewedOn)}.
+            </p>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </article>
   );
 }
