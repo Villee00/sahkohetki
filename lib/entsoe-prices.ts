@@ -8,6 +8,10 @@ export const FINNISH_GENERAL_VAT_RATE = 0.255;
 
 const QUARTER_MILLISECONDS = 15 * 60 * 1000;
 
+export function toHouseholdCentsPerKwh(rawEurPerMwh: number): number {
+  return (rawEurPerMwh / 10) * (1 + FINNISH_GENERAL_VAT_RATE);
+}
+
 export type MarketPriceInterval = {
   id: string;
   startAt: string;
@@ -16,10 +20,10 @@ export type MarketPriceInterval = {
   priceEurPerMwh: number;
   documentId: string;
   documentRevision: number;
-  documentCreatedAt: string | null;
+  documentCreatedAt: string;
   seriesId: string;
-  processType: string | null;
-  contractType: string | null;
+  processType: string;
+  contractType: string;
   carriedForward: boolean;
 };
 
@@ -66,8 +70,7 @@ function finiteNumber(value: unknown): number | undefined {
   return Number.isFinite(number) ? number : undefined;
 }
 
-function nonNegativeInteger(value: unknown, fallback: number): number | undefined {
-  if (value === undefined) return fallback;
+function nonNegativeInteger(value: unknown): number | undefined {
   const number = finiteNumber(value);
   return number !== undefined && Number.isInteger(number) && number >= 0
     ? number
@@ -208,20 +211,19 @@ export function parseEntsoePriceXml(xml: string): EntsoePriceParseResult {
     return { status: "unavailable", reason: "schema" };
   }
 
-  const documentId = textValue(document.mRID) ?? "unknown-document";
-  const documentRevision = nonNegativeInteger(document.revisionNumber, 0);
-  if (documentRevision === undefined) {
-    return { status: "unavailable", reason: "schema" };
-  }
+  const documentId = textValue(document.mRID);
+  const documentRevision = nonNegativeInteger(document.revisionNumber);
   const createdMilliseconds = parseTimestamp(document.createdDateTime);
-  if (document.createdDateTime !== undefined && createdMilliseconds === undefined) {
+  const processType = textValue(document["process.processType"]);
+  if (
+    documentId === undefined ||
+    documentRevision === undefined ||
+    createdMilliseconds === undefined ||
+    processType !== ENTSOE_DAY_AHEAD_CONTRACT
+  ) {
     return { status: "unavailable", reason: "schema" };
   }
-  const documentCreatedAt =
-    createdMilliseconds === undefined
-      ? null
-      : canonicalTimestamp(createdMilliseconds);
-  const processType = textValue(document["process.processType"]) ?? null;
+  const documentCreatedAt = canonicalTimestamp(createdMilliseconds);
   const candidates: MarketPriceInterval[] = [];
 
   const timeSeries = asArray(document.TimeSeries);
@@ -229,10 +231,18 @@ export function parseEntsoePriceXml(xml: string): EntsoePriceParseResult {
     return { status: "unavailable", reason: "schema" };
   }
 
-  for (const [seriesIndex, seriesValue] of timeSeries.entries()) {
+  for (const seriesValue of timeSeries) {
     if (!isRecord(seriesValue)) {
       return { status: "unavailable", reason: "schema" };
     }
+    const seriesId = textValue(seriesValue.mRID);
+    const contractType = textValue(
+      seriesValue["contract_MarketAgreement.type"],
+    );
+    if (seriesId === undefined || contractType === undefined) {
+      return { status: "unavailable", reason: "schema" };
+    }
+    if (contractType !== ENTSOE_DAY_AHEAD_CONTRACT) continue;
     if (
       textValue(seriesValue["in_Domain.mRID"]) !== FINNISH_BIDDING_ZONE ||
       textValue(seriesValue["out_Domain.mRID"]) !== FINNISH_BIDDING_ZONE ||
@@ -241,10 +251,6 @@ export function parseEntsoePriceXml(xml: string): EntsoePriceParseResult {
     ) {
       return { status: "unavailable", reason: "schema" };
     }
-
-    const seriesId = textValue(seriesValue.mRID) ?? `series-${seriesIndex + 1}`;
-    const contractType =
-      textValue(seriesValue["contract_MarketAgreement.type"]) ?? null;
     const periods = asArray(seriesValue.Period);
     if (periods.length === 0) {
       return { status: "unavailable", reason: "schema" };
@@ -344,8 +350,7 @@ export function toVatInclusiveQuarterPrices(
       id: String(start),
       startAt: canonicalTimestamp(start),
       endAt: canonicalTimestamp(start + QUARTER_MILLISECONDS),
-      priceCentsPerKwh:
-        (rawPrice / 10) * (1 + FINNISH_GENERAL_VAT_RATE),
+      priceCentsPerKwh: toHouseholdCentsPerKwh(rawPrice),
       ...(carriedForward ? { carriedForward: true } : {}),
     });
   };

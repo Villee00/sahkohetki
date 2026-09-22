@@ -1,5 +1,5 @@
 import type { MarketPriceInterval } from "./entsoe-prices";
-import { FINNISH_GENERAL_VAT_RATE } from "./entsoe-prices";
+import { toHouseholdCentsPerKwh } from "./entsoe-prices";
 import { EXPLORER_SOURCE, PRICE_LEVEL_CUTOFFS } from "./price-types";
 import { getHelsinkiDateBounds, getHelsinkiDateKey } from "./time";
 import type {
@@ -86,10 +86,6 @@ function dateRange(startDateKey: string, endDateKey: string): string[] {
     dates.push(dateKey);
   }
   return dates;
-}
-
-function householdPrice(rawEurPerMwh: number): number {
-  return (rawEurPerMwh / 10) * (1 + FINNISH_GENERAL_VAT_RATE);
 }
 
 function createIntervalIndex(
@@ -194,7 +190,7 @@ function summarizeRange(
     const hour = hours.get(hourIndex);
     const expensive =
       hour?.cursor === hourEnd &&
-      householdPrice(hour.weightedRaw / hourMinutes) >
+      toHouseholdCentsPerKwh(hour.weightedRaw / hourMinutes) >
         PRICE_LEVEL_CUTOFFS.normalMaxCents;
     currentStreak = expensive ? currentStreak + 1 : 0;
     longestStreak = Math.max(longestStreak, currentStreak);
@@ -204,7 +200,7 @@ function summarizeRange(
     expectedMinutes,
     average: {
       rawEurPerMwh: rawAverage,
-      householdCentsPerKwh: householdPrice(rawAverage),
+      householdCentsPerKwh: toHouseholdCentsPerKwh(rawAverage),
     },
     negativePricePercent: (negativeMinutes / expectedMinutes) * 100,
     longestExpensiveStreakHours: longestStreak,

@@ -49,8 +49,14 @@ vi.mock("next/cache", () => ({
 
 const ENTSOE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <Publication_MarketDocument xmlns="urn:iec62325.351:tc57wg16:451-3:publicationdocument:7:3">
+  <mRID>latest-document</mRID>
+  <revisionNumber>1</revisionNumber>
+  <createdDateTime>2026-08-24T10:00:00Z</createdDateTime>
   <type>A44</type>
+  <process.processType>A01</process.processType>
   <TimeSeries>
+    <mRID>latest-series</mRID>
+    <contract_MarketAgreement.type>A01</contract_MarketAgreement.type>
     <in_Domain.mRID codingScheme="A01">10YFI-1--------U</in_Domain.mRID>
     <out_Domain.mRID codingScheme="A01">10YFI-1--------U</out_Domain.mRID>
     <currency_Unit.name>EUR</currency_Unit.name>
@@ -288,9 +294,17 @@ describe("ENTSO-E source adapter", () => {
     });
   });
 
-  it("fails closed for rejected requests and unsupported price periods", async () => {
+  it("fails closed for rejected requests and adapts hourly price periods", async () => {
     vi.stubEnv("ENTSOE_TOKEN", "test-token");
-    const unsupportedResolution = ENTSOE_XML.replace("PT15M", "PT60M");
+    const hourlyResolution = ENTSOE_XML.replace("PT15M", "PT60M")
+      .replace(
+        /\s*<Point>\s*<position>2<\/position>\s*<price\.amount>-5\.5<\/price\.amount>\s*<\/Point>/,
+        "",
+      )
+      .replace(
+        /\s*<Point>\s*<position>4<\/position>\s*<price\.amount>140<\/price\.amount>\s*<\/Point>/,
+        "",
+      );
 
     await expect(
       fetchLatestPrices(
@@ -301,10 +315,18 @@ describe("ENTSO-E source adapter", () => {
 
     await expect(
       fetchLatestPrices(
-        vi.fn().mockResolvedValue(response(unsupportedResolution)),
+        vi.fn().mockResolvedValue(response(hourlyResolution)),
         new Date("2026-08-24T12:30:00.000Z"),
       ),
-    ).resolves.toMatchObject({ status: "unavailable" });
+    ).resolves.toMatchObject({
+      status: "ready",
+      prices: [
+        expect.objectContaining({ startAt: "2026-08-23T21:00:00.000Z" }),
+        expect.objectContaining({ startAt: "2026-08-23T21:15:00.000Z" }),
+        expect.objectContaining({ startAt: "2026-08-23T21:30:00.000Z" }),
+        expect.objectContaining({ startAt: "2026-08-23T21:45:00.000Z" }),
+      ],
+    });
   });
 
   it("returns a Finnish unavailable dataset when the cached source is unavailable", async () => {

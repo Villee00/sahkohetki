@@ -84,6 +84,10 @@ export type HistoryLoadResult =
       intervals: import("./entsoe-prices").MarketPriceInterval[];
       fetchedAt: string;
       requestedRange: { startDateKey: string; endDateKey: string };
+      availableRange: {
+        startDateKey: string;
+        endDateKey: string;
+      } | null;
       missingRanges: Array<{
         startDateKey: string;
         endDateKey: string;
@@ -95,6 +99,7 @@ export type HistoryLoadResult =
       intervals: [];
       fetchedAt: null;
       requestedRange: { startDateKey: string; endDateKey: string };
+      availableRange: null;
       missingRanges: Array<{
         startDateKey: string;
         endDateKey: string;

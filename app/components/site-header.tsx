@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 type SiteHeaderProps = {
@@ -22,7 +23,7 @@ export function SiteHeader({
     <header className="site-header sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
       <div className="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:gap-5 sm:px-6 lg:px-8">
         <div className="site-header__brand-group flex shrink-0 items-center gap-2 sm:gap-4">
-          <a
+          <Link
             href={brandHref}
             className="group inline-flex shrink-0 items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300"
           >
@@ -43,7 +44,7 @@ export function SiteHeader({
                 Pörssisähkön hinta
               </span>
             </span>
-          </a>
+          </Link>
           <div className="site-header__brand-nav flex shrink-0 items-center gap-0.5 sm:gap-1">
             {navigation}
           </div>

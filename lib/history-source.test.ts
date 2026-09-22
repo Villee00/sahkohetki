@@ -105,6 +105,41 @@ describe("historical ENTSO-E source", () => {
       .toBe("200");
   });
 
+  it("retains fetched offset pages when a later page fails", async () => {
+    vi.stubEnv("ENTSOE_TOKEN", "secret");
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        response(acknowledgement("More than 200 matching documents")),
+      )
+      .mockResolvedValueOnce(response(publicationXml()))
+      .mockResolvedValueOnce(response("limited", 429));
+
+    const result = await fetchHistoryMonth("2026-01", fetchImpl);
+
+    expect(result).toMatchObject({
+      status: "partial",
+      reason: "rate-limit",
+      intervals: [expect.objectContaining({ priceEurPerMwh: 20 })],
+    });
+  });
+
+  it("turns response-body read failures into a typed request failure", async () => {
+    vi.stubEnv("ENTSOE_TOKEN", "secret");
+    const brokenResponse = {
+      ok: true,
+      status: 200,
+      text: vi.fn().mockRejectedValue(new Error("stream failed")),
+    } as unknown as Response;
+
+    await expect(
+      fetchHistoryMonth(
+        "2026-01",
+        vi.fn().mockResolvedValue(brokenResponse),
+      ),
+    ).resolves.toMatchObject({ status: "unavailable", reason: "request" });
+  });
+
   it("classifies missing credentials, acknowledgements, and rate limits", async () => {
     vi.stubEnv("ENTSOE_TOKEN", "");
     const unusedFetch = vi.fn();
@@ -168,6 +203,65 @@ describe("historical ENTSO-E source", () => {
       endDateKey: "2026-03-31",
       reason: "rate-limit",
     });
+  });
+
+  it("marks sparse successful responses partial and reports complete-day availability", async () => {
+    vi.stubEnv("ENTSOE_TOKEN", "secret");
+    const completeFinnishDay = publicationXml()
+      .replace("2026-01-01T00:00Z", "2025-12-31T22:00Z")
+      .replace("2026-01-01T01:00Z", "2026-01-01T22:00Z");
+
+    const result = await getHistoricalPrices(
+      new Date("2026-01-03T12:00:00.000Z"),
+      vi.fn().mockImplementation(async () => response(completeFinnishDay)),
+    );
+
+    expect(result).toMatchObject({
+      status: "partial",
+      availableRange: {
+        startDateKey: "2026-01-01",
+        endDateKey: "2026-01-01",
+      },
+    });
+    expect(result.missingRanges).toEqual([
+      {
+        startDateKey: "2024-12-01",
+        endDateKey: "2025-12-31",
+        reason: "no-data",
+      },
+      {
+        startDateKey: "2026-01-02",
+        endDateKey: "2026-01-02",
+        reason: "no-data",
+      },
+    ]);
+  });
+
+  it("keeps incomplete pagination data out of page analytics", async () => {
+    vi.stubEnv("ENTSOE_TOKEN", "secret");
+    const completeFinnishDay = publicationXml()
+      .replace("2026-01-01T00:00Z", "2025-12-31T22:00Z")
+      .replace("2026-01-01T01:00Z", "2026-01-01T22:00Z");
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const offset = new URL(String(input)).searchParams.get("offset");
+      if (offset === null) {
+        return response(acknowledgement("More than 200 matching documents"));
+      }
+      return offset === "0"
+        ? response(completeFinnishDay)
+        : response("limited", 429);
+    });
+
+    const data = await getHistoryPageData(
+      new Date("2026-01-03T12:00:00.000Z"),
+      fetchImpl,
+    );
+
+    expect(data.status).toBe("partial");
+    expect(data.periods.day).toEqual([]);
+    expect(data.days.find((day) => day.dateKey === "2026-01-01")).toMatchObject(
+      { complete: false, average: null },
+    );
   });
 
   it("projects unavailable source state into an empty Finnish page payload", async () => {

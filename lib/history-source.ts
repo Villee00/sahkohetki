@@ -35,15 +35,22 @@ type HistoryMonthResult =
       fetchedAt: string;
     }
   | {
+      status: "partial";
+      intervals: MarketPriceInterval[];
+      fetchedAt: string;
+      reason: HistoryFailureReason;
+      message: string;
+    }
+  | {
       status: "unavailable";
       reason: HistoryFailureReason;
       message: string;
     };
 
 class HistoryMonthError extends Error {
-  readonly result: Extract<HistoryMonthResult, { status: "unavailable" }>;
+  readonly result: Exclude<HistoryMonthResult, { status: "ready" }>;
 
-  constructor(result: Extract<HistoryMonthResult, { status: "unavailable" }>) {
+  constructor(result: Exclude<HistoryMonthResult, { status: "ready" }>) {
     super(result.message);
     this.name = "HistoryMonthError";
     this.result = result;
@@ -60,13 +67,6 @@ function addMonths(monthKey: string, months: number): string {
   const date = new Date(`${monthKey}-01T00:00:00.000Z`);
   date.setUTCMonth(date.getUTCMonth() + months);
   return date.toISOString().slice(0, 7);
-}
-
-function lastDateOfMonth(monthKey: string): string {
-  const date = new Date(`${monthKey}-01T00:00:00.000Z`);
-  date.setUTCMonth(date.getUTCMonth() + 1);
-  date.setUTCDate(0);
-  return date.toISOString().slice(0, 10);
 }
 
 function formatEntsoeTimestamp(instant: string): string {
@@ -136,7 +136,12 @@ async function requestMonthPage(
     return unavailable("request", "Historiatietojen haku epäonnistui.");
   }
 
-  const parsed = parseEntsoePriceXml(await response.text());
+  let parsed: ReturnType<typeof parseEntsoePriceXml>;
+  try {
+    parsed = parseEntsoePriceXml(await response.text());
+  } catch {
+    return unavailable("request", "Historiatietojen haku epäonnistui.");
+  }
   if (parsed.status === "ready") {
     return { status: "ready", intervals: parsed.intervals };
   }
@@ -183,6 +188,7 @@ export async function fetchHistoryMonth(
   }
 
   const pages: MarketPriceInterval[] = [];
+  let paginationComplete = false;
   for (let page = 0; page < MAX_OFFSET_PAGES; page += 1) {
     const result = await requestMonthPage(
       monthKey,
@@ -191,7 +197,26 @@ export async function fetchHistoryMonth(
       page * PAGE_SIZE,
     );
     if (result.status === "unavailable") {
-      if (result.reason === "no-data" && pages.length > 0) break;
+      if (result.reason === "no-data" && pages.length > 0) {
+        paginationComplete = true;
+        break;
+      }
+      if (pages.length > 0) {
+        const merged = mergeMarketPriceIntervals(pages);
+        if (merged.status === "unavailable") {
+          return unavailable(
+            "schema",
+            "Historiatietojen päällekkäisyyksiä ei voitu ratkaista.",
+          );
+        }
+        return {
+          status: "partial",
+          intervals: merged.intervals,
+          fetchedAt: new Date().toISOString(),
+          reason: result.reason,
+          message: result.message,
+        };
+      }
       return result;
     }
     pages.push(...result.intervals);
@@ -209,11 +234,16 @@ export async function fetchHistoryMonth(
       "Historiatietojen päällekkäisyyksiä ei voitu ratkaista.",
     );
   }
-  return {
-    status: "ready",
-    intervals: merged.intervals,
-    fetchedAt: new Date().toISOString(),
-  };
+  const fetchedAt = new Date().toISOString();
+  return paginationComplete
+    ? { status: "ready", intervals: merged.intervals, fetchedAt }
+    : {
+        status: "partial",
+        intervals: merged.intervals,
+        fetchedAt,
+        reason: "too-many-documents",
+        message: "Historiatietojen sivutusraja ylittyi.",
+      };
 }
 
 async function cachedHistoryMonth(
@@ -224,7 +254,7 @@ async function cachedHistoryMonth(
   const cached = unstable_cache(
     async () => {
       const result = await fetchHistoryMonth(monthKey);
-      if (result.status === "unavailable") throw new HistoryMonthError(result);
+      if (result.status !== "ready") throw new HistoryMonthError(result);
       return result;
     },
     ["sahkohetki-history-v1", monthKey, isCurrent ? "current" : "closed"],
@@ -240,6 +270,98 @@ async function cachedHistoryMonth(
     if (error instanceof HistoryMonthError) return error.result;
     return unavailable("request", "Historiatietojen haku epäonnistui.");
   }
+}
+
+function describeCoverage(
+  intervals: readonly MarketPriceInterval[],
+  requestedRange: { startDateKey: string; endDateKey: string },
+  forcedMissingByMonth: ReadonlyMap<string, HistoryFailureReason>,
+): {
+  availableRange: { startDateKey: string; endDateKey: string } | null;
+  missingRanges: Array<{
+    startDateKey: string;
+    endDateKey: string;
+    reason: HistoryFailureReason;
+  }>;
+} {
+  const completeDates: string[] = [];
+  const missingDates: Array<{
+    dateKey: string;
+    reason: HistoryFailureReason;
+  }> = [];
+  let intervalIndex = 0;
+
+  for (
+    let dateKey = requestedRange.startDateKey;
+    dateKey <= requestedRange.endDateKey;
+    dateKey = addDays(dateKey, 1)
+  ) {
+    const forcedReason = forcedMissingByMonth.get(dateKey.slice(0, 7));
+    if (forcedReason) {
+      missingDates.push({ dateKey, reason: forcedReason });
+      continue;
+    }
+
+    const bounds = getHelsinkiDateBounds(dateKey);
+    const start = Date.parse(bounds.startAt);
+    const end = Date.parse(bounds.endAt);
+    while (
+      intervalIndex < intervals.length &&
+      Date.parse(intervals[intervalIndex].endAt) <= start
+    ) {
+      intervalIndex += 1;
+    }
+
+    let cursor = start;
+    let candidateIndex = intervalIndex;
+    while (candidateIndex < intervals.length) {
+      const interval = intervals[candidateIndex];
+      const intervalStart = Date.parse(interval.startAt);
+      const intervalEnd = Date.parse(interval.endAt);
+      if (intervalStart >= end) break;
+      if (intervalStart !== cursor || intervalEnd > end) break;
+      cursor = intervalEnd;
+      candidateIndex += 1;
+    }
+
+    if (cursor === end) completeDates.push(dateKey);
+    else missingDates.push({ dateKey, reason: "no-data" });
+  }
+
+  const missingRanges = missingDates.reduce<
+    Array<{
+      startDateKey: string;
+      endDateKey: string;
+      reason: HistoryFailureReason;
+    }>
+  >((ranges, missing) => {
+    const previous = ranges.at(-1);
+    if (
+      previous &&
+      previous.reason === missing.reason &&
+      addDays(previous.endDateKey, 1) === missing.dateKey
+    ) {
+      previous.endDateKey = missing.dateKey;
+    } else {
+      ranges.push({
+        startDateKey: missing.dateKey,
+        endDateKey: missing.dateKey,
+        reason: missing.reason,
+      });
+    }
+    return ranges;
+  }, []);
+
+  return {
+    availableRange:
+      completeDates.length > 0
+        ? {
+            startDateKey: completeDates[0],
+            endDateKey: completeDates.at(-1)!,
+          }
+        : null,
+    missingRanges,
+  };
 }
 
 function requestContext(now: Date): {
@@ -276,6 +398,7 @@ export async function getHistoricalPrices(
       intervals: [],
       fetchedAt: null,
       requestedRange: context.requestedRange,
+      availableRange: null,
       missingRanges: [{ ...context.requestedRange, reason: "configuration" }],
       reason: "configuration",
       message:
@@ -291,23 +414,14 @@ export async function getHistoricalPrices(
         : cachedHistoryMonth(monthKey, currentMonthKey),
     ),
   );
-  const missingRanges = results.flatMap((result, index) =>
-    result.status === "unavailable"
-      ? [
-          {
-            startDateKey: `${context.monthKeys[index]}-01`,
-            endDateKey:
-              lastDateOfMonth(context.monthKeys[index]) <
-              context.requestedRange.endDateKey
-                ? lastDateOfMonth(context.monthKeys[index])
-                : context.requestedRange.endDateKey,
-            reason: result.reason,
-          },
-        ]
-      : [],
-  );
+  const forcedMissingByMonth = new Map<string, HistoryFailureReason>();
+  results.forEach((result, index) => {
+    if (result.status !== "ready") {
+      forcedMissingByMonth.set(context.monthKeys[index], result.reason);
+    }
+  });
   const candidates = results.flatMap((result) =>
-    result.status === "ready" ? result.intervals : [],
+    result.status === "unavailable" ? [] : result.intervals,
   );
   if (candidates.length === 0) {
     const firstFailure = results.find(
@@ -321,7 +435,12 @@ export async function getHistoricalPrices(
       intervals: [],
       fetchedAt: null,
       requestedRange: context.requestedRange,
-      missingRanges,
+      availableRange: null,
+      missingRanges: describeCoverage(
+        [],
+        context.requestedRange,
+        forcedMissingByMonth,
+      ).missingRanges,
       reason: firstFailure?.reason ?? "request",
       message: firstFailure?.message ?? "Historiatietojen haku epäonnistui.",
     };
@@ -334,21 +453,32 @@ export async function getHistoricalPrices(
       intervals: [],
       fetchedAt: null,
       requestedRange: context.requestedRange,
-      missingRanges,
+      availableRange: null,
+      missingRanges: [
+        { ...context.requestedRange, reason: "schema" },
+      ],
       reason: "schema",
       message: "Historiatietojen päällekkäisyyksiä ei voitu ratkaista.",
     };
   }
   const fetchedAt = results
-    .flatMap((result) => (result.status === "ready" ? [result.fetchedAt] : []))
+    .flatMap((result) =>
+      result.status === "unavailable" ? [] : [result.fetchedAt],
+    )
     .sort()
     .at(-1)!;
+  const coverage = describeCoverage(
+    merged.intervals,
+    context.requestedRange,
+    forcedMissingByMonth,
+  );
   return {
-    status: missingRanges.length > 0 ? "partial" : "ready",
+    status: coverage.missingRanges.length > 0 ? "partial" : "ready",
     intervals: merged.intervals,
     fetchedAt,
     requestedRange: context.requestedRange,
-    missingRanges,
+    availableRange: coverage.availableRange,
+    missingRanges: coverage.missingRanges,
   };
 }
 
@@ -369,8 +499,15 @@ export async function getHistoryPageData(
       missingRanges: result.missingRanges,
     });
   }
+  const analyticsIntervals = result.intervals.filter((interval) => {
+    const dateKey = getHelsinkiDateKey(interval.startAt);
+    return !result.missingRanges.some(
+      (range) =>
+        dateKey >= range.startDateKey && dateKey <= range.endDateKey,
+    );
+  });
   return buildHistoryPageData({
-    intervals: result.intervals,
+    intervals: analyticsIntervals,
     throughDateKey: context.throughDateKey,
     fetchedAt: result.fetchedAt,
     status: result.status,

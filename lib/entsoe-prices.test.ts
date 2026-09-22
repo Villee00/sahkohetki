@@ -9,6 +9,9 @@ import {
 function publicationXml({
   documentId = "document-1",
   revision = 1,
+  processType = "A01",
+  contractType = "A01",
+  seriesId = "series-1",
   resolution = "PT15M",
   curveType = "A03",
   start = "2026-01-01T00:00Z",
@@ -20,6 +23,9 @@ function publicationXml({
 }: {
   documentId?: string;
   revision?: number;
+  processType?: string;
+  contractType?: string;
+  seriesId?: string;
   resolution?: string;
   curveType?: string;
   start?: string;
@@ -32,10 +38,10 @@ function publicationXml({
   <revisionNumber>${revision}</revisionNumber>
   <createdDateTime>2026-01-01T10:00:00Z</createdDateTime>
   <type>A44</type>
-  <process.processType>A01</process.processType>
+  <process.processType>${processType}</process.processType>
   <TimeSeries>
-    <mRID>series-1</mRID>
-    <contract_MarketAgreement.type>A01</contract_MarketAgreement.type>
+    <mRID>${seriesId}</mRID>
+    <contract_MarketAgreement.type>${contractType}</contract_MarketAgreement.type>
     <in_Domain.mRID>10YFI-1--------U</in_Domain.mRID>
     <out_Domain.mRID>10YFI-1--------U</out_Domain.mRID>
     <currency_Unit.name>EUR</currency_Unit.name>
@@ -101,6 +107,60 @@ describe("ENTSO-E price document parser", () => {
       resolutionMinutes: 60,
       priceEurPerMwh: 80,
     });
+  });
+
+  it("rejects documents that omit required source identity metadata", () => {
+    const valid = publicationXml();
+    const malformed = [
+      valid.replace("<mRID>document-1</mRID>", ""),
+      valid.replace("<revisionNumber>1</revisionNumber>", ""),
+      valid.replace(
+        "<createdDateTime>2026-01-01T10:00:00Z</createdDateTime>",
+        "",
+      ),
+      valid.replace("<mRID>series-1</mRID>", ""),
+    ];
+
+    for (const xml of malformed) {
+      expect(parseEntsoePriceXml(xml)).toEqual({
+        status: "unavailable",
+        reason: "schema",
+      });
+    }
+  });
+
+  it("rejects series that are not day-ahead prices", () => {
+    expect(
+      parseEntsoePriceXml(publicationXml({ processType: "A02" })),
+    ).toEqual({ status: "unavailable", reason: "schema" });
+    expect(
+      parseEntsoePriceXml(publicationXml({ contractType: "A02" })),
+    ).toEqual({ status: "unavailable", reason: "schema" });
+  });
+
+  it("selects the day-ahead series when unrelated contract data is also returned", () => {
+    const valid = publicationXml();
+    const validSeries = valid.match(/<TimeSeries>[\s\S]*<\/TimeSeries>/)?.[0];
+    if (!validSeries) throw new Error("fixture is missing its time series");
+    const unrelatedSeries = validSeries
+      .replace("series-1", "series-2")
+      .replace(
+        "<contract_MarketAgreement.type>A01</contract_MarketAgreement.type>",
+        "<contract_MarketAgreement.type>A02</contract_MarketAgreement.type>",
+      )
+      .replaceAll("<price.amount>20</price.amount>", "<price.amount>999</price.amount>");
+    const mixed = valid.replace(
+      "</Publication_MarketDocument>",
+      `${unrelatedSeries}</Publication_MarketDocument>`,
+    );
+
+    const result = parseEntsoePriceXml(mixed);
+
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") throw new Error(result.reason);
+    expect(result.intervals).toHaveLength(4);
+    expect(result.intervals.every((interval) => interval.seriesId === "series-1"))
+      .toBe(true);
   });
 
   it("classifies no-data and too-many-document acknowledgements", () => {
