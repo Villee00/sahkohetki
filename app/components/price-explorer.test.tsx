@@ -790,6 +790,69 @@ it("keeps the hero replacement layout stable without exposing the exiting value"
   });
 });
 
+it("moves the hero price downward when the selected price decreases", () => {
+  render(<PriceExplorer data={data} />);
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 14:00–15:00/i,
+    }),
+  );
+
+  const nextPrice = within(
+    document.querySelector<HTMLElement>(".hero-price") as HTMLElement,
+  ).getByText("2,00");
+  expect(nextPrice.style.transform).toContain("translateY(-0.45em)");
+});
+
+it("moves the hero price upward when the selected price increases", () => {
+  const dataWithCheapCurrent: ExplorerData = {
+    ...data,
+    currentHourId: cheapestPoint.id,
+    currentQuarterId: cheapestPoint.id,
+  };
+  render(<PriceExplorer data={dataWithCheapCurrent} />);
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 13:00–14:00/i,
+    }),
+  );
+
+  const nextPrice = within(
+    document.querySelector<HTMLElement>(".hero-price") as HTMLElement,
+  ).getByText("12,00");
+  expect(nextPrice.style.transform).toContain("translateY(0.45em)");
+});
+
+it("shows the selected time as a single inline readout", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  const currentReadout = screen.getByRole("group", {
+    name: "Nykyinen aikaväli 13:00–14:00",
+  });
+  expect(currentReadout.textContent?.replace(/\s/g, "")).toBe(
+    "NYT·13:00–14:00",
+  );
+  expect(screen.queryByText("Valittu aikaväli:")).toBeNull();
+
+  await user.click(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 14:00–15:00/i,
+    }),
+  );
+
+  const selectedReadout = screen.getByRole("group", {
+    name: "Valittu aikaväli 14:00–15:00",
+  });
+  await waitFor(() => {
+    expect(selectedReadout.textContent?.replace(/\s/g, "")).toBe(
+      "VALITTU·14:00–15:00",
+    );
+  });
+});
+
 it("shows active-view minimum, average, and maximum prices in the header", async () => {
   const user = userEvent.setup();
   const dataWithTomorrow: ExplorerData = {
@@ -939,7 +1002,9 @@ it("shows the selected date above the selected interval", async () => {
   render(<PriceExplorer data={dataWithTomorrow} />);
 
   const selectedDate = screen.getByText("22.8.2026");
-  const selectedInterval = screen.getByText("Valittu aikaväli:");
+  const selectedInterval = screen.getByRole("group", {
+    name: "Nykyinen aikaväli 13:00–14:00",
+  });
   expect(
     selectedDate.compareDocumentPosition(selectedInterval) &
       Node.DOCUMENT_POSITION_FOLLOWING,
@@ -954,7 +1019,11 @@ it("marks the selected interval as current until a future interval is chosen", a
   const user = userEvent.setup();
   render(<PriceExplorer data={data} />);
 
-  expect(screen.getByLabelText("Nykyinen aikaväli").textContent).toBe("Nyt");
+  expect(
+    screen
+      .getByRole("group", { name: "Nykyinen aikaväli 13:00–14:00" })
+      .textContent?.replace(/\s/g, ""),
+  ).toBe("NYT·13:00–14:00");
   expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
     "Nykyinen aikaväli",
   );
@@ -965,7 +1034,18 @@ it("marks the selected interval as current until a future interval is chosen", a
     }),
   );
 
-  expect(screen.queryByLabelText("Nykyinen aikaväli")).toBeNull();
+  await waitFor(() => {
+    expect(
+      screen
+        .getByRole("group", { name: "Valittu aikaväli 14:00–15:00" })
+        .textContent?.replace(/\s/g, ""),
+    ).toBe("VALITTU·14:00–15:00");
+  });
+  expect(
+    screen.queryByRole("group", {
+      name: "Nykyinen aikaväli 13:00–14:00",
+    }),
+  ).toBeNull();
   expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
     "Valittu aikaväli",
   );

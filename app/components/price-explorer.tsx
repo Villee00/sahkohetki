@@ -18,6 +18,7 @@ import {
   MotionConfig,
   motion,
   useIsPresent,
+  usePresenceData,
 } from "motion/react";
 import Image from "next/image";
 import { ApplianceCard } from "./appliance-card";
@@ -224,26 +225,43 @@ function formatSelectedDate(startAt: string): string {
     : "Ei saatavilla";
 }
 
-const HeroTransitionValue = forwardRef<
-  HTMLSpanElement,
-  { children: ReactNode }
->(function HeroTransitionValue({ children }, ref) {
-  const isPresent = useIsPresent();
+type HeroMotionDirection = -1 | 0 | 1;
 
-  return (
-    <motion.span
-      ref={ref}
-      aria-hidden={isPresent ? undefined : true}
-      initial={{ opacity: 0, y: "0.45em" }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: "-0.35em" }}
-      transition={{ duration: 0.16, ease: "easeOut" }}
-      style={{ gridArea: "1 / 1" }}
-    >
-      {children}
-    </motion.span>
-  );
-});
+const heroValueVariants = {
+  enter: (direction: HeroMotionDirection) => ({
+    opacity: 0,
+    y: direction > 0 ? "0.45em" : direction < 0 ? "-0.45em" : 0,
+  }),
+  center: { opacity: 1, y: 0 },
+  exit: (direction: HeroMotionDirection) => ({
+    opacity: 0,
+    y: direction > 0 ? "-0.35em" : direction < 0 ? "0.35em" : 0,
+  }),
+};
+
+const HeroTransitionValue = forwardRef<HTMLSpanElement, { children: ReactNode }>(
+  function HeroTransitionValue({ children }, ref) {
+    const isPresent = useIsPresent();
+    const direction =
+      (usePresenceData() as HeroMotionDirection | undefined) ?? 0;
+
+    return (
+      <motion.span
+        ref={ref}
+        aria-hidden={isPresent ? undefined : true}
+        custom={direction}
+        variants={heroValueVariants}
+        initial="enter"
+        animate="center"
+        exit="exit"
+        transition={{ duration: 0.16, ease: "easeOut" }}
+        style={{ gridArea: "1 / 1" }}
+      >
+        {children}
+      </motion.span>
+    );
+  },
+);
 
 HeroTransitionValue.displayName = "HeroTransitionValue";
 
@@ -251,17 +269,59 @@ function HeroValueTransition({
   value,
   itemKey,
   className,
+  direction = 0,
 }: {
   value: string;
   itemKey: string;
   className: string;
+  direction?: HeroMotionDirection;
 }) {
   return (
     <span className={`price-hero__animated-slot ${className}`}>
-      <AnimatePresence initial={false} mode="popLayout">
+      <AnimatePresence initial={false} mode="popLayout" custom={direction}>
         <HeroTransitionValue key={itemKey}>{value}</HeroTransitionValue>
       </AnimatePresence>
     </span>
+  );
+}
+
+function HeroPriceTransition({
+  value,
+  itemKey,
+  className,
+}: {
+  value: number | null;
+  itemKey: string;
+  className: string;
+}) {
+  const [transition, setTransition] = useState<{
+    itemKey: string;
+    value: number | null;
+    direction: HeroMotionDirection;
+  }>({ itemKey, value, direction: 0 });
+
+  if (transition.itemKey !== itemKey || transition.value !== value) {
+    setTransition({
+      itemKey,
+      value,
+      direction:
+        transition.value === null ||
+        value === null ||
+        value === transition.value
+          ? 0
+          : value > transition.value
+            ? 1
+            : -1,
+    });
+  }
+
+  return (
+    <HeroValueTransition
+      itemKey={`${itemKey}:${value ?? "unavailable"}`}
+      className={className}
+      value={value === null ? "—" : formatPrice(value)}
+      direction={transition.direction}
+    />
   );
 }
 
@@ -1200,28 +1260,29 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                   {formatSelectedDate(selectedPoint.startAt)}
                 </time>
               ) : null}
-              <div className="price-hero__interval flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                <span className="price-hero__clock-dot" aria-hidden="true" />
-                <span>Valittu aikaväli:</span>
-                {isCurrentSelection ? (
-                  <span
-                    className="price-hero__current-badge"
-                    aria-label="Nykyinen aikaväli"
-                  >
-                    Nyt
-                  </span>
-                ) : null}
+              <div
+                className="price-hero__time-readout"
+                role="group"
+                aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
+              >
+                <span className="price-hero__time-state">
+                  <span className="price-hero__clock-dot" aria-hidden="true" />
+                  {isCurrentSelection ? "NYT" : "VALITTU"}
+                </span>
+                <span className="price-hero__time-divider" aria-hidden="true">
+                  ·
+                </span>
                 <HeroValueTransition
                   itemKey={selectedPoint?.id ?? "unavailable"}
-                  className="price-hero__interval-value rounded-lg border border-slate-700 bg-slate-950/55 px-2 py-1 font-mono text-slate-200"
+                  className="price-hero__interval-value font-mono"
                   value={selectedPoint?.label ?? "Ei saatavilla"}
                 />
               </div>
               <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <HeroValueTransition
-                  itemKey={`${selectedPoint?.id ?? "unavailable"}:${selectedPrice ?? "unavailable"}`}
+                <HeroPriceTransition
+                  itemKey={selectedPoint?.id ?? "unavailable"}
                   className="hero-price font-mono text-5xl font-semibold tracking-tight text-white sm:text-6xl"
-                  value={selectedPrice === null ? "—" : formatPrice(selectedPrice)}
+                  value={selectedPrice}
                 />
                 <span className="font-mono text-base text-slate-400">
                   snt / kWh
