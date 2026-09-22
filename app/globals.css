@@ -86,6 +86,57 @@ button:disabled {
   max-width: 72rem !important;
 }
 
+.site-header__context {
+  display: none;
+}
+
+.site-route-nav {
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  padding-top: 0.4rem;
+}
+
+.site-route-link {
+  position: relative;
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.site-route-link:hover {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f8fafc;
+}
+
+.site-route-link--active {
+  border-color: rgba(125, 211, 252, 0.28);
+  background: rgba(56, 189, 248, 0.12);
+  color: #e0f2fe;
+}
+
+@media (min-width: 640px) {
+  .site-header__context {
+    display: block;
+  }
+}
+
+@media (min-width: 1024px) {
+  .site-route-nav {
+    border-top: 0;
+    padding-top: 0;
+  }
+}
+
 .page-content {
   position: relative;
 }

@@ -19,11 +19,11 @@ import {
   motion,
   useIsPresent,
 } from "motion/react";
-import Image from "next/image";
 import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
 import { Icon } from "./ui-icon";
 import { PriceChart } from "./price-chart";
+import { SiteHeader } from "./site-header";
 import { TransferCostPanel } from "./transfer-cost-panel";
 import {
   applyPriceMargin,
@@ -1082,31 +1082,9 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   return (
     <MotionConfig reducedMotion="user">
       <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
-      <header className="site-header sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
-        <div className="site-header__inner mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:gap-5 sm:px-6 lg:px-8">
-          <a
-            href="#main-content"
-            className="group inline-flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300"
-          >
-            <Image
-              src="/icon.ico"
-              alt=""
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-lg"
-              aria-hidden="true"
-              unoptimized
-            />
-            <span className="site-brand-text">
-              <span className="block text-sm font-semibold tracking-tight text-white">
-                Sähköhetki
-              </span>
-              <span className="block text-[0.65rem] uppercase tracking-[0.2em] text-slate-500">
-                Pörssisähkön hinta
-              </span>
-            </span>
-          </a>
-          <div className="site-header__tools flex min-w-0 items-center gap-1 sm:gap-2">
+        <SiteHeader
+          activeRoute="price"
+          context={
             <div
               className="current-value flex min-w-0 items-center gap-2"
               aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} ${priceMargin > 0 ? "hinta marginaali mukaan lukien" : "spot-hinta"} ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
@@ -1126,10 +1104,10 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 snt/kWh
               </span>
             </div>
-            <nav
-              aria-label="Lisätietoja"
-              className="flex items-center gap-0.5 sm:gap-1"
-            >
+          }
+          utilityLabel="Lisätietoja"
+          utilityActions={
+            <>
               <button
                 type="button"
                 aria-label="Miten laskemme?"
@@ -1174,10 +1152,9 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                   Marginaali {formatPrice(priceMargin)} snt/kWh käytössä
                 </span>
               ) : null}
-            </nav>
-          </div>
-        </div>
-      </header>
+            </>
+          }
+        />
 
       <div
         id="main-content"
