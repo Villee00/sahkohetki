@@ -119,6 +119,35 @@ it("keeps the assumption panel mounted while it closes before removing it", asyn
   });
 });
 
+it("opens and closes the assumption panel without motion when reduced motion is requested", async () => {
+  const user = userEvent.setup();
+  const use = getEverydayUse("coffee");
+  if (!use) throw new Error("Expected the coffee use to be in the catalog.");
+
+  render(
+    <MotionConfig reducedMotion="always">
+      <ApplianceCard use={use} estimate={estimate} />
+    </MotionConfig>,
+  );
+
+  const disclosure = screen.getByRole("button", {
+    name: "Kahvinkeitin: näytä oletus ja rajaus",
+  });
+  await user.click(disclosure);
+
+  const row = screen.getByRole("article");
+  const panel = row.querySelector<HTMLElement>(
+    ".appliance-card__assumption-panel",
+  );
+  expect(panel).not.toBeNull();
+  expect(panel?.style.height).toBe("auto");
+
+  await user.click(disclosure);
+  await waitFor(() => {
+    expect(row.querySelector(".appliance-card__assumption-panel")).toBeNull();
+  });
+});
+
 it("renders the heat-pump card with its dedicated icon", () => {
   const use = getEverydayUse("heat-pump");
   if (!use) throw new Error("Expected the heat-pump use to be in the catalog.");
