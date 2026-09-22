@@ -1263,28 +1263,40 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             </nav>
           </div>
         </div>
-        <div
-          className={`mobile-price-float${
-            isMobilePriceFloating ? " mobile-price-float--visible" : ""
-          }`}
-          role="status"
-          aria-live="polite"
-          aria-hidden={!isMobilePriceFloating}
-          aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} ${priceMargin > 0 ? "hinta marginaali mukaan lukien" : "spot-hinta"} ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
-        >
-          <span className="mobile-price-float__context">
-            <span className="mobile-price-float__label">
-              {isCurrentSelection ? "Nyt" : "Valittu"}
-            </span>
-            <span className="mobile-price-float__time">
-              {selectedPoint?.label ?? "Ei saatavilla"}
-            </span>
-          </span>
-          <span className="mobile-price-float__value">
-            {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
-            <span className="mobile-price-float__unit"> snt/kWh</span>
-          </span>
-        </div>
+        <AnimatePresence initial={false}>
+          {isMobilePriceFloating ? (
+            <motion.div
+              key="mobile-selected-price"
+              className="mobile-price-float"
+              role="status"
+              aria-live="polite"
+              aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} ${priceMargin > 0 ? "hinta marginaali mukaan lukien" : "spot-hinta"} ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
+              initial={{ opacity: 0, y: "-0.3rem" }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: "-0.3rem" }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+            >
+              <span className="mobile-price-float__context">
+                <span className="mobile-price-float__label">
+                  {isCurrentSelection ? "Nyt" : "Valittu"}
+                </span>
+                <HeroValueTransition
+                  itemKey={selectedPoint?.id ?? "unavailable"}
+                  className="mobile-price-float__time"
+                  value={selectedPoint?.label ?? "Ei saatavilla"}
+                />
+              </span>
+              <span className="mobile-price-float__value">
+                <HeroPriceTransition
+                  itemKey={selectedPoint?.id ?? "unavailable"}
+                  className="mobile-price-float__number"
+                  value={selectedPrice}
+                />
+                <span className="mobile-price-float__unit"> snt/kWh</span>
+              </span>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </header>
 
       <div

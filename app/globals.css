@@ -1302,20 +1302,7 @@ body:has(.dialog-backdrop) {
     background: rgba(7, 17, 30, 0.96);
     box-shadow: 0 14px 28px rgba(2, 8, 23, 0.32);
     backdrop-filter: blur(16px);
-    opacity: 0;
     pointer-events: none;
-    transform: translateY(-0.3rem);
-    transition:
-      opacity 160ms ease,
-      transform 160ms ease,
-      visibility 160ms ease;
-    visibility: hidden;
-  }
-
-  .mobile-price-float--visible {
-    opacity: 1;
-    transform: translateY(0);
-    visibility: visible;
   }
 
   .mobile-price-float__context {
