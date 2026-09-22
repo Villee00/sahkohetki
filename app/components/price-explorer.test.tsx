@@ -749,6 +749,45 @@ it("updates the top header when a different interval is selected", async () => {
   expect(headerValue.textContent).not.toContain("12,00");
 });
 
+it("keeps the hero replacement layout stable without exposing the exiting value", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  const intervalSlot = document.querySelector<HTMLElement>(
+    ".price-hero__interval-value",
+  );
+  const priceSlot = document.querySelector<HTMLElement>(".hero-price");
+  expect(intervalSlot).not.toBeNull();
+  expect(priceSlot).not.toBeNull();
+
+  const previousInterval = within(intervalSlot as HTMLElement).getByText(
+    "13:00–14:00",
+  );
+  const previousPrice = within(priceSlot as HTMLElement).getByText("12,00");
+
+  await user.click(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 14:00–15:00/i,
+    }),
+  );
+
+  expect(priceSlot?.textContent).toContain("2,00");
+  expect(previousInterval.getAttribute("aria-hidden")).toBe("true");
+  expect(previousPrice.getAttribute("aria-hidden")).toBe("true");
+  expect(
+    within(intervalSlot as HTMLElement).getByText("14:00–15:00"),
+  ).toBeTruthy();
+  expect(within(priceSlot as HTMLElement).getByText("2,00")).toBeTruthy();
+  expect(
+    intervalSlot?.querySelectorAll('[aria-hidden="false"]'),
+  ).toHaveLength(0);
+
+  await waitFor(() => {
+    expect(intervalSlot?.textContent).toBe("14:00–15:00");
+    expect(priceSlot?.textContent).toBe("2,00");
+  });
+});
+
 it("shows active-view minimum, average, and maximum prices in the header", async () => {
   const user = userEvent.setup();
   const dataWithTomorrow: ExplorerData = {
@@ -819,6 +858,26 @@ it("places a sub-cent price near the start of the price scale", () => {
   const marker = document.querySelector<HTMLElement>(".spectrum-marker");
   expect(marker).not.toBeNull();
   expect(Number.parseFloat(marker?.style.left ?? "100")).toBeCloseTo(2.95, 4);
+});
+
+it("moves the spectrum marker when a different interval is selected", async () => {
+  const user = userEvent.setup();
+  const styles = readFileSync(`${process.cwd()}/app/globals.css`, "utf8");
+  render(<PriceExplorer data={data} />);
+
+  const marker = document.querySelector<HTMLElement>(".spectrum-marker");
+  expect(marker?.style.left).toBe("60%");
+  expect(styles).toMatch(
+    /\.spectrum-marker\s*\{[\s\S]*transition:\s*[^;]*left/,
+  );
+
+  await user.click(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 14:00–15:00/i,
+    }),
+  );
+
+  expect(marker?.style.left).toBe("10%");
 });
 
 it("aligns spectrum colors with the absolute price cutoffs", () => {
@@ -941,6 +1000,37 @@ it("shows carried-forward markers only in the 15-minute chart", async () => {
   );
 
   expect(document.querySelector(".price-chart__bar--carried")).not.toBeNull();
+});
+
+it("moves the active indicators while preserving segmented control semantics", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  const hourlyButton = screen.getByRole("button", {
+    name: "Tuntikeskiarvo",
+  });
+  const quarterButton = screen.getByRole("button", {
+    name: "15 minuutin tarkkuus",
+  });
+  const todayButton = screen.getByRole("button", { name: "Tänään" });
+  const tomorrowButton = screen.getByRole("button", { name: "Huomenna" });
+
+  expect(hourlyButton.querySelector(".view-toggle__active-indicator")).not.toBeNull();
+  expect(quarterButton.querySelector(".view-toggle__active-indicator")).toBeNull();
+  expect(todayButton.querySelector(".view-toggle__active-indicator")).not.toBeNull();
+  expect(tomorrowButton.querySelector(".view-toggle__active-indicator")).toBeNull();
+  expect(hourlyButton.getAttribute("aria-pressed")).toBe("true");
+  expect(todayButton.getAttribute("aria-pressed")).toBe("true");
+
+  await user.click(quarterButton);
+  await user.click(tomorrowButton);
+
+  expect(hourlyButton.querySelector(".view-toggle__active-indicator")).toBeNull();
+  expect(quarterButton.querySelector(".view-toggle__active-indicator")).not.toBeNull();
+  expect(todayButton.querySelector(".view-toggle__active-indicator")).toBeNull();
+  expect(tomorrowButton.querySelector(".view-toggle__active-indicator")).not.toBeNull();
+  expect(quarterButton.getAttribute("aria-pressed")).toBe("true");
+  expect(tomorrowButton.getAttribute("aria-pressed")).toBe("true");
 });
 
 it("shows the current-time line only on today's horizon", async () => {

@@ -1,12 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type {
   FormEvent,
   MouseEvent as ReactMouseEvent,
   ReactNode,
 } from "react";
-import { AnimatePresence, MotionConfig } from "motion/react";
+import {
+  AnimatePresence,
+  MotionConfig,
+  motion,
+  useIsPresent,
+} from "motion/react";
 import Image from "next/image";
 import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
@@ -210,6 +222,47 @@ function formatSelectedDate(startAt: string): string {
   return Number.isFinite(date.getTime())
     ? selectedDateFormatter.format(date)
     : "Ei saatavilla";
+}
+
+const HeroTransitionValue = forwardRef<
+  HTMLSpanElement,
+  { children: ReactNode }
+>(function HeroTransitionValue({ children }, ref) {
+  const isPresent = useIsPresent();
+
+  return (
+    <motion.span
+      ref={ref}
+      aria-hidden={isPresent ? undefined : true}
+      initial={{ opacity: 0, y: "0.45em" }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: "-0.35em" }}
+      transition={{ duration: 0.16, ease: "easeOut" }}
+      style={{ gridArea: "1 / 1" }}
+    >
+      {children}
+    </motion.span>
+  );
+});
+
+HeroTransitionValue.displayName = "HeroTransitionValue";
+
+function HeroValueTransition({
+  value,
+  itemKey,
+  className,
+}: {
+  value: string;
+  itemKey: string;
+  className: string;
+}) {
+  return (
+    <span className={`price-hero__animated-slot ${className}`}>
+      <AnimatePresence initial={false} mode="popLayout">
+        <HeroTransitionValue key={itemKey}>{value}</HeroTransitionValue>
+      </AnimatePresence>
+    </span>
+  );
 }
 
 function firstAvailable(points: PricePoint[]): PricePoint | undefined {
@@ -772,7 +825,15 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               aria-pressed={mode === option}
               onClick={() => changeMode(option)}
             >
-              {modeLabels[option]}
+              {mode === option ? (
+                <motion.span
+                  aria-hidden="true"
+                  className="view-toggle__active-indicator"
+                  layoutId="price-mode-active"
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                />
+              ) : null}
+              <span className="view-toggle__label">{modeLabels[option]}</span>
             </button>
           ))}
         </div>
@@ -795,7 +856,17 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               aria-pressed={horizon === option}
               onClick={() => changeHorizon(option)}
             >
-              {horizonLabels[option]}
+              {horizon === option ? (
+                <motion.span
+                  aria-hidden="true"
+                  className="view-toggle__active-indicator"
+                  layoutId="horizon-active"
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                />
+              ) : null}
+              <span className="view-toggle__label">
+                {horizonLabels[option]}
+              </span>
             </button>
           ))}
         </div>
@@ -1134,14 +1205,18 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                     Nyt
                   </span>
                 ) : null}
-                <span className="price-hero__interval-value rounded-lg border border-slate-700 bg-slate-950/55 px-2 py-1 font-mono text-slate-200">
-                  {selectedPoint?.label ?? "Ei saatavilla"}
-                </span>
+                <HeroValueTransition
+                  itemKey={selectedPoint?.id ?? "unavailable"}
+                  className="price-hero__interval-value rounded-lg border border-slate-700 bg-slate-950/55 px-2 py-1 font-mono text-slate-200"
+                  value={selectedPoint?.label ?? "Ei saatavilla"}
+                />
               </div>
               <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="hero-price font-mono text-5xl font-semibold tracking-tight text-white sm:text-6xl">
-                  {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
-                </span>
+                <HeroValueTransition
+                  itemKey={`${selectedPoint?.id ?? "unavailable"}:${selectedPrice ?? "unavailable"}`}
+                  className="hero-price font-mono text-5xl font-semibold tracking-tight text-white sm:text-6xl"
+                  value={selectedPrice === null ? "—" : formatPrice(selectedPrice)}
+                />
                 <span className="font-mono text-base text-slate-400">
                   snt / kWh
                 </span>
