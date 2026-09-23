@@ -1388,25 +1388,33 @@ body:has(.dialog-backdrop) {
   }
 
   .appliance-card--row {
-    grid-template-columns: minmax(0, 1fr) auto 2.75rem;
-    column-gap: 0.6rem;
+    grid-template-columns: 2.25rem minmax(0, 1fr) auto 2.75rem;
+    column-gap: 0.45rem;
     row-gap: 0;
     min-height: 3.75rem;
     padding: 0.5rem 0.65rem;
   }
 
   .appliance-card__icon-frame {
-    display: none;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.7rem;
+  }
+
+  .appliance-card__icon {
+    width: 1.45rem;
+    height: 1.45rem;
   }
 
   .appliance-card__identity {
-    grid-column: 1;
+    grid-column: 2;
     grid-row: 1;
   }
 
   .appliance-card__name {
     font-size: 0.95rem;
     line-height: 1.2;
+    overflow-wrap: anywhere;
   }
 
   .appliance-card__consumption,
@@ -1424,7 +1432,7 @@ body:has(.dialog-backdrop) {
 
   .appliance-card__metrics {
     display: block;
-    grid-column: 2;
+    grid-column: 3;
     grid-row: 1;
   }
 
@@ -1451,7 +1459,7 @@ body:has(.dialog-backdrop) {
   }
 
   .appliance-card__assumption-trigger {
-    grid-column: 3;
+    grid-column: 4;
     grid-row: 1;
     width: 2.75rem;
     height: 2.75rem;
