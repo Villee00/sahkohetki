@@ -28,8 +28,10 @@ export function ExplanationDialog({
   const descriptionId = `${id}-description`;
 
   useEffect(() => {
-    closeButtonRef.current?.focus();
-    if (!closeButtonRef.current) dialogRef.current?.focus();
+    closeButtonRef.current?.focus({ preventScroll: true });
+    if (!closeButtonRef.current) {
+      dialogRef.current?.focus({ preventScroll: true });
+    }
   }, [closeButtonRef, dialogRef]);
 
   return (
