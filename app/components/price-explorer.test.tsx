@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -229,8 +230,45 @@ it("moves focus into the dialog, traps Tab, and restores the opener", async () =
   expect(document.activeElement).toBe(closeButton);
 
   await user.keyboard("{Escape}");
-  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  await user.tab();
+  expect(document.activeElement).toBe(closeButton);
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(document.activeElement).toBe(opener);
+});
+
+it("closes from the backdrop after its exit and restores the opener", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  const opener = screen.getByRole("button", { name: "Tietolähde" });
+  await user.click(opener);
+
+  const backdrop = document.querySelector<HTMLElement>(".dialog-backdrop");
+  expect(backdrop).not.toBeNull();
+  fireEvent.click(backdrop as HTMLElement);
+
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(document.activeElement).toBe(opener);
+});
+
+it("keeps one keyed dialog during an explanation switch", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  await user.click(screen.getByRole("button", { name: "Miten laskemme?" }));
+  fireEvent.click(screen.getByRole("button", { name: "Tietolähde" }));
+
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  expect(screen.getByRole("dialog").id).toBe("formula-dialog");
+
+  await waitFor(() => {
+    expect(
+      screen.getByRole("dialog", { name: "Mistä hintatiedot tulevat?" }),
+    ).toBeTruthy();
+  });
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
 });
 
 it("keeps explanation controls explicitly named at every breakpoint", () => {
@@ -263,6 +301,29 @@ it("keeps transfer controls in the settings modal and opens it from the usage se
       "Lisää siirtomaksu ja sähkövero käyttökustannusarvioihin.",
     ),
   ).toBeTruthy();
+
+  await user.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Kunta" }),
+    "240",
+  );
+  await user.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+    "240:Kemin Energia ja Vesi Oy",
+  );
+  expect(
+    screen.getByRole("button", { name: "Muokkaa siirtoa + sähköveroa" }),
+  ).toBeTruthy();
+  expect(
+    document.querySelector(".uses-section__mobile-context")?.textContent,
+  ).toContain("Sähkö + siirto + vero");
+});
+
+it("shows the selected time and spot-price basis in the compact usage intro", () => {
+  render(<PriceExplorer data={dataWithUses} />);
+
+  const context = document.querySelector(".uses-section__mobile-context");
+  expect(context?.textContent).toContain("13:00–14:00");
+  expect(context?.textContent).toContain("Spot-hinta");
 });
 
 it("applies the supplier margin to displayed prices and appliance estimates", async () => {
@@ -287,7 +348,11 @@ it("applies the supplier margin to displayed prices and appliance estimates", as
     within(dialog).getByRole("button", { name: "Käytä marginaalia" }),
   );
 
-  expect(screen.queryByRole("dialog", { name: "Lisää marginaali" })).toBeNull();
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: "Lisää marginaali" }),
+    ).toBeNull(),
+  );
   expect(screen.getByRole("banner").textContent).toContain("15,00");
   expect(document.querySelector(".hero-price")?.textContent).toBe("15,00");
   expect(
@@ -457,7 +522,7 @@ it("selects the municipality returned by the location lookup", async () => {
       }) as HTMLSelectElement
     ).value,
   ).toBe("");
-  expect(screen.getByRole("status").textContent).toContain("Kemi");
+  expect(within(dialog).getByRole("status").textContent).toContain("Kemi");
   expect(getCurrentPosition).toHaveBeenCalledOnce();
   expect(fetchMock).toHaveBeenCalledWith(
     "/api/municipality-by-location",
@@ -613,7 +678,10 @@ it("restores a saved margin and clears it when returning to market price", async
     within(dialog).getByRole("button", { name: "Palauta spot-hintaan" }),
   );
 
-  expect(document.querySelector(".hero-price")?.textContent).toBe("12,00");
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() => {
+    expect(document.querySelector(".hero-price")?.textContent).toBe("12,00");
+  });
   expect(window.localStorage.getItem("sahkohetki.price-margin")).toBeNull();
 });
 
@@ -700,6 +768,7 @@ it("updates the top header when a different interval is selected", async () => {
 
   const headerValue = within(screen.getByRole("banner")).getByLabelText(
     /spot-hinta/i,
+    { selector: ".current-value" },
   );
 
   await user.click(
@@ -712,6 +781,108 @@ it("updates the top header when a different interval is selected", async () => {
   expect(headerValue.textContent).toContain("14:00–15:00");
   expect(headerValue.textContent).toContain("2,00");
   expect(headerValue.textContent).not.toContain("12,00");
+});
+
+it("keeps the hero replacement layout stable without exposing the exiting value", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  const intervalSlot = document.querySelector<HTMLElement>(
+    ".price-hero__interval-value",
+  );
+  const priceSlot = document.querySelector<HTMLElement>(".hero-price");
+  expect(intervalSlot).not.toBeNull();
+  expect(priceSlot).not.toBeNull();
+
+  const previousInterval = within(intervalSlot as HTMLElement).getByText(
+    "13:00–14:00",
+  );
+  const previousPrice = within(priceSlot as HTMLElement).getByText("12,00");
+
+  await user.click(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 14:00–15:00/i,
+    }),
+  );
+
+  expect(priceSlot?.textContent).toContain("2,00");
+  expect(previousInterval.getAttribute("aria-hidden")).toBe("true");
+  expect(previousPrice.getAttribute("aria-hidden")).toBe("true");
+  expect(
+    within(intervalSlot as HTMLElement).getByText("14:00–15:00"),
+  ).toBeTruthy();
+  expect(within(priceSlot as HTMLElement).getByText("2,00")).toBeTruthy();
+  expect(
+    intervalSlot?.querySelectorAll('[aria-hidden="false"]'),
+  ).toHaveLength(0);
+
+  await waitFor(() => {
+    expect(intervalSlot?.textContent).toBe("14:00–15:00");
+    expect(priceSlot?.textContent).toBe("2,00");
+  });
+});
+
+it("moves the hero price downward when the selected price decreases", () => {
+  render(<PriceExplorer data={data} />);
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 14:00–15:00/i,
+    }),
+  );
+
+  const nextPrice = within(
+    document.querySelector<HTMLElement>(".hero-price") as HTMLElement,
+  ).getByText("2,00");
+  expect(nextPrice.style.transform).toContain("translateY(-0.45em)");
+});
+
+it("moves the hero price upward when the selected price increases", () => {
+  const dataWithCheapCurrent: ExplorerData = {
+    ...data,
+    currentHourId: cheapestPoint.id,
+    currentQuarterId: cheapestPoint.id,
+  };
+  render(<PriceExplorer data={dataWithCheapCurrent} />);
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 13:00–14:00/i,
+    }),
+  );
+
+  const nextPrice = within(
+    document.querySelector<HTMLElement>(".hero-price") as HTMLElement,
+  ).getByText("12,00");
+  expect(nextPrice.style.transform).toContain("translateY(0.45em)");
+});
+
+it("shows the selected time as a single inline readout", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  const currentReadout = screen.getByRole("group", {
+    name: "Nykyinen aikaväli 13:00–14:00",
+  });
+  expect(currentReadout.textContent?.replace(/\s/g, "")).toBe(
+    "NYT·13:00–14:00",
+  );
+  expect(screen.queryByText("Valittu aikaväli:")).toBeNull();
+
+  await user.click(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 14:00–15:00/i,
+    }),
+  );
+
+  const selectedReadout = screen.getByRole("group", {
+    name: "Valittu aikaväli 14:00–15:00",
+  });
+  await waitFor(() => {
+    expect(selectedReadout.textContent?.replace(/\s/g, "")).toBe(
+      "VALITTU·14:00–15:00",
+    );
+  });
 });
 
 it("shows active-view minimum, average, and maximum prices in the header", async () => {
@@ -786,6 +957,26 @@ it("places a sub-cent price near the start of the price scale", () => {
   expect(Number.parseFloat(marker?.style.left ?? "100")).toBeCloseTo(2.95, 4);
 });
 
+it("moves the spectrum marker when a different interval is selected", async () => {
+  const user = userEvent.setup();
+  const styles = readFileSync(`${process.cwd()}/app/globals.css`, "utf8");
+  render(<PriceExplorer data={data} />);
+
+  const marker = document.querySelector<HTMLElement>(".spectrum-marker");
+  expect(marker?.style.left).toBe("60%");
+  expect(styles).toMatch(
+    /\.spectrum-marker\s*\{[\s\S]*transition:\s*[^;]*left/,
+  );
+
+  await user.click(
+    screen.getByRole("button", {
+      name: /Valitse aikaväli 14:00–15:00/i,
+    }),
+  );
+
+  expect(marker?.style.left).toBe("10%");
+});
+
 it("aligns spectrum colors with the absolute price cutoffs", () => {
   const styles = readFileSync(`${process.cwd()}/app/globals.css`, "utf8");
   const spectrumRule =
@@ -843,7 +1034,9 @@ it("shows the selected date above the selected interval", async () => {
   render(<PriceExplorer data={dataWithTomorrow} />);
 
   const selectedDate = screen.getByText("22.8.2026");
-  const selectedInterval = screen.getByText("Valittu aikaväli:");
+  const selectedInterval = screen.getByRole("group", {
+    name: "Nykyinen aikaväli 13:00–14:00",
+  });
   expect(
     selectedDate.compareDocumentPosition(selectedInterval) &
       Node.DOCUMENT_POSITION_FOLLOWING,
@@ -858,7 +1051,11 @@ it("marks the selected interval as current until a future interval is chosen", a
   const user = userEvent.setup();
   render(<PriceExplorer data={data} />);
 
-  expect(screen.getByLabelText("Nykyinen aikaväli").textContent).toBe("Nyt");
+  expect(
+    screen
+      .getByRole("group", { name: "Nykyinen aikaväli 13:00–14:00" })
+      .textContent?.replace(/\s/g, ""),
+  ).toBe("NYT·13:00–14:00");
   expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
     "Nykyinen aikaväli",
   );
@@ -869,7 +1066,18 @@ it("marks the selected interval as current until a future interval is chosen", a
     }),
   );
 
-  expect(screen.queryByLabelText("Nykyinen aikaväli")).toBeNull();
+  await waitFor(() => {
+    expect(
+      screen
+        .getByRole("group", { name: "Valittu aikaväli 14:00–15:00" })
+        .textContent?.replace(/\s/g, ""),
+    ).toBe("VALITTU·14:00–15:00");
+  });
+  expect(
+    screen.queryByRole("group", {
+      name: "Nykyinen aikaväli 13:00–14:00",
+    }),
+  ).toBeNull();
   expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
     "Valittu aikaväli",
   );
@@ -934,6 +1142,37 @@ it("shows carried-forward markers only in the 15-minute chart", async () => {
   );
 
   expect(document.querySelector(".price-chart__bar--carried")).not.toBeNull();
+});
+
+it("moves the active indicators while preserving segmented control semantics", async () => {
+  const user = userEvent.setup();
+  render(<PriceExplorer data={data} />);
+
+  const hourlyButton = screen.getByRole("button", {
+    name: "Tuntikeskiarvo",
+  });
+  const quarterButton = screen.getByRole("button", {
+    name: "15 minuutin tarkkuus",
+  });
+  const todayButton = screen.getByRole("button", { name: "Tänään" });
+  const tomorrowButton = screen.getByRole("button", { name: "Huomenna" });
+
+  expect(hourlyButton.querySelector(".view-toggle__active-indicator")).not.toBeNull();
+  expect(quarterButton.querySelector(".view-toggle__active-indicator")).toBeNull();
+  expect(todayButton.querySelector(".view-toggle__active-indicator")).not.toBeNull();
+  expect(tomorrowButton.querySelector(".view-toggle__active-indicator")).toBeNull();
+  expect(hourlyButton.getAttribute("aria-pressed")).toBe("true");
+  expect(todayButton.getAttribute("aria-pressed")).toBe("true");
+
+  await user.click(quarterButton);
+  await user.click(tomorrowButton);
+
+  expect(hourlyButton.querySelector(".view-toggle__active-indicator")).toBeNull();
+  expect(quarterButton.querySelector(".view-toggle__active-indicator")).not.toBeNull();
+  expect(todayButton.querySelector(".view-toggle__active-indicator")).toBeNull();
+  expect(tomorrowButton.querySelector(".view-toggle__active-indicator")).not.toBeNull();
+  expect(quarterButton.getAttribute("aria-pressed")).toBe("true");
+  expect(tomorrowButton.getAttribute("aria-pressed")).toBe("true");
 });
 
 it("shows the current-time line only on today's horizon", async () => {
@@ -1099,6 +1338,7 @@ it("shows natural Finnish copy in the calculation and source explanations", asyn
   );
 
   await user.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   await user.click(screen.getByRole("button", { name: "Tietolähde" }));
   const sourceDialog = screen.getByRole("dialog");
   expect(sourceDialog.textContent).toContain(

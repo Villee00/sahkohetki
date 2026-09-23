@@ -1,7 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent, MouseEvent as ReactMouseEvent } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type {
+  FormEvent,
+  MouseEvent as ReactMouseEvent,
+  ReactNode,
+} from "react";
+import {
+  AnimatePresence,
+  MotionConfig,
+  motion,
+  useIsPresent,
+  usePresenceData,
+} from "motion/react";
 import Link from "next/link";
 import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
@@ -208,6 +226,106 @@ function formatSelectedDate(startAt: string): string {
     : "Ei saatavilla";
 }
 
+type HeroMotionDirection = -1 | 0 | 1;
+
+const heroValueVariants = {
+  enter: (direction: HeroMotionDirection) => ({
+    opacity: 0,
+    y: direction > 0 ? "0.45em" : direction < 0 ? "-0.45em" : 0,
+  }),
+  center: { opacity: 1, y: 0 },
+  exit: (direction: HeroMotionDirection) => ({
+    opacity: 0,
+    y: direction > 0 ? "-0.35em" : direction < 0 ? "0.35em" : 0,
+  }),
+};
+
+const HeroTransitionValue = forwardRef<HTMLSpanElement, { children: ReactNode }>(
+  function HeroTransitionValue({ children }, ref) {
+    const isPresent = useIsPresent();
+    const direction =
+      (usePresenceData() as HeroMotionDirection | undefined) ?? 0;
+
+    return (
+      <motion.span
+        ref={ref}
+        aria-hidden={isPresent ? undefined : true}
+        custom={direction}
+        variants={heroValueVariants}
+        initial="enter"
+        animate="center"
+        exit="exit"
+        transition={{ duration: 0.16, ease: "easeOut" }}
+        style={{ gridArea: "1 / 1" }}
+      >
+        {children}
+      </motion.span>
+    );
+  },
+);
+
+HeroTransitionValue.displayName = "HeroTransitionValue";
+
+function HeroValueTransition({
+  value,
+  itemKey,
+  className,
+  direction = 0,
+}: {
+  value: string;
+  itemKey: string;
+  className: string;
+  direction?: HeroMotionDirection;
+}) {
+  return (
+    <span className={`price-hero__animated-slot ${className}`}>
+      <AnimatePresence initial={false} mode="popLayout" custom={direction}>
+        <HeroTransitionValue key={itemKey}>{value}</HeroTransitionValue>
+      </AnimatePresence>
+    </span>
+  );
+}
+
+function HeroPriceTransition({
+  value,
+  itemKey,
+  className,
+}: {
+  value: number | null;
+  itemKey: string;
+  className: string;
+}) {
+  const [transition, setTransition] = useState<{
+    itemKey: string;
+    value: number | null;
+    direction: HeroMotionDirection;
+  }>({ itemKey, value, direction: 0 });
+
+  if (transition.itemKey !== itemKey || transition.value !== value) {
+    setTransition({
+      itemKey,
+      value,
+      direction:
+        transition.value === null ||
+        value === null ||
+        value === transition.value
+          ? 0
+          : value > transition.value
+            ? 1
+            : -1,
+    });
+  }
+
+  return (
+    <HeroValueTransition
+      itemKey={`${itemKey}:${value ?? "unavailable"}`}
+      className={className}
+      value={value === null ? "—" : formatPrice(value)}
+      direction={transition.direction}
+    />
+  );
+}
+
 function firstAvailable(points: PricePoint[]): PricePoint | undefined {
   return points.find(
     (point) => point.available && point.priceCentsPerKwh !== null,
@@ -370,6 +488,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     getInitialSelection(data),
   );
+  const [isMobilePriceFloating, setIsMobilePriceFloating] = useState(false);
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [openDialog, setOpenDialog] = useState<DialogName>(null);
   const [priceMargin, setPriceMargin] = useState(0);
@@ -383,7 +502,9 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const dialogWasOpenRef = useRef(false);
+  const openDialogRef = useRef<DialogName>(null);
+  const headerInnerRef = useRef<HTMLDivElement | null>(null);
+  const selectedPriceContentRef = useRef<HTMLDivElement | null>(null);
   const transferData = data.transferData;
   const selectedMunicipality = useMemo<TransferCostMunicipality | null>(
     () =>
@@ -457,6 +578,26 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     const intervalId = window.setInterval(updateCurrentTime, 60_000);
     return () => window.clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    const updateFloatingPrice = () => {
+      const priceContentTop =
+        selectedPriceContentRef.current?.getBoundingClientRect().top;
+      const headerBottom =
+        headerInnerRef.current?.getBoundingClientRect().bottom;
+      if (priceContentTop === undefined || headerBottom === undefined) return;
+
+      setIsMobilePriceFloating(priceContentTop <= headerBottom);
+    };
+
+    updateFloatingPrice();
+    window.addEventListener("scroll", updateFloatingPrice, { passive: true });
+    window.addEventListener("resize", updateFloatingPrice);
+    return () => {
+      window.removeEventListener("scroll", updateFloatingPrice);
+      window.removeEventListener("resize", updateFloatingPrice);
+    };
+  }, [horizon, isTomorrowUnavailable, mode, priceMargin, selectedPoint]);
 
   useEffect(() => {
     let restoreTimeout: number | undefined;
@@ -622,6 +763,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   };
 
   const closeDialog = useCallback(() => {
+    openDialogRef.current = null;
     setOpenDialog(null);
   }, []);
 
@@ -649,28 +791,19 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
   };
 
   useEffect(() => {
-    if (!openDialog) {
-      if (dialogWasOpenRef.current) {
-        openerRef.current?.focus();
-        dialogWasOpenRef.current = false;
-      }
-      return;
-    }
-
-    dialogWasOpenRef.current = true;
-    closeButtonRef.current?.focus();
-    if (!closeButtonRef.current) dialogRef.current?.focus();
-
     const handleDialogKeyDown = (event: KeyboardEvent) => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
       if (event.key === "Escape") {
         event.preventDefault();
         closeDialog();
         return;
       }
-      if (event.key !== "Tab" || !dialogRef.current) return;
+      if (event.key !== "Tab") return;
 
       const focusable = Array.from(
-        dialogRef.current.querySelectorAll<HTMLElement>(
+        dialog.querySelectorAll<HTMLElement>(
           'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ),
       );
@@ -678,7 +811,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (!dialogRef.current.contains(document.activeElement)) {
+      if (!dialog.contains(document.activeElement)) {
         event.preventDefault();
         first.focus();
         return;
@@ -694,19 +827,26 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
     document.addEventListener("keydown", handleDialogKeyDown);
     return () => document.removeEventListener("keydown", handleDialogKeyDown);
-  }, [closeDialog, openDialog]);
+  }, [closeDialog]);
 
   const openExplanation = (
     name: Exclude<DialogName, null>,
     event: ReactMouseEvent<HTMLButtonElement>,
   ) => {
     openerRef.current = event.currentTarget;
+    openDialogRef.current = name;
     if (name === "settings") {
       setMarginInput(formatMarginInput(priceMargin));
       setMarginError(null);
     }
     setOpenDialog(name);
   };
+
+  const handleDialogExitComplete = useCallback(() => {
+    if (openDialogRef.current !== null) return;
+    openerRef.current?.focus();
+    openerRef.current = null;
+  }, []);
 
   const changeMode = (nextMode: PriceMode) => {
     const nextPoints = (horizon === "today" ? adjustedToday : adjustedTomorrow)[
@@ -773,7 +913,15 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               aria-pressed={mode === option}
               onClick={() => changeMode(option)}
             >
-              {modeLabels[option]}
+              {mode === option ? (
+                <motion.span
+                  aria-hidden="true"
+                  className="view-toggle__active-indicator"
+                  layoutId="price-mode-active"
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                />
+              ) : null}
+              <span className="view-toggle__label">{modeLabels[option]}</span>
             </button>
           ))}
         </div>
@@ -796,7 +944,17 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
               aria-pressed={horizon === option}
               onClick={() => changeHorizon(option)}
             >
-              {horizonLabels[option]}
+              {horizon === option ? (
+                <motion.span
+                  aria-hidden="true"
+                  className="view-toggle__active-indicator"
+                  layoutId="horizon-active"
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                />
+              ) : null}
+              <span className="view-toggle__label">
+                {horizonLabels[option]}
+              </span>
             </button>
           ))}
         </div>
@@ -804,97 +962,361 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     </div>
   );
 
+  const dialogConfigs: Record<
+    Exclude<DialogName, null>,
+    {
+      id: string;
+      title: string;
+      closeButtonLabel?: string;
+      children: ReactNode;
+    }
+  > = {
+    formula: {
+      id: "formula-dialog",
+      title: "Miten kustannusarvio lasketaan?",
+      children: (
+        <>
+          <p>
+            Arvio perustuu valittuun spot-hintaan, valitun verkkoyhtiön
+            siirtomaksuun, kotitalouden sähköveroon ja kunkin ennalta
+            määritellyn käyttötavan kulutukseen. Spot- ja siirtohinnat
+            sisältävät Suomen yleisen 25,5 %:n arvonlisäveron.
+          </p>
+          <p className="rounded-2xl border border-sky-300/20 bg-sky-300/10 px-4 py-3 font-mono text-sm text-sky-100">
+            kulutus (kWh) × (spot + marginaali + siirto + sähkövero) (snt/kWh)
+            = kustannus (snt)
+          </p>
+          <p>
+            Esimerkiksi kahvinkeittimen vertailukulutus on {""}
+            {coffeeUse
+              ? `${consumptionFormatter.format(coffeeUse.consumptionKwh)} kWh`
+              : "luettelossa määritelty kulutus"}
+            . Laskennassa säilytetään täysi tarkkuus, ja kustannus pyöristetään
+            näytettäessä kahteen desimaaliin.
+          </p>
+          <p>
+            Kuukausittaista perusmaksua ei kohdisteta yksittäiseen käyttöön,
+            vaan se näytetään valitun tariffin tiedoissa.{" "}
+            {priceMargin > 0
+              ? "Asetettu " +
+                formatPrice(priceMargin) +
+                " snt/kWh sähkönmyyjän marginaali on mukana."
+              : "Sähkönmyyjän marginaali ei sisälly, ellet lisää sitä hinta-asetuksista."}
+          </p>
+        </>
+      ),
+    },
+    source: {
+      id: "source-dialog",
+      title: "Mistä hintatiedot tulevat?",
+      children: (
+        <>
+          <p>
+            Sähköhetki käyttää ENTSO-E:n uusimpia Suomen tarjousalueen
+            spot-hintoja 15 minuutin tarkkuudella. Näytetty hinta sisältää
+            Suomen yleisen 25,5 %:n arvonlisäveron.{" "}
+            {priceMargin > 0
+              ? "Näytettyihin hintoihin on lisätty " +
+                formatPrice(priceMargin) +
+                " snt/kWh marginaali."
+              : "ENTSO-E:n markkinahinta muunnetaan senttiä/kWh-yksikköön ja verolliseksi hinnaksi."}{" "}
+            Palvelin tarkistaa lähteen tiedot ja muodostaa niiden perusteella
+            näkymään tuntikeskiarvot sekä 15 minuutin hinnat.
+          </p>
+          <p>
+            Siirtohinnat luetaan tämän näkymän CSV-snapshotista kunnittain.
+            Verkkoyhtiö valitaan erikseen silloin, kun kunnassa on useampi
+            vaihtoehto. Sähkövero perustuu Verohallinnon voimassa olevaan
+            verotaulukkoon.
+          </p>
+          <p>
+            Tiedot haetaan ja säilytetään palvelimella noin 12 tuntia. Sivu ei
+            hae hintoja uudelleen selaimessa. Puuttuvan hinnan tilalla
+            käytetään 15 minuutin näkymässä viimeisintä saatavilla olevaa
+            hintaa, ja se merkitään kaaviossa viivoituksella.
+          </p>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <a
+              className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+              href={data.source.pricesUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              ENTSO-E
+              <Icon name="arrow-up-right" className="h-4 w-4" />
+            </a>
+            <a
+              className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+              href={data.source.documentationUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              API-dokumentaatio
+              <Icon name="arrow-up-right" className="h-4 w-4" />
+            </a>
+          </div>
+          <a
+            className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+            href={data.transferData.electricityTax.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Verohallinnon sähköveron verotaulukko
+            <Icon name="arrow-up-right" className="h-4 w-4" />
+          </a>
+        </>
+      ),
+    },
+    settings: {
+      id: "settings-dialog",
+      title: "Lisää marginaali",
+      closeButtonLabel: "Sulje lisää marginaali",
+      children: (
+        <>
+          <form className="space-y-5" onSubmit={applyMargin}>
+            <p>
+              Lisää sähköyhtiösi snt/kWh-marginaali, niin se lasketaan mukaan
+              jokaiseen markkinahintaan ja kustannusarvioon.
+            </p>
+            <div>
+              <label
+                htmlFor="price-margin"
+                className="text-sm font-semibold text-white"
+              >
+                Sähköyhtiön marginaali
+              </label>
+              <div className="mt-2 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 focus-within:border-sky-300/60 focus-within:ring-2 focus-within:ring-sky-300/20">
+                <input
+                  id="price-margin"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={marginInput}
+                  aria-describedby={
+                    marginError
+                      ? "price-margin-help price-margin-error"
+                      : "price-margin-help"
+                  }
+                  aria-invalid={marginError ? true : undefined}
+                  className="min-w-0 flex-1 bg-transparent font-mono text-xl text-white outline-none placeholder:text-slate-600"
+                  onChange={(event) => {
+                    setMarginInput(event.target.value);
+                    if (marginError) setMarginError(null);
+                  }}
+                />
+                <span className="font-mono text-sm text-slate-400">
+                  snt/kWh
+                </span>
+              </div>
+              <p
+                id="price-margin-help"
+                className="mt-2 text-xs leading-5 text-slate-500"
+              >
+                Käytä desimaalierottimena pilkkua tai pistettä. Nolla palauttaa
+                pelkän markkinahinnan.
+              </p>
+              {marginError ? (
+                <p
+                  id="price-margin-error"
+                  role="alert"
+                  className="mt-2 text-sm text-rose-300"
+                >
+                  {marginError}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="submit"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-sky-300 px-4 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+              >
+                Käytä marginaalia
+              </button>
+              <button
+                type="button"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+                onClick={resetMargin}
+              >
+                Palauta spot-hintaan
+              </button>
+            </div>
+          </form>
+          <TransferCostPanel
+            data={transferData}
+            selectedMunicipalityCode={selectedMunicipalityCode}
+            selectedOperatorId={selectedOperatorId}
+            selectedMunicipality={selectedMunicipality}
+            selectedTariff={selectedTransferTariff}
+            onMunicipalityChange={changeMunicipality}
+            onOperatorChange={changeOperator}
+            onLocate={locateMunicipality}
+            locationStatus={locationStatus}
+            locationMessage={locationMessage}
+          />
+        </>
+      ),
+    },
+  };
+  const activeDialogConfig = openDialog
+    ? dialogConfigs[openDialog]
+    : null;
+
   return (
-    <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
-      <SiteHeader
-        brandHref="#main-content"
-        navigation={
-          <nav aria-label="Päänavigaatio" className="flex items-center gap-0.5 sm:gap-1">
-            <Link
-              href="/"
-              aria-current="page"
-              className="site-nav-button site-nav-button--active inline-flex min-h-9 items-center rounded-xl px-2 text-sm transition hover:bg-white/5 hover:text-white sm:px-3"
+    <MotionConfig reducedMotion="user">
+      <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
+        <SiteHeader
+          brandHref="#main-content"
+          innerRef={headerInnerRef}
+          floatingContent={
+            <AnimatePresence initial={false}>
+              {isMobilePriceFloating ? (
+                <motion.div
+                  key="mobile-selected-price"
+                  className="mobile-price-float"
+                  role="status"
+                  aria-live="polite"
+                  aria-label={
+                    (isCurrentSelection ? "Nykyinen" : "Valittu") +
+                    " " +
+                    (priceMargin > 0
+                      ? "hinta marginaali mukaan lukien"
+                      : "spot-hinta") +
+                    " " +
+                    (selectedPrice === null
+                      ? "ei saatavilla"
+                      : formatPrice(selectedPrice) + " snt/kWh") +
+                    ", aikaväli " +
+                    (selectedPoint?.label ?? "ei saatavilla")
+                  }
+                  initial={{ opacity: 0, y: "-0.3rem" }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: "-0.3rem" }}
+                  transition={{ duration: 0.16, ease: "easeOut" }}
+                >
+                  <span className="mobile-price-float__context">
+                    <span className="mobile-price-float__label">
+                      {isCurrentSelection ? "Nyt" : "Valittu"}
+                    </span>
+                    <HeroValueTransition
+                      itemKey={selectedPoint?.id ?? "unavailable"}
+                      className="mobile-price-float__time"
+                      value={selectedPoint?.label ?? "Ei saatavilla"}
+                    />
+                  </span>
+                  <span className="mobile-price-float__value">
+                    <HeroPriceTransition
+                      itemKey={selectedPoint?.id ?? "unavailable"}
+                      className="mobile-price-float__number"
+                      value={selectedPrice}
+                    />
+                    <span className="mobile-price-float__unit"> snt/kWh</span>
+                  </span>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          }
+          navigation={
+            <nav
+              aria-label="Päänavigaatio"
+              className="flex items-center gap-0.5 sm:gap-1"
             >
-              Nyt
-            </Link>
-            <Link
-              href="/historia"
-              className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white sm:px-3"
-            >
-              Historia
-            </Link>
-          </nav>
-        }
-      >
-        <div
-          className="current-value flex shrink-0 items-center gap-2"
-          aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} ${priceMargin > 0 ? "hinta marginaali mukaan lukien" : "spot-hinta"} ${selectedPrice === null ? "ei saatavilla" : `${formatPrice(selectedPrice)} snt/kWh`}, aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
+              <Link
+                href="/"
+                aria-current="page"
+                className="site-nav-button site-nav-button--active inline-flex min-h-9 items-center rounded-xl px-2 text-sm transition hover:bg-white/5 hover:text-white sm:px-3"
+              >
+                Nyt
+              </Link>
+              <Link
+                href="/historia"
+                className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white sm:px-3"
+              >
+                Historia
+              </Link>
+            </nav>
+          }
         >
-          <span className="current-value__context flex min-w-0 items-baseline gap-2">
-            <span className="current-value__label text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-sky-300">
-              {isCurrentSelection ? "Nyt" : "Valittu"}
-            </span>
-            <span className="current-value__time truncate font-mono text-xs text-slate-300">
-              {selectedPoint?.label ?? "Ei saatavilla"}
-            </span>
-          </span>
-          <span className="current-value__price shrink-0 font-mono text-sm font-semibold text-white">
-            {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
-          </span>
-          <span className="current-value__unit shrink-0 text-[0.65rem] text-slate-500">
-            snt/kWh
-          </span>
-        </div>
-        <nav
-          aria-label="Lisätietoja"
-          className="ml-auto flex items-center gap-0.5 sm:gap-1"
-        >
-          <button
-            type="button"
-            aria-label="Miten laskemme?"
-            className="site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3"
-            onClick={(event) => openExplanation("formula", event)}
-          >
-            <Icon name="info" className="h-4 w-4" />
-            <span aria-hidden="true" className="hidden lg:inline">
-              Miten laskemme?
-            </span>
-            <span className="sr-only lg:hidden">Miten laskemme?</span>
-          </button>
-          <button
-            type="button"
-            aria-label="Tietolähde"
-            className="site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3"
-            onClick={(event) => openExplanation("source", event)}
-          >
-            <Icon name="source" className="h-4 w-4" />
-            <span aria-hidden="true" className="hidden lg:inline">
-              Tietolähde
-            </span>
-            <span className="sr-only lg:hidden">Tietolähde</span>
-          </button>
-          <button
-            type="button"
-            aria-label="Lisää marginaali"
-            aria-describedby={
-              priceMargin > 0 ? "price-margin-status" : undefined
+          <div
+            className="current-value flex shrink-0 items-center gap-2"
+            aria-label={
+              (isCurrentSelection ? "Nykyinen" : "Valittu") +
+              " " +
+              (priceMargin > 0
+                ? "hinta marginaali mukaan lukien"
+                : "spot-hinta") +
+              " " +
+              (selectedPrice === null
+                ? "ei saatavilla"
+                : formatPrice(selectedPrice) + " snt/kWh") +
+              ", aikaväli " +
+              (selectedPoint?.label ?? "ei saatavilla")
             }
-            className={`site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3 ${priceMargin > 0 ? "site-nav-button--active" : ""}`}
-            onClick={(event) => openExplanation("settings", event)}
           >
-            <Icon name="settings" className="h-4 w-4" />
-            <span aria-hidden="true" className="hidden lg:inline">
-              Lisää marginaali
+            <span className="current-value__context flex min-w-0 items-baseline gap-2">
+              <span className="current-value__label text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-sky-300">
+                {isCurrentSelection ? "Nyt" : "Valittu"}
+              </span>
+              <span className="current-value__time truncate font-mono text-xs text-slate-300">
+                {selectedPoint?.label ?? "Ei saatavilla"}
+              </span>
             </span>
-            <span className="sr-only lg:hidden">Lisää marginaali</span>
-          </button>
-          {priceMargin > 0 ? (
-            <span id="price-margin-status" className="sr-only">
-              Marginaali {formatPrice(priceMargin)} snt/kWh käytössä
+            <span className="current-value__price shrink-0 font-mono text-sm font-semibold text-white">
+              {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
             </span>
-          ) : null}
-        </nav>
-      </SiteHeader>
+            <span className="current-value__unit shrink-0 text-[0.65rem] text-slate-500">
+              snt/kWh
+            </span>
+          </div>
+          <nav
+            aria-label="Lisätietoja"
+            className="ml-auto flex items-center gap-0.5 sm:gap-1"
+          >
+            <button
+              type="button"
+              aria-label="Miten laskemme?"
+              className="site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3"
+              onClick={(event) => openExplanation("formula", event)}
+            >
+              <Icon name="info" className="h-4 w-4" />
+              <span aria-hidden="true" className="hidden lg:inline">
+                Miten laskemme?
+              </span>
+              <span className="sr-only lg:hidden">Miten laskemme?</span>
+            </button>
+            <button
+              type="button"
+              aria-label="Tietolähde"
+              className="site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3"
+              onClick={(event) => openExplanation("source", event)}
+            >
+              <Icon name="source" className="h-4 w-4" />
+              <span aria-hidden="true" className="hidden lg:inline">
+                Tietolähde
+              </span>
+              <span className="sr-only lg:hidden">Tietolähde</span>
+            </button>
+            <button
+              type="button"
+              aria-label="Lisää marginaali"
+              aria-describedby={
+                priceMargin > 0 ? "price-margin-status" : undefined
+              }
+              className={`site-nav-button inline-flex min-h-9 items-center gap-2 rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:px-3 ${priceMargin > 0 ? "site-nav-button--active" : ""}`}
+              onClick={(event) => openExplanation("settings", event)}
+            >
+              <Icon name="settings" className="h-4 w-4" />
+              <span aria-hidden="true" className="hidden lg:inline">
+                Lisää marginaali
+              </span>
+              <span className="sr-only lg:hidden">Lisää marginaali</span>
+            </button>
+            {priceMargin > 0 ? (
+              <span id="price-margin-status" className="sr-only">
+                Marginaali {formatPrice(priceMargin)} snt/kWh käytössä
+              </span>
+            ) : null}
+          </nav>
+        </SiteHeader>
 
       <div
         id="main-content"
@@ -907,7 +1329,10 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           <h1 id="selected-heading" className="sr-only">
             {heading}
           </h1>
-          <div className="price-hero__top flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+          <div
+            ref={selectedPriceContentRef}
+            className="price-hero__top flex flex-wrap items-center justify-between gap-x-6 gap-y-4"
+          >
             <div className="min-w-0">
               {selectedPoint ? (
                 <time
@@ -917,25 +1342,30 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                   {formatSelectedDate(selectedPoint.startAt)}
                 </time>
               ) : null}
-              <div className="price-hero__interval flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                <span className="price-hero__clock-dot" aria-hidden="true" />
-                <span>Valittu aikaväli:</span>
-                {isCurrentSelection ? (
-                  <span
-                    className="price-hero__current-badge"
-                    aria-label="Nykyinen aikaväli"
-                  >
-                    Nyt
-                  </span>
-                ) : null}
-                <span className="price-hero__interval-value rounded-lg border border-slate-700 bg-slate-950/55 px-2 py-1 font-mono text-slate-200">
-                  {selectedPoint?.label ?? "Ei saatavilla"}
+              <div
+                className="price-hero__time-readout"
+                role="group"
+                aria-label={`${isCurrentSelection ? "Nykyinen" : "Valittu"} aikaväli ${selectedPoint?.label ?? "ei saatavilla"}`}
+              >
+                <span className="price-hero__time-state">
+                  <span className="price-hero__clock-dot" aria-hidden="true" />
+                  {isCurrentSelection ? "NYT" : "VALITTU"}
                 </span>
+                <span className="price-hero__time-divider" aria-hidden="true">
+                  ·
+                </span>
+                <HeroValueTransition
+                  itemKey={selectedPoint?.id ?? "unavailable"}
+                  className="price-hero__interval-value font-mono"
+                  value={selectedPoint?.label ?? "Ei saatavilla"}
+                />
               </div>
               <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="hero-price font-mono text-5xl font-semibold tracking-tight text-white sm:text-6xl">
-                  {selectedPrice === null ? "—" : formatPrice(selectedPrice)}
-                </span>
+                <HeroPriceTransition
+                  itemKey={selectedPoint?.id ?? "unavailable"}
+                  className="hero-price font-mono text-5xl font-semibold tracking-tight text-white sm:text-6xl"
+                  value={selectedPrice}
+                />
                 <span className="font-mono text-base text-slate-400">
                   snt / kWh
                 </span>
@@ -1060,29 +1490,43 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         {selectedPoint && cheapestPoint ? (
           <section
             aria-labelledby="uses-heading"
-            className="uses-section space-y-5"
+            className="uses-section space-y-3 sm:space-y-5"
           >
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
+                <p className="uses-section__eyebrow text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
                   Kymmenen arjen sähkönkäyttökohdetta
                 </p>
                 <h2
                   id="uses-heading"
-                  className="mt-2 text-3xl font-semibold tracking-tight text-white"
+                  className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl"
                 >
                   Mitä sähkönkäyttö maksaa?
                 </h2>
+                <p className="uses-section__mobile-context mt-2 text-sm text-slate-400">
+                  Valittu aikaväli {selectedPoint.label} ·{" "}
+                  {selectedTransferTariff?.priceAvailable
+                    ? priceMargin > 0
+                      ? "Sähkö + marginaali + siirto + vero"
+                      : "Sähkö + siirto + vero"
+                    : selectedOperatorId
+                      ? "Siirtohinta ei saatavilla"
+                      : priceMargin > 0
+                        ? "Spot-hinta + marginaali"
+                        : "Spot-hinta"}
+                </p>
                 <button
                   type="button"
-                  className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-sky-300/35 bg-sky-300/10 px-4 text-sm font-semibold text-sky-100 transition hover:border-sky-300/65 hover:bg-sky-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+                  className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-sky-300/35 bg-sky-300/10 px-4 text-sm font-semibold text-sky-100 transition hover:border-sky-300/65 hover:bg-sky-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:mt-4"
                   onClick={(event) => openExplanation("settings", event)}
                 >
                   <Icon name="settings" className="h-4 w-4" />
-                  Lisää siirto + sähkövero
+                  {selectedOperatorId
+                    ? "Muokkaa siirtoa + sähköveroa"
+                    : "Lisää siirto + sähkövero"}
                 </button>
               </div>
-              <p className="max-w-md text-sm leading-6 text-slate-400">
+              <p className="uses-section__long-explanation max-w-md text-sm leading-6 text-slate-400">
                 Arvio perustuu valittuun spot-hintaan
                 {priceMargin > 0 ? " ja asetettuun myyjän marginaaliin" : ""}.
                 Kun verkkoyhtiö on valittu, mukaan lasketaan siirtomaksu ja
@@ -1156,194 +1600,26 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         </footer>
       </div>
 
-      <ExplanationDialog
-        id="formula-dialog"
-        title="Miten kustannusarvio lasketaan?"
-        open={openDialog === "formula"}
-        onClose={closeDialog}
-        dialogRef={dialogRef}
-        closeButtonRef={closeButtonRef}
+      <AnimatePresence
+        initial={false}
+        mode="wait"
+        onExitComplete={handleDialogExitComplete}
       >
-        <p>
-          Arvio perustuu valittuun spot-hintaan, valitun verkkoyhtiön
-          siirtomaksuun, kotitalouden sähköveroon ja kunkin ennalta määritellyn
-          käyttötavan kulutukseen. Spot- ja siirtohinnat sisältävät Suomen
-          yleisen 25,5 %:n arvonlisäveron.
-        </p>
-        <p className="rounded-2xl border border-sky-300/20 bg-sky-300/10 px-4 py-3 font-mono text-sm text-sky-100">
-          kulutus (kWh) × (spot + marginaali + siirto + sähkövero) (snt/kWh) =
-          kustannus (snt)
-        </p>
-        <p>
-          Esimerkiksi kahvinkeittimen vertailukulutus on{" "}
-          {coffeeUse
-            ? `${consumptionFormatter.format(coffeeUse.consumptionKwh)} kWh`
-            : "luettelossa määritelty kulutus"}
-          . Laskennassa säilytetään täysi tarkkuus, ja kustannus pyöristetään
-          näytettäessä kahteen desimaaliin.
-        </p>
-        <p>
-          Kuukausittaista perusmaksua ei kohdisteta yksittäiseen käyttöön, vaan
-          se näytetään valitun tariffin tiedoissa.{" "}
-          {priceMargin > 0
-            ? "Asetettu " +
-              formatPrice(priceMargin) +
-              " snt/kWh sähkönmyyjän marginaali on mukana."
-            : "Sähkönmyyjän marginaali ei sisälly, ellet lisää sitä hinta-asetuksista."}
-        </p>
-      </ExplanationDialog>
-
-      <ExplanationDialog
-        id="source-dialog"
-        title="Mistä hintatiedot tulevat?"
-        open={openDialog === "source"}
-        onClose={closeDialog}
-        dialogRef={dialogRef}
-        closeButtonRef={closeButtonRef}
-      >
-        <p>
-          Sähköhetki käyttää ENTSO-E:n uusimpia Suomen tarjousalueen
-          spot-hintoja 15 minuutin tarkkuudella. Näytetty hinta sisältää Suomen
-          yleisen 25,5 %:n arvonlisäveron.{" "}
-          {priceMargin > 0
-            ? "Näytettyihin hintoihin on lisätty " +
-              formatPrice(priceMargin) +
-              " snt/kWh marginaali."
-            : "ENTSO-E:n markkinahinta muunnetaan senttiä/kWh-yksikköön ja verolliseksi hinnaksi."}{" "}
-          Palvelin tarkistaa lähteen tiedot ja muodostaa niiden perusteella
-          näkymään tuntikeskiarvot sekä 15 minuutin hinnat.
-        </p>
-        <p>
-          Siirtohinnat luetaan tämän näkymän CSV-snapshotista kunnittain.
-          Verkkoyhtiö valitaan erikseen silloin, kun kunnassa on useampi
-          vaihtoehto. Sähkövero perustuu Verohallinnon voimassa olevaan
-          verotaulukkoon.
-        </p>
-        <p>
-          Tiedot haetaan ja säilytetään palvelimella noin 12 tuntia. Sivu ei hae
-          hintoja uudelleen selaimessa. Puuttuvan hinnan tilalla käytetään 15
-          minuutin näkymässä viimeisintä saatavilla olevaa hintaa, ja se
-          merkitään kaaviossa viivoituksella.
-        </p>
-        <div className="flex flex-wrap gap-4 text-sm">
-          <a
-            className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-            href={data.source.pricesUrl}
-            target="_blank"
-            rel="noreferrer"
+        {activeDialogConfig ? (
+          <ExplanationDialog
+            key={openDialog}
+            id={activeDialogConfig.id}
+            title={activeDialogConfig.title}
+            onClose={closeDialog}
+            dialogRef={dialogRef}
+            closeButtonRef={closeButtonRef}
+            closeButtonLabel={activeDialogConfig.closeButtonLabel}
           >
-            ENTSO-E
-            <Icon name="arrow-up-right" className="h-4 w-4" />
-          </a>
-          <a
-            className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-            href={data.source.documentationUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            API-dokumentaatio
-            <Icon name="arrow-up-right" className="h-4 w-4" />
-          </a>
-        </div>
-        <a
-          className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-          href={data.transferData.electricityTax.sourceUrl}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Verohallinnon sähköveron verotaulukko
-          <Icon name="arrow-up-right" className="h-4 w-4" />
-        </a>
-      </ExplanationDialog>
-
-      <ExplanationDialog
-        id="settings-dialog"
-        title="Lisää marginaali"
-        open={openDialog === "settings"}
-        onClose={closeDialog}
-        dialogRef={dialogRef}
-        closeButtonRef={closeButtonRef}
-        closeButtonLabel="Sulje lisää marginaali"
-      >
-        <form className="space-y-5" onSubmit={applyMargin}>
-          <p>
-            Lisää sähköyhtiösi snt/kWh-marginaali, niin se lasketaan mukaan
-            jokaiseen markkinahintaan ja kustannusarvioon.
-          </p>
-          <div>
-            <label
-              htmlFor="price-margin"
-              className="text-sm font-semibold text-white"
-            >
-              Sähköyhtiön marginaali
-            </label>
-            <div className="mt-2 flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 focus-within:border-sky-300/60 focus-within:ring-2 focus-within:ring-sky-300/20">
-              <input
-                id="price-margin"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={marginInput}
-                aria-describedby={
-                  marginError
-                    ? "price-margin-help price-margin-error"
-                    : "price-margin-help"
-                }
-                aria-invalid={marginError ? true : undefined}
-                className="min-w-0 flex-1 bg-transparent font-mono text-xl text-white outline-none placeholder:text-slate-600"
-                onChange={(event) => {
-                  setMarginInput(event.target.value);
-                  if (marginError) setMarginError(null);
-                }}
-              />
-              <span className="font-mono text-sm text-slate-400">snt/kWh</span>
-            </div>
-            <p
-              id="price-margin-help"
-              className="mt-2 text-xs leading-5 text-slate-500"
-            >
-              Käytä desimaalierottimena pilkkua tai pistettä. Nolla palauttaa
-              pelkän markkinahinnan.
-            </p>
-            {marginError ? (
-              <p
-                id="price-margin-error"
-                role="alert"
-                className="mt-2 text-sm text-rose-300"
-              >
-                {marginError}
-              </p>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="submit"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-sky-300 px-4 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-            >
-              Käytä marginaalia
-            </button>
-            <button
-              type="button"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-              onClick={resetMargin}
-            >
-              Palauta spot-hintaan
-            </button>
-          </div>
-        </form>
-        <TransferCostPanel
-          data={transferData}
-          selectedMunicipalityCode={selectedMunicipalityCode}
-          selectedOperatorId={selectedOperatorId}
-          selectedMunicipality={selectedMunicipality}
-          selectedTariff={selectedTransferTariff}
-          onMunicipalityChange={changeMunicipality}
-          onOperatorChange={changeOperator}
-          onLocate={locateMunicipality}
-          locationStatus={locationStatus}
-          locationMessage={locationMessage}
-        />
-      </ExplanationDialog>
+            {activeDialogConfig.children}
+          </ExplanationDialog>
+        ) : null}
+      </AnimatePresence>
     </main>
+    </MotionConfig>
   );
 }
