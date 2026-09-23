@@ -22,6 +22,7 @@
 html {
   min-width: 320px;
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
   background: var(--ink-950);
 }
 
