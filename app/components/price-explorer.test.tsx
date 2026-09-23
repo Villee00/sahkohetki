@@ -301,6 +301,29 @@ it("keeps transfer controls in the settings modal and opens it from the usage se
       "Lisää siirtomaksu ja sähkövero käyttökustannusarvioihin.",
     ),
   ).toBeTruthy();
+
+  await user.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Kunta" }),
+    "240",
+  );
+  await user.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Sähköverkkoyhtiö" }),
+    "240:Kemin Energia ja Vesi Oy",
+  );
+  expect(
+    screen.getByRole("button", { name: "Muokkaa siirtoa + sähköveroa" }),
+  ).toBeTruthy();
+  expect(
+    document.querySelector(".uses-section__mobile-context")?.textContent,
+  ).toContain("Sähkö + siirto + vero");
+});
+
+it("shows the selected time and spot-price basis in the compact usage intro", () => {
+  render(<PriceExplorer data={dataWithUses} />);
+
+  const context = document.querySelector(".uses-section__mobile-context");
+  expect(context?.textContent).toContain("13:00–14:00");
+  expect(context?.textContent).toContain("Spot-hinta");
 });
 
 it("applies the supplier margin to displayed prices and appliance estimates", async () => {
@@ -495,7 +518,7 @@ it("selects the municipality returned by the location lookup", async () => {
       name: "Sähköverkkoyhtiö",
     }) as HTMLSelectElement).value,
   ).toBe("");
-  expect(screen.getByRole("status").textContent).toContain("Kemi");
+  expect(within(dialog).getByRole("status").textContent).toContain("Kemi");
   expect(getCurrentPosition).toHaveBeenCalledOnce();
   expect(fetchMock).toHaveBeenCalledWith(
     "/api/municipality-by-location",
@@ -737,6 +760,7 @@ it("updates the top header when a different interval is selected", async () => {
 
   const headerValue = within(screen.getByRole("banner")).getByLabelText(
     /spot-hinta/i,
+    { selector: ".current-value" },
   );
 
   await user.click(

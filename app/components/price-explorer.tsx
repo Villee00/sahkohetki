@@ -1471,29 +1471,43 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         {selectedPoint && cheapestPoint ? (
           <section
             aria-labelledby="uses-heading"
-            className="uses-section space-y-5"
+            className="uses-section space-y-3 sm:space-y-5"
           >
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
+                <p className="uses-section__eyebrow text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
                   Kymmenen arjen sähkönkäyttökohdetta
                 </p>
                 <h2
                   id="uses-heading"
-                  className="mt-2 text-3xl font-semibold tracking-tight text-white"
+                  className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl"
                 >
                   Mitä sähkönkäyttö maksaa?
                 </h2>
+                <p className="uses-section__mobile-context mt-2 text-sm text-slate-400">
+                  Valittu aikaväli {selectedPoint.label} ·{" "}
+                  {selectedTransferTariff?.priceAvailable
+                    ? priceMargin > 0
+                      ? "Sähkö + marginaali + siirto + vero"
+                      : "Sähkö + siirto + vero"
+                    : selectedOperatorId
+                      ? "Siirtohinta ei saatavilla"
+                      : priceMargin > 0
+                        ? "Spot-hinta + marginaali"
+                        : "Spot-hinta"}
+                </p>
                 <button
                   type="button"
-                  className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-sky-300/35 bg-sky-300/10 px-4 text-sm font-semibold text-sky-100 transition hover:border-sky-300/65 hover:bg-sky-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+                  className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-sky-300/35 bg-sky-300/10 px-4 text-sm font-semibold text-sky-100 transition hover:border-sky-300/65 hover:bg-sky-300/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 sm:mt-4"
                   onClick={(event) => openExplanation("settings", event)}
                 >
                   <Icon name="settings" className="h-4 w-4" />
-                  Lisää siirto + sähkövero
+                  {selectedOperatorId
+                    ? "Muokkaa siirtoa + sähköveroa"
+                    : "Lisää siirto + sähkövero"}
                 </button>
               </div>
-              <p className="max-w-md text-sm leading-6 text-slate-400">
+              <p className="uses-section__long-explanation max-w-md text-sm leading-6 text-slate-400">
                 Arvio perustuu valittuun spot-hintaan
                 {priceMargin > 0 ? " ja asetettuun myyjän marginaaliin" : ""}.
                 Kun verkkoyhtiö on valittu, mukaan lasketaan siirtomaksu ja

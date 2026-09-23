@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it } from "vitest";
@@ -38,7 +39,7 @@ it("shows the researched assumption and its source", async () => {
   render(<ApplianceCard use={use} estimate={estimate} />);
 
   const disclosure = screen.getByLabelText(
-    "Kahvinkeitin: näytä oletus ja rajaus",
+    "Kahvinkeitin: lisätiedot",
   );
   await user.click(disclosure);
 
@@ -76,7 +77,7 @@ it("keeps the disclosure trigger anchored while its panel opens beneath the row"
 
   const row = screen.getByRole("article");
   const chevron = screen.getByRole("button", {
-    name: "Kahvinkeitin: näytä oletus ja rajaus",
+    name: "Kahvinkeitin: lisätiedot",
   });
 
   expect(chevron.tagName).toBe("BUTTON");
@@ -109,7 +110,7 @@ it("keeps the assumption panel mounted while it closes before removing it", asyn
 
   const row = screen.getByRole("article");
   const disclosure = screen.getByRole("button", {
-    name: "Kahvinkeitin: näytä oletus ja rajaus",
+    name: "Kahvinkeitin: lisätiedot",
   });
 
   await user.click(disclosure);
@@ -137,7 +138,7 @@ it("opens and closes the assumption panel without motion when reduced motion is 
   );
 
   const disclosure = screen.getByRole("button", {
-    name: "Kahvinkeitin: näytä oletus ja rajaus",
+    name: "Kahvinkeitin: lisätiedot",
   });
   await user.click(disclosure);
 
@@ -161,4 +162,55 @@ it("renders the heat-pump card with its dedicated icon", () => {
   render(<ApplianceCard use={use} estimate={estimate} />);
 
   expect(screen.getByRole("article").querySelector(".lucide-air-vent")).toBeTruthy();
+});
+
+it("shows a short usage basis and keeps full mobile details in the disclosure", async () => {
+  const user = userEvent.setup();
+  const use = getEverydayUse("coffee");
+  if (!use) throw new Error("Expected the coffee use to be in the catalog.");
+
+  render(<ApplianceCard use={use} estimate={estimateWithComparison} />);
+
+  expect(screen.getByText("1 pannullinen")).toBeTruthy();
+  expect(screen.queryByText("Käyttö ja vertailu")).toBeNull();
+
+  await user.click(screen.getByRole("button", { name: "Kahvinkeitin: lisätiedot" }));
+
+  const panel = screen.getByRole("article").querySelector(".appliance-card__assumption-panel");
+  if (!panel) throw new Error("Expected appliance details to open.");
+  expect(within(panel as HTMLElement).getByText("Käyttö ja vertailu")).toBeTruthy();
+  expect(panel.textContent).toContain(use.standardUse);
+  expect(panel.textContent).toContain("0,15 kWh");
+  expect(panel.textContent).toContain("0.01 €");
+  expect(panel.textContent).toContain("Säästät 0,04 senttiä");
+  expect(panel.textContent).toContain("12:00–13:00");
+});
+
+it("keeps the missing-cost reason available in expanded mobile details", async () => {
+  const user = userEvent.setup();
+  const use = getEverydayUse("coffee");
+  if (!use) throw new Error("Expected the coffee use to be in the catalog.");
+
+  render(<ApplianceCard use={use} estimate={null} emptyMessage="Siirtohinta ei ole saatavilla" />);
+  await user.click(screen.getByRole("button", { name: "Kahvinkeitin: lisätiedot" }));
+
+  const panel = screen.getByRole("article").querySelector(".appliance-card__assumption-panel");
+  if (!panel) throw new Error("Expected appliance details to open.");
+  expect(within(panel as HTMLElement).getByText("Siirtohinta ei ole saatavilla")).toBeTruthy();
+});
+
+it("opens and closes the details with the keyboard", async () => {
+  const user = userEvent.setup();
+  const use = getEverydayUse("coffee");
+  if (!use) throw new Error("Expected the coffee use to be in the catalog.");
+
+  render(<ApplianceCard use={use} estimate={estimate} />);
+  const disclosure = screen.getByRole("button", { name: "Kahvinkeitin: lisätiedot" });
+
+  await user.tab();
+  expect(document.activeElement).toBe(disclosure);
+  await user.keyboard("{Enter}");
+  expect(disclosure.getAttribute("aria-expanded")).toBe("true");
+  await user.keyboard(" ");
+  expect(disclosure.getAttribute("aria-expanded")).toBe("false");
 });
