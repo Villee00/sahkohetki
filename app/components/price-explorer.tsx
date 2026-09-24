@@ -1300,6 +1300,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
       <div
         id="main-content"
+        tabIndex={-1}
         className="page-content mx-auto max-w-7xl space-y-7 px-4 pb-16 pt-6 sm:px-6 lg:px-8 lg:pt-8"
       >
         <section

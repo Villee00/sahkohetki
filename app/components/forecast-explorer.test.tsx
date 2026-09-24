@@ -124,6 +124,7 @@ describe("ForecastExplorer", () => {
     renderExplorer();
 
     expect(screen.getByRole("heading", { name: "Sähköennuste" })).toBeTruthy();
+    expect(document.getElementById("main-content")?.getAttribute("tabindex")).toBe("-1");
     const navigation = screen.getByRole("navigation", { name: "Päänavigaatio" });
     expect(within(navigation).getAllByRole("link")).toHaveLength(3);
     expect(

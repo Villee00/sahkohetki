@@ -149,6 +149,7 @@ it("defaults to the latest complete day and household-facing prices", () => {
   expect(
     screen.getByRole("link", { name: "Historia" }).getAttribute("aria-current"),
   ).toBe("page");
+  expect(document.getElementById("main-content")?.getAttribute("tabindex")).toBe("-1");
   expect(
     screen.getByRole("link", { name: "Sähköennuste" }).getAttribute("href"),
   ).toBe("/ennuste");

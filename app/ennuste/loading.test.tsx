@@ -8,6 +8,7 @@ afterEach(cleanup);
 it("shows the forecast route as active while its data loads", () => {
   render(<Loading />);
 
+  expect(document.getElementById("main-content")?.getAttribute("tabindex")).toBe("-1");
   const navigation = screen.getByRole("navigation", { name: "Päänavigaatio" });
   expect(within(navigation).getAllByRole("link")).toHaveLength(3);
   expect(

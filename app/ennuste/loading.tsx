@@ -6,6 +6,7 @@ export default function Loading() {
       <SiteHeader activeRoute="forecast" />
       <div
         id="main-content"
+        tabIndex={-1}
         className="page-content mx-auto max-w-7xl space-y-5 px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pt-10"
         aria-busy="true"
       >

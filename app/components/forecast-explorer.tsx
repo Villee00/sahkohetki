@@ -410,7 +410,7 @@ function UnavailableForecast({ reason }: { reason: string }) {
   return (
     <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
       <SiteHeader activeRoute="forecast" />
-      <div id="main-content" className="page-content mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
+      <div id="main-content" tabIndex={-1} className="page-content mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
         <p className="forecast-eyebrow">Seuraavat 72 tuntia</p>
         <h1 className="forecast-title">Sähköennuste</h1>
         <section className="forecast-unavailable forecast-panel" role="alert">
@@ -496,6 +496,7 @@ function ReadyForecast({ snapshot }: { snapshot: ForecastSnapshot }) {
 
       <div
         id="main-content"
+        tabIndex={-1}
         className="page-content mx-auto max-w-7xl space-y-5 px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pt-10"
       >
         <section className="forecast-hero" aria-labelledby="forecast-heading">

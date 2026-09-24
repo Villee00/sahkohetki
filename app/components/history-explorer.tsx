@@ -219,7 +219,7 @@ export function HistoryExplorer({ data }: { data: HistoryPageData }) {
         brandHref="/"
       />
 
-      <div id="main-content" className="page-content mx-auto space-y-6 px-4 pb-16 pt-7 sm:px-6 lg:px-8">
+      <div id="main-content" tabIndex={-1} className="page-content mx-auto space-y-6 px-4 pb-16 pt-7 sm:px-6 lg:px-8">
         <section className="history-intro" aria-labelledby="history-heading">
           <p className="history-eyebrow">Suomen tarjousalue · ENTSO-E</p>
           <h1 id="history-heading">Hintahistoria</h1>

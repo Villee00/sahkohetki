@@ -173,7 +173,7 @@ export function SiteLoadingShell({ destination }: SiteLoadingShellProps) {
       <p role="status" aria-live="polite" className="sr-only">
         {isHistory ? "Ladataan hintahistoriaa" : "Ladataan sähkön hintatietoja"}
       </p>
-      <div id="main-content" aria-busy="true">
+      <div id="main-content" tabIndex={-1} aria-busy="true">
         <div aria-hidden="true">
           {isHistory ? <HistoryLoadingContent /> : <NowLoadingContent />}
         </div>

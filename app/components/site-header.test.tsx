@@ -2,6 +2,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { SiteHeader } from "./site-header";
+import { SiteLoadingShell } from "./site-loading-shell";
 
 afterEach(cleanup);
 
@@ -65,3 +66,11 @@ describe("SiteHeader", () => {
     ).toBe("Tietolähde");
   });
 });
+
+it.each(["now", "history"] as const)(
+  "keeps the %s loading screen's skip-link target focusable",
+  (destination) => {
+    render(<SiteLoadingShell destination={destination} />);
+    expect(document.getElementById("main-content")?.getAttribute("tabindex")).toBe("-1");
+  },
+);

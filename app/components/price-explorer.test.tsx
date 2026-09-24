@@ -284,6 +284,7 @@ it("keeps explanation controls explicitly named at every breakpoint", () => {
 it("shows all three routes without changing price actions", () => {
   render(<PriceExplorer data={data} />);
 
+  expect(document.getElementById("main-content")?.getAttribute("tabindex")).toBe("-1");
   expect(screen.getByRole("link", { name: "Nyt" }).getAttribute("aria-current")).toBe(
     "page",
   );
