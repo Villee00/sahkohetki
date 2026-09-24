@@ -124,6 +124,13 @@ describe("ForecastExplorer", () => {
     renderExplorer();
 
     expect(screen.getByRole("heading", { name: "Sähköennuste" })).toBeTruthy();
+    const navigation = screen.getByRole("navigation", { name: "Päänavigaatio" });
+    expect(within(navigation).getAllByRole("link")).toHaveLength(3);
+    expect(
+      within(navigation)
+        .getByRole("link", { name: "Sähköennuste" })
+        .getAttribute("aria-current"),
+    ).toBe("page");
     expect(
       screen.getByText(/Kotimainen tuotanto kattaa arviolta 85 % kulutuksesta/),
     ).toBeTruthy();

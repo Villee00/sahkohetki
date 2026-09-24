@@ -40,6 +40,19 @@ const applianceIcons: Record<EverydayUse["id"], IconName> = {
   computer: "computer",
 };
 
+const compactUseLabels: Record<EverydayUse["id"], string> = {
+  coffee: "1 pannullinen",
+  sauna: "1 saunakerta",
+  kettle: "1 l vettä",
+  oven: "1 h ruoanlaittoa",
+  washing: "1 pesu",
+  dryer: "1 kuivaus",
+  dishwasher: "1 pesu",
+  "heat-pump": "1 h lämmitystä",
+  television: "1 h katselua",
+  computer: "1 h käyttöä",
+};
+
 export function ApplianceCard({
   use,
   estimate,
@@ -73,6 +86,9 @@ export function ApplianceCard({
         </div>
         <p className="appliance-card__standard-use mt-1 text-sm leading-5 text-slate-400">
           {use.standardUse}
+        </p>
+        <p className="appliance-card__compact-use text-xs text-slate-400">
+          {compactUseLabels[use.id]}
         </p>
       </div>
 
@@ -127,13 +143,12 @@ export function ApplianceCard({
       <button
         type="button"
         className="appliance-card__assumption-trigger cursor-pointer font-medium text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-        aria-label={`${use.name}: näytä oletus ja rajaus`}
+        aria-label={`${use.name}: lisätiedot`}
         aria-expanded={assumptionOpen}
         aria-controls={`appliance-${use.id}-assumption`}
-        title="Näytä oletus ja rajaus"
+        title="Lisätiedot"
         onClick={() => setAssumptionOpen((open) => !open)}
       >
-        <span className="sr-only">Oletus ja rajaus</span>
         <Icon
           name="chevron-down"
           className="appliance-card__assumption-chevron"
@@ -151,6 +166,28 @@ export function ApplianceCard({
             exit={{ height: 0, opacity: 0 }}
             transition={assumptionPanelTransition}
           >
+            <div className="appliance-card__mobile-details">
+              <p className="font-semibold text-slate-300">Käyttö ja vertailu</p>
+              <p className="mt-2 leading-5">
+                {use.standardUse} · {numberFormatter.format(use.consumptionKwh)} kWh
+              </p>
+              {estimate ? (
+                <>
+                  <p className="mt-2 leading-5">
+                    Euroina: {estimate.eurosLabel} €
+                  </p>
+                  {estimate.comparison ? (
+                    <p className="mt-2 leading-5 text-emerald-300">
+                      {estimate.comparison.title} {estimate.comparison.detail}
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="mt-2 leading-5">
+                  {emptyMessage ?? "Valitse kunta ja verkkoyhtiö"}
+                </p>
+              )}
+            </div>
             <p className="appliance-card__assumption-copy leading-5">
               {use.assumption} Lähde:{" "}
               <a

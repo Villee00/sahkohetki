@@ -1,21 +1,32 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { SiteHeader } from "./site-header";
 
 afterEach(cleanup);
 
 describe("SiteHeader", () => {
-  it("links both primary routes and marks the active price page", () => {
-    render(<SiteHeader activeRoute="price" />);
+  it.each(["price", "history", "forecast"] as const)(
+    "links all three routes and marks the active %s page",
+    (activeRoute) => {
+      render(<SiteHeader activeRoute={activeRoute} />);
 
-    const priceLink = screen.getByRole("link", { name: "Hinta" });
-    const forecastLink = screen.getByRole("link", { name: "Sähköennuste" });
-    expect(priceLink.getAttribute("href")).toBe("/");
-    expect(forecastLink.getAttribute("href")).toBe("/ennuste");
-    expect(priceLink.getAttribute("aria-current")).toBe("page");
-    expect(forecastLink.getAttribute("aria-current")).toBeNull();
-  });
+      const links = [
+        ["Nyt", "/", "price"],
+        ["Historia", "/historia", "history"],
+        ["Sähköennuste", "/ennuste", "forecast"],
+      ] as const;
+      const nav = screen.getByRole("navigation", { name: "Päänavigaatio" });
+      expect(within(nav).getAllByRole("link")).toHaveLength(3);
+      for (const [name, href, route] of links) {
+        const link = within(nav).getByRole("link", { name });
+        expect(link.getAttribute("href")).toBe(href);
+        expect(link.getAttribute("aria-current")).toBe(
+          activeRoute === route ? "page" : null,
+        );
+      }
+    },
+  );
 
   it("offers a keyboard route past the shared navigation to page content", () => {
     render(<SiteHeader activeRoute="forecast" />);

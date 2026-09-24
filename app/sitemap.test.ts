@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import sitemap from "./sitemap";
 
 describe("site discovery", () => {
-  it("lists both the price page and the electricity forecast page", () => {
+  it("lists the current price, forecast, and history pages", () => {
     expect(sitemap()).toEqual([
       {
         url: "https://sahkohetki.fi",
@@ -14,6 +14,9 @@ describe("site discovery", () => {
         url: "https://sahkohetki.fi/ennuste",
         changeFrequency: "hourly",
         priority: 0.9,
+      },
+      {
+        url: "https://sahkohetki.fi/historia",
       },
     ]);
   });
