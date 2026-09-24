@@ -158,6 +158,34 @@ button:disabled {
   max-width: 78rem !important;
 }
 
+.site-loading__block {
+  display: block;
+  background: linear-gradient(
+    100deg,
+    rgba(148, 163, 184, 0.1) 20%,
+    rgba(148, 163, 184, 0.2) 42%,
+    rgba(148, 163, 184, 0.1) 64%
+  );
+  background-size: 220% 100%;
+  animation: site-loading-shimmer 1.8s ease-in-out infinite;
+}
+
+.site-loading__bar {
+  background-color: rgba(56, 189, 248, 0.13);
+}
+
+@keyframes site-loading-shimmer {
+  to {
+    background-position-x: -220%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-loading__block {
+    animation: none;
+  }
+}
+
 .history-intro {
   display: grid;
   max-width: 48rem;
