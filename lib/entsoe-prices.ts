@@ -22,7 +22,8 @@ export type MarketPriceInterval = {
   documentRevision: number;
   documentCreatedAt: string;
   seriesId: string;
-  processType: string;
+  // ENTSO-E A44 responses may omit process.processType.
+  processType?: string;
   contractType: string;
   carriedForward: boolean;
 };
@@ -219,7 +220,8 @@ export function parseEntsoePriceXml(xml: string): EntsoePriceParseResult {
     documentId === undefined ||
     documentRevision === undefined ||
     createdMilliseconds === undefined ||
-    processType !== ENTSOE_DAY_AHEAD_CONTRACT
+    (processType !== undefined &&
+      processType !== ENTSOE_DAY_AHEAD_CONTRACT)
   ) {
     return { status: "unavailable", reason: "schema" };
   }
@@ -322,7 +324,7 @@ export function parseEntsoePriceXml(xml: string): EntsoePriceParseResult {
           documentRevision,
           documentCreatedAt,
           seriesId,
-          processType,
+          ...(processType === undefined ? {} : { processType }),
           contractType,
           carriedForward: publishedPrice === undefined,
         });
