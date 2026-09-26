@@ -284,4 +284,26 @@ describe("historical ENTSO-E source", () => {
     });
     expect(data.message).toMatch(/käyttöoikeus/i);
   });
+
+  it("serves synthetic recent history without credentials or network calls", async () => {
+    vi.stubEnv("SAHKO_MOCK_DATA", "1");
+    vi.stubEnv("ENTSOE_TOKEN", "");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const data = await getHistoryPageData(new Date("2026-09-20T12:00:00.000Z"));
+
+    expect(data).toMatchObject({
+      status: "ready",
+      source: { name: "Synteettinen esimerkkidata" },
+      requestedRange: {
+        startDateKey: "2025-08-01",
+        endDateKey: "2026-09-19",
+      },
+    });
+    expect(data.days.length).toBeGreaterThan(300);
+    expect(data.days.at(-1)).toMatchObject({ complete: true });
+    expect(data.periods.month.length).toBeGreaterThan(10);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

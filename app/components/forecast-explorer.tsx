@@ -348,6 +348,7 @@ function ReadyForecast({
   const statusText = shortageCopy(
     snapshot.current.shortageStatus?.level ?? null,
   );
+  const isMockData = snapshot.source.name === "Synteettinen esimerkkidata";
 
   const selectRelative = (offset: number) => {
     const nextIndex = Math.max(
@@ -421,6 +422,12 @@ function ReadyForecast({
           </div>
         </section>
 
+        {isMockData ? (
+          <div className="forecast-notice forecast-notice--stale" role="status">
+            Synteettinen esimerkkidata on käytössä paikallisessa testauksessa.
+          </div>
+        ) : null}
+
         {snapshot.freshness.state === "stale" ? (
           <div className="forecast-notice forecast-notice--stale" role="status">
             Näytetään viimeisin onnistunut ennuste ({Math.max(1, Math.round(displayedAgeSeconds / 60))} min vanha), koska Fingridin päivitys ei onnistunut.
@@ -485,9 +492,13 @@ function ReadyForecast({
         <footer className="forecast-footer">
           <span className="forecast-footer__brand">Sähköhetki</span>
           <span>Sähkön tilanne ihmisen mitassa.</span>
-          <a href={snapshot.source.homepageUrl} target="_blank" rel="noreferrer">
-            Lähde Fingrid / data.fingrid.fi, CC BY 4.0
-          </a>
+          {isMockData ? (
+            <span>Lähde: Synteettinen esimerkkidata</span>
+          ) : (
+            <a href={snapshot.source.homepageUrl} target="_blank" rel="noreferrer">
+              Lähde Fingrid / data.fingrid.fi, CC BY 4.0
+            </a>
+          )}
         </footer>
       </div>
     </main>

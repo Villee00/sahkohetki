@@ -3,6 +3,10 @@ import {
   type ReverseGeocodeAddress,
 } from "../../../lib/municipality-location";
 import { getTransferData } from "../../../lib/transfer-source";
+import {
+  getMockMunicipalityLocation,
+  isMockDataEnabled,
+} from "../../../lib/mock-data";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -76,6 +80,20 @@ export async function POST(request: Request): Promise<Response> {
   const coordinates = parseCoordinates(body);
   if (!coordinates) {
     return messageResponse("Sijaintikoordinaatit eivät ole kelvolliset.", 400);
+  }
+
+  if (isMockDataEnabled()) {
+    const municipality = getMockMunicipalityLocation(
+      coordinates.latitude,
+      coordinates.longitude,
+    );
+    if (!municipality) {
+      return messageResponse(
+        "Sijaintikuntaa ei löytynyt tämänhetkisestä kaupunkien CSV-aineistosta. Valitse kunta käsin.",
+        404,
+      );
+    }
+    return Response.json(municipality);
   }
 
   const url = new URL(NOMINATIM_ENDPOINT);

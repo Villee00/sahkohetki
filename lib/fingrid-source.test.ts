@@ -392,4 +392,23 @@ describe("Fingrid forecast source", () => {
     });
     expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
+
+  it("serves mock electricity forecast without credentials or network calls when mock mode is enabled", async () => {
+    vi.stubEnv("SAHKO_MOCK_DATA", "1");
+    vi.stubEnv("FINGRID_API_KEY", "");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getElectricityForecast(
+      new Date("2026-09-22T12:00:00.000Z"),
+    );
+
+    expect(result.status).toBe("ready");
+    if (result.status === "unavailable") throw new Error("Expected ready");
+    expect(result.source.name).toBe("Synteettinen esimerkkidata");
+    expect(result.quarterHour).toHaveLength(288);
+    expect(result.hourly).toHaveLength(72);
+    expect(result.current.production?.valueMw).toBe(9500);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
