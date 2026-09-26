@@ -3439,7 +3439,16 @@ body:has(.dialog-backdrop) {
 @media (max-width: 47.999rem) {
   .renewable-section__caveat { display: none; }
   .renewable-comparison__intro { margin: 0.15rem 0 0.65rem; }
-  .renewable-comparison__reading { display: block; padding: 0.75rem; }
+  .renewable-comparison__reading {
+    position: sticky;
+    top: 5rem;
+    z-index: 20;
+    display: block;
+    padding: 0.75rem;
+    background: rgba(8, 18, 33, 0.97);
+    box-shadow: 0 10px 24px rgba(2, 8, 23, 0.38);
+    backdrop-filter: blur(16px);
+  }
   .renewable-comparison__reading > strong { display: block; margin: 0 0 0.65rem; font-size: 0.78rem; }
   .renewable-comparison__metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
   .renewable-comparison__metrics > span { display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: start; gap: 0.15rem 0.3rem; min-width: 0; border-left: 1px solid rgba(148, 163, 184, 0.16); padding: 0.15rem 0.35rem; font-size: 0.67rem; }
