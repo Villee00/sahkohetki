@@ -226,6 +226,42 @@ describe("ForecastExplorer", () => {
     expect(within(comparison).getAllByText("Ei saatavilla").length).toBeGreaterThan(0);
   });
 
+  it("shows the selected date and interval beside the wind and solar curves", () => {
+    renderExplorer();
+    const comparison = screen.getByRole("region", { name: /tuuli ja aurinko/i });
+    const selectedTime = "Valittu tunti: ti 22.9. · 15:00–16:00";
+
+    for (const series of ["wind", "solar"]) {
+      const track = comparison.querySelector(`.renewable-comparison__track--${series}`);
+      expect(track?.querySelector(".renewable-comparison__selected-time")?.textContent)
+        .toBe(selectedTime);
+    }
+  });
+
+  it("labels the local date at midnight on the renewable chart time axis", () => {
+    const startAt = Date.parse("2026-09-22T18:00:00.000Z");
+    const hourly = Array.from({ length: 8 }, (_, index) =>
+      interval(new Date(startAt + index * 60 * 60 * 1_000).toISOString(), 10_000, 9_000),
+    );
+    renderExplorer({
+      ...readySnapshot,
+      hourly,
+      horizon: {
+        startAt: hourly[0].startAt,
+        endAt: hourly[hourly.length - 1].endAt,
+        durationHours: 72,
+      },
+    });
+
+    const wind = document.querySelector(".renewable-comparison__track--wind");
+    const dateLabels = Array.from(
+      wind?.querySelectorAll(".renewable-comparison__time-label--date-boundary") ?? [],
+      (label) => label.textContent,
+    );
+    expect(dateLabels)
+      .toContain("ke 23.9. 00");
+  });
+
   it("offers nearby hours inside the mobile comparison", async () => {
     const user = userEvent.setup();
     renderExplorer();
