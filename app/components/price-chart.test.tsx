@@ -69,6 +69,59 @@ it("lets a keyboard-accessible chart button select an available interval", async
   expect(onSelect).toHaveBeenCalledWith(point.id);
 });
 
+it("switches between bar and line charts while keeping interval selection", async () => {
+  const user = userEvent.setup();
+  const onSelect = vi.fn();
+  render(
+    <PriceChart
+      points={[point, higherPoint]}
+      selectedId={point.id}
+      onSelect={onSelect}
+    />,
+  );
+
+  const toggle = screen.getByRole("button", { name: "Viivakaavio" });
+  expect(toggle.getAttribute("aria-pressed")).toBe("false");
+  expect(document.querySelectorAll(".price-chart__bar")).toHaveLength(2);
+
+  await user.click(toggle);
+  expect(toggle.getAttribute("aria-pressed")).toBe("true");
+  expect(document.querySelector(".price-chart__bar")).toBeNull();
+  expect(screen.getByTestId("price-chart-line").querySelectorAll("polyline")).toHaveLength(1);
+  expect(document.querySelectorAll(".price-chart__line-point")).toHaveLength(2);
+  expect(document.querySelector(".price-chart__line-point--selected")).toBeTruthy();
+
+  await user.click(screen.getByRole("button", { name: /10:30–10:45/ }));
+  expect(onSelect).toHaveBeenCalledWith(higherPoint.id);
+
+  await user.click(toggle);
+  expect(toggle.getAttribute("aria-pressed")).toBe("false");
+  expect(screen.queryByTestId("price-chart-line")).toBeNull();
+  expect(document.querySelectorAll(".price-chart__bar")).toHaveLength(2);
+});
+
+it("breaks the line at unavailable intervals", async () => {
+  const user = userEvent.setup();
+  render(
+    <PriceChart
+      points={[
+        point,
+        higherPoint,
+        { ...higherPoint, id: "missing", available: false, priceCentsPerKwh: null },
+        { ...point, id: "later-1" },
+        { ...higherPoint, id: "later-2" },
+      ]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "Viivakaavio" }));
+  expect(screen.getByTestId("price-chart-line").querySelectorAll("polyline")).toHaveLength(2);
+  expect(document.querySelectorAll(".price-chart__line-point")).toHaveLength(4);
+  expect(screen.getByRole("button", { name: /hinta ei ole saatavilla/ }).hasAttribute("disabled")).toBe(true);
+});
+
 it("shows a fast styled tooltip and highlights the hovered interval", async () => {
   const user = userEvent.setup();
   render(
@@ -95,6 +148,7 @@ it("shows the price tooltip when an interval receives keyboard focus", async () 
   const user = userEvent.setup();
   render(<PriceChart points={[point]} selectedId={point.id} onSelect={vi.fn()} />);
 
+  await user.tab();
   await user.tab();
 
   expect(screen.getByRole("tooltip").textContent).toContain("4,50 snt/kWh");

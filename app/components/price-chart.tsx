@@ -157,6 +157,27 @@ function getAveragePrice(points: PricePoint[]): number | null {
   return prices.reduce((total, price) => total + price, 0) / prices.length;
 }
 
+function getLineSegments(points: PricePoint[], scale: ChartScale): string[] {
+  const segments: string[] = [];
+  let coordinates: string[] = [];
+
+  points.forEach((point, index) => {
+    const price = getAvailablePointPrice(point);
+    if (price === null) {
+      if (coordinates.length > 1) segments.push(coordinates.join(" "));
+      coordinates = [];
+      return;
+    }
+
+    coordinates.push(
+      `${((index + 0.5) / points.length) * 100},${100 - getScalePosition(price, scale)}`,
+    );
+  });
+
+  if (coordinates.length > 1) segments.push(coordinates.join(" "));
+  return segments;
+}
+
 function getPointTimeLabel(point: PricePoint): {
   hour: string;
   minute: string;
@@ -213,6 +234,7 @@ export function PriceChart({
   headerContent,
   emptyMessage,
 }: PriceChartProps) {
+  const [showLineChart, setShowLineChart] = useState(false);
   const [hoveredPointId, setHoveredPointId] = useState<string | null>(null);
   const [focusedPointId, setFocusedPointId] = useState<string | null>(null);
   const activePointId = hoveredPointId ?? focusedPointId;
@@ -232,6 +254,7 @@ export function PriceChart({
   const chartGridStyle = {
     gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))`,
   };
+  const lineSegments = showLineChart ? getLineSegments(points, chartScale) : [];
 
   return (
     <section aria-labelledby="price-chart-heading" className="price-chart">
@@ -245,12 +268,21 @@ export function PriceChart({
             <Icon name="chart" className="price-chart__title-icon" />
             <span>Pörssisähkön hinta</span>
             <span className="price-chart__title-hint">
-              (Valitse aika napsauttamalla pylvästä)
+              (Valitse aika napsauttamalla{" "}
+              {showLineChart ? "pistettä" : "pylvästä"})
             </span>
           </h2>
-          {headerContent ? (
-            <div className="price-chart__header-tools">{headerContent}</div>
-          ) : null}
+          <div className="price-chart__header-tools">
+            <button
+              type="button"
+              className={`price-chart__view-toggle view-toggle focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300${showLineChart ? " view-toggle--active" : ""}`}
+              aria-pressed={showLineChart}
+              onClick={() => setShowLineChart((value) => !value)}
+            >
+              Viivakaavio
+            </button>
+            {headerContent}
+          </div>
         </div>
 
         {points.length > 0 ? (
@@ -327,6 +359,49 @@ export function PriceChart({
                       aria-hidden="true"
                     />
                   ) : null}
+                  {showLineChart ? (
+                    <div
+                      className="price-chart__line-layer"
+                      data-testid="price-chart-line"
+                      aria-hidden="true"
+                    >
+                      <svg
+                        className="price-chart__line"
+                        viewBox="0 0 100 100"
+                        preserveAspectRatio="none"
+                      >
+                        {lineSegments.map((coordinates, index) => (
+                          <polyline key={index} points={coordinates} />
+                        ))}
+                      </svg>
+                      {points.map((point, index) => {
+                        const price = getAvailablePointPrice(point);
+                        if (price === null) return null;
+                        return (
+                          <span
+                            key={point.id}
+                            className={`price-chart__line-point price-chart__line-point--${point.level ?? "normal"}${
+                              point.id === selectedId
+                                ? " price-chart__line-point--selected"
+                                : ""
+                            }${
+                              point.id === activePointId
+                                ? " price-chart__line-point--hovered"
+                                : ""
+                            }${
+                              showCarriedForwardMarker && point.carriedForward
+                                ? " price-chart__line-point--carried"
+                                : ""
+                            }`}
+                            style={{
+                              left: `${((index + 0.5) / points.length) * 100}%`,
+                              bottom: `${getScalePosition(price, chartScale)}%`,
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : null}
                   <div
                     className="price-chart__bars grid"
                     style={chartGridStyle}
@@ -374,21 +449,23 @@ export function PriceChart({
                             }}
                             onFocus={() => setFocusedPointId(point.id)}
                           >
-                            <span
-                              aria-hidden="true"
-                              className={`price-chart__bar ${barClass}${
-                                showSelectedBar
-                                  ? " price-chart__bar--selected"
-                                  : ""
-                              }${
-                                isHovered ? " price-chart__bar--hovered" : ""
-                              }${
-                                isCarriedForward
-                                  ? " price-chart__bar--carried"
-                                  : ""
-                              } block w-full rounded-t-lg transition group-focus-visible:bg-sky-200`}
-                              style={getBarStyle(point, chartScale)}
-                            />
+                            {!showLineChart ? (
+                              <span
+                                aria-hidden="true"
+                                className={`price-chart__bar ${barClass}${
+                                  showSelectedBar
+                                    ? " price-chart__bar--selected"
+                                    : ""
+                                }${
+                                  isHovered ? " price-chart__bar--hovered" : ""
+                                }${
+                                  isCarriedForward
+                                    ? " price-chart__bar--carried"
+                                    : ""
+                                } block w-full rounded-t-lg transition group-focus-visible:bg-sky-200`}
+                                style={getBarStyle(point, chartScale)}
+                              />
+                            ) : null}
                           </button>
                           {isHovered && pointPrice !== null ? (
                             <span

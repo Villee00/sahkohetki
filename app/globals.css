@@ -1346,6 +1346,14 @@ button:disabled {
   min-width: 0;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.price-chart__view-toggle {
+  min-height: 2rem !important;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 0 0.7rem !important;
 }
 
 .price-chart__controls {
@@ -1480,6 +1488,69 @@ button:disabled {
   transform: translateX(-50%);
 }
 
+.price-chart__line-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.price-chart__line {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.price-chart__line polyline {
+  fill: none;
+  stroke: #7dd3fc;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.price-chart__line-point {
+  position: absolute;
+  width: 0.35rem;
+  height: 0.35rem;
+  border: 1px solid #0f172a;
+  border-radius: 50%;
+  transform: translate(-50%, 50%);
+}
+
+.price-chart__line-point--cheap {
+  background: #4fc39a;
+}
+
+.price-chart__line-point--normal {
+  background: #f3aa26;
+}
+
+.price-chart__line-point--high {
+  background: #e95b4f;
+}
+
+.price-chart__line-point--selected,
+.price-chart__line-point--hovered {
+  z-index: 1;
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 2px solid #f8fafc;
+  box-shadow:
+    0 0 0 2px rgba(56, 189, 248, 0.32),
+    0 0 12px rgba(56, 189, 248, 0.5);
+}
+
+.price-chart__line-point--hovered {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.price-chart__line-point--carried {
+  border-style: dashed;
+}
+
 .price-chart__bars,
 .price-chart__axis {
   display: grid;
@@ -1488,7 +1559,7 @@ button:disabled {
 
 .price-chart__bars {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   height: 12.8rem;
   align-items: stretch;
 }
@@ -3366,6 +3437,7 @@ body:has(.dialog-backdrop) {
   .price-chart__header-tools {
     width: 100%;
     align-items: stretch;
+    justify-content: flex-start;
   }
 
   .price-chart__controls {
