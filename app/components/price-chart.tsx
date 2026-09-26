@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type { PriceLevel, PricePoint } from "@/lib/price-types";
 import { Icon } from "./ui-icon";
 
@@ -12,6 +18,7 @@ type PriceChartProps = {
   currentTime?: number | null;
   headerContent?: ReactNode;
   emptyMessage?: string;
+  onScrubbingChange?: (isScrubbing: boolean) => void;
 };
 
 const levelLabels: Record<PriceLevel, string> = {
@@ -271,10 +278,260 @@ export function PriceChart({
   currentTime,
   headerContent,
   emptyMessage,
+  onScrubbingChange,
 }: PriceChartProps) {
   const [showLineChart, setShowLineChart] = useState(false);
   const [hoveredPointId, setHoveredPointId] = useState<string | null>(null);
   const [focusedPointId, setFocusedPointId] = useState<string | null>(null);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const plotAreaRef = useRef<HTMLDivElement | null>(null);
+
+  const onSelectRef = useRef(onSelect);
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
+
+  const onScrubbingChangeRef = useRef(onScrubbingChange);
+  useEffect(() => {
+    onScrubbingChangeRef.current = onScrubbingChange;
+  }, [onScrubbingChange]);
+
+  const pointsRef = useRef(points);
+  useEffect(() => {
+    pointsRef.current = points;
+  }, [points]);
+
+  const mouseCleanupRef = useRef<(() => void) | null>(null);
+
+  const getPointFromClientX = useCallback(
+    (
+      clientX: number,
+      cachedRect?: { left: number; width: number } | null,
+    ): PricePoint | null => {
+      const currentPoints = pointsRef.current;
+      if (currentPoints.length === 0) return null;
+
+      let left = cachedRect?.left;
+      let width = cachedRect?.width;
+
+      if (left === undefined || width === undefined || width <= 0) {
+        const plot = plotAreaRef.current;
+        if (!plot) return null;
+        const rect = plot.getBoundingClientRect();
+        if (rect.width <= 0) return null;
+        left = rect.left;
+        width = rect.width;
+      }
+
+      const clampedX = Math.max(0, Math.min(width, clientX - left));
+      const ratio = clampedX / width;
+      const index = Math.min(
+        currentPoints.length - 1,
+        Math.max(0, Math.floor(ratio * currentPoints.length)),
+      );
+      return currentPoints[index] ?? null;
+    },
+    [],
+  );
+
+  const handlePlotPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    const plot = plotAreaRef.current;
+    if (!plot) return;
+
+    mouseCleanupRef.current?.();
+
+    const rect = plot.getBoundingClientRect();
+    const cachedRect = { left: rect.left, width: rect.width };
+    const point = getPointFromClientX(e.clientX, cachedRect);
+    if (!point) return;
+
+    let isMouseDragging = true;
+    setIsScrubbing(true);
+    onScrubbingChangeRef.current?.(true);
+    setHoveredPointId(point.id);
+    if (point.available) {
+      onSelectRef.current(point.id);
+    }
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!isMouseDragging) return;
+      const pt = getPointFromClientX(moveEvent.clientX, cachedRect);
+      if (pt) {
+        setHoveredPointId(pt.id);
+        if (pt.available) {
+          onSelectRef.current(pt.id);
+        }
+      }
+    };
+
+    const cleanupMouse = () => {
+      isMouseDragging = false;
+      setIsScrubbing(false);
+      onScrubbingChangeRef.current?.(false);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", cleanupMouse);
+      mouseCleanupRef.current = null;
+    };
+
+    mouseCleanupRef.current = cleanupMouse;
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", cleanupMouse);
+  };
+
+  useEffect(() => {
+    const plot = plotAreaRef.current;
+    if (!plot) return;
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let scrubbingActive = false;
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastScrubbedId: string | null = null;
+    let lastVibrateTime = 0;
+    let rafId: number | null = null;
+    let pendingClientX: number | null = null;
+    let cachedRect: { left: number; width: number } | null = null;
+
+    const triggerHaptic = () => {
+      const now = Date.now();
+      if (now - lastVibrateTime < 35) return;
+      try {
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+          navigator.vibrate(6);
+          lastVibrateTime = now;
+        }
+      } catch {
+        // Safe to ignore if vibrate unsupported or blocked
+      }
+    };
+
+    const processScrubPoint = (clientX: number) => {
+      const point = getPointFromClientX(clientX, cachedRect);
+      if (!point) return;
+
+      if (point.id !== lastScrubbedId) {
+        lastScrubbedId = point.id;
+        triggerHaptic();
+        setHoveredPointId(point.id);
+        if (point.available) {
+          onSelectRef.current(point.id);
+        }
+      }
+    };
+
+    const endScrub = () => {
+      if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      if (pendingClientX !== null) {
+        processScrubPoint(pendingClientX);
+        pendingClientX = null;
+      }
+      cachedRect = null;
+      if (scrubbingActive) {
+        scrubbingActive = false;
+        setIsScrubbing(false);
+        onScrubbingChangeRef.current?.(false);
+        setHoveredPointId(null);
+      }
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) {
+        if (scrubbingActive) {
+          endScrub();
+        }
+        return;
+      }
+      const touch = e.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      scrubbingActive = false;
+      lastScrubbedId = null;
+
+      const rect = plot.getBoundingClientRect();
+      cachedRect = rect.width > 0 ? { left: rect.left, width: rect.width } : null;
+
+      // When the user holds on the chart for 110ms, engage smooth scrubbing mode
+      holdTimer = setTimeout(() => {
+        scrubbingActive = true;
+        setIsScrubbing(true);
+        onScrubbingChangeRef.current?.(true);
+        processScrubPoint(touchStartX);
+      }, 110);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) {
+        if (scrubbingActive) {
+          endScrub();
+        }
+        return;
+      }
+      const touch = e.touches[0];
+      const dx = Math.abs(touch.clientX - touchStartX);
+      const dy = Math.abs(touch.clientY - touchStartY);
+
+      if (!scrubbingActive) {
+        // If moving vertically more than horizontally, it's a page scroll: cancel hold
+        if (dy > 7 && dy > dx) {
+          if (holdTimer) {
+            clearTimeout(holdTimer);
+            holdTimer = null;
+          }
+          return;
+        }
+
+        // If moving horizontally clearly, activate scrub mode immediately
+        if (dx > 6 && dx > dy) {
+          if (holdTimer) {
+            clearTimeout(holdTimer);
+            holdTimer = null;
+          }
+          scrubbingActive = true;
+          setIsScrubbing(true);
+          onScrubbingChangeRef.current?.(true);
+        }
+      }
+
+      if (scrubbingActive) {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        pendingClientX = touch.clientX;
+        if (rafId === null) {
+          rafId = requestAnimationFrame(() => {
+            rafId = null;
+            if (pendingClientX !== null) {
+              processScrubPoint(pendingClientX);
+            }
+          });
+        }
+      }
+    };
+
+    plot.addEventListener("touchstart", handleTouchStart, { passive: true });
+    plot.addEventListener("touchmove", handleTouchMove, { passive: false });
+    plot.addEventListener("touchend", endScrub, { passive: true });
+    plot.addEventListener("touchcancel", endScrub, { passive: true });
+
+    return () => {
+      if (holdTimer) clearTimeout(holdTimer);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      mouseCleanupRef.current?.();
+      plot.removeEventListener("touchstart", handleTouchStart);
+      plot.removeEventListener("touchmove", handleTouchMove);
+      plot.removeEventListener("touchend", endScrub);
+      plot.removeEventListener("touchcancel", endScrub);
+    };
+  }, [getPointFromClientX]);
+
   const activePointId = hoveredPointId ?? focusedPointId;
   const availablePrices = getAvailablePrices(points);
   const chartScale = getChartScale(availablePrices);
@@ -300,7 +557,10 @@ export function PriceChart({
   const hoveredLine = getLineCoordinatesForId(points, activePointId, chartScale);
 
   return (
-    <section aria-labelledby="price-chart-heading" className="price-chart">
+    <section
+      aria-labelledby="price-chart-heading"
+      className={`price-chart${isScrubbing ? " price-chart--scrubbing" : ""}`}
+    >
       <div className="price-chart__frame rounded-3xl border border-slate-700/70 bg-slate-950/35 p-5 sm:p-6">
         <div className="price-chart__header">
           <h2
@@ -351,7 +611,12 @@ export function PriceChart({
                   ))}
                 </div>
 
-                <div className="price-chart__plot-area">
+                <div
+                  ref={plotAreaRef}
+                  className="price-chart__plot-area"
+                  data-scrubbing={isScrubbing ? "true" : undefined}
+                  onPointerDown={handlePlotPointerDown}
+                >
                   <div
                     className="price-chart__grid-lines"
                     data-testid="price-chart-grid"
@@ -478,7 +743,7 @@ export function PriceChart({
                     className="price-chart__bars grid"
                     style={chartGridStyle}
                   >
-                    {points.map((point) => {
+                    {points.map((point, index) => {
                       const isSelected = point.id === selectedId;
                       const isHovered = point.id === activePointId;
                       const showSelectedBar = isSelected && !isHovered;
@@ -489,6 +754,13 @@ export function PriceChart({
                       const barClass = point.available
                         ? `price-chart__bar--${point.level ?? "normal"}`
                         : "price-chart__bar--unavailable";
+                      const align =
+                        index < points.length * 0.22
+                          ? "start"
+                          : index > points.length * 0.78
+                            ? "end"
+                            : "center";
+
                       return (
                         <div
                           key={point.id}
@@ -543,6 +815,7 @@ export function PriceChart({
                             <span
                               className="price-chart__tooltip"
                               data-level={levelClass}
+                              data-align={align}
                               role="tooltip"
                             >
                               <span className="price-chart__tooltip-time">
