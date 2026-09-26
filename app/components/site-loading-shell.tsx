@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { SiteHeader } from "./site-header";
 
 type SiteLoadingShellProps = {
@@ -13,33 +12,6 @@ function LoadingBlock({ className }: { className: string }) {
       aria-hidden="true"
       className={`site-loading__block ${className}`}
     />
-  );
-}
-
-function LoadingNavigation({
-  destination,
-}: SiteLoadingShellProps) {
-  return (
-    <nav aria-label="Päänavigaatio" className="flex items-center gap-0.5 sm:gap-1">
-      <Link
-        href="/"
-        aria-current={destination === "now" ? "page" : undefined}
-        className={`site-nav-button inline-flex min-h-9 items-center rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white sm:px-3${
-          destination === "now" ? " site-nav-button--active" : ""
-        }`}
-      >
-        Nyt
-      </Link>
-      <Link
-        href="/historia"
-        aria-current={destination === "history" ? "page" : undefined}
-        className={`site-nav-button inline-flex min-h-9 items-center rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white sm:px-3${
-          destination === "history" ? " site-nav-button--active" : ""
-        }`}
-      >
-        Historia
-      </Link>
-    </nav>
   );
 }
 
@@ -195,13 +167,13 @@ export function SiteLoadingShell({ destination }: SiteLoadingShellProps) {
       }`}
     >
       <SiteHeader
+        activeRoute={isHistory ? "history" : "price"}
         brandHref="/"
-        navigation={<LoadingNavigation destination={destination} />}
       />
       <p role="status" aria-live="polite" className="sr-only">
         {isHistory ? "Ladataan hintahistoriaa" : "Ladataan sähkön hintatietoja"}
       </p>
-      <div aria-busy="true">
+      <div id="main-content" tabIndex={-1} aria-busy="true">
         <div aria-hidden="true">
           {isHistory ? <HistoryLoadingContent /> : <NowLoadingContent />}
         </div>

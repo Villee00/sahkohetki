@@ -20,13 +20,12 @@ import {
   useIsPresent,
   usePresenceData,
 } from "motion/react";
-import Link from "next/link";
 import { ApplianceCard } from "./appliance-card";
 import { ExplanationDialog } from "./explanation-dialog";
 import { Icon } from "./ui-icon";
 import { PriceChart } from "./price-chart";
-import { TransferCostPanel } from "./transfer-cost-panel";
 import { SiteHeader } from "./site-header";
+import { TransferCostPanel } from "./transfer-cost-panel";
 import {
   applyPriceMargin,
   calculateUseCostWithTransfer,
@@ -1165,6 +1164,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     <MotionConfig reducedMotion="user">
       <main className="site-shell min-h-screen bg-slate-950 text-slate-100">
         <SiteHeader
+          activeRoute="price"
           brandHref="#main-content"
           innerRef={headerInnerRef}
           floatingContent={
@@ -1214,26 +1214,6 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 </motion.div>
               ) : null}
             </AnimatePresence>
-          }
-          navigation={
-            <nav
-              aria-label="Päänavigaatio"
-              className="flex items-center gap-0.5 sm:gap-1"
-            >
-              <Link
-                href="/"
-                aria-current="page"
-                className="site-nav-button site-nav-button--active inline-flex min-h-9 items-center rounded-xl px-2 text-sm transition hover:bg-white/5 hover:text-white sm:px-3"
-              >
-                Nyt
-              </Link>
-              <Link
-                href="/historia"
-                className="site-nav-button inline-flex min-h-9 items-center rounded-xl px-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white sm:px-3"
-              >
-                Historia
-              </Link>
-            </nav>
           }
         >
           <div
@@ -1320,6 +1300,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
       <div
         id="main-content"
+        tabIndex={-1}
         className="page-content mx-auto max-w-7xl space-y-7 px-4 pb-16 pt-6 sm:px-6 lg:px-8 lg:pt-8"
       >
         <section

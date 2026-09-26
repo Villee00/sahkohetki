@@ -281,6 +281,22 @@ it("keeps explanation controls explicitly named at every breakpoint", () => {
   expect(sourceButton.getAttribute("aria-label")).toBe("Tietolähde");
 });
 
+it("shows all three routes without changing price actions", () => {
+  render(<PriceExplorer data={data} />);
+
+  expect(document.getElementById("main-content")?.getAttribute("tabindex")).toBe("-1");
+  expect(screen.getByRole("link", { name: "Nyt" }).getAttribute("aria-current")).toBe(
+    "page",
+  );
+  expect(screen.getByRole("link", { name: "Historia" }).getAttribute("href")).toBe("/historia");
+  expect(
+    screen.getByRole("link", { name: "Sähköennuste" }).getAttribute("href"),
+  ).toBe("/ennuste");
+  expect(screen.getByRole("button", { name: "Miten laskemme?" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Tietolähde" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Lisää marginaali" })).toBeTruthy();
+});
+
 it("keeps transfer controls in the settings modal and opens it from the usage section", async () => {
   const user = userEvent.setup();
   render(<PriceExplorer data={dataWithTransferData} />);
