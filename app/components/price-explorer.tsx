@@ -482,6 +482,7 @@ function getUnavailableMessage(
 }
 
 export function PriceExplorer({ data }: { data: ExplorerData }) {
+  const isMockData = data.source.name === "Synteettinen esimerkkidata";
   const [mode, setMode] = useState<PriceMode>("hourly");
   const [horizon, setHorizon] = useState<Horizon>("today");
   const [selectedId, setSelectedId] = useState<string | null>(() =>
@@ -1303,6 +1304,14 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
         tabIndex={-1}
         className="page-content mx-auto max-w-7xl space-y-7 px-4 pb-16 pt-6 sm:px-6 lg:px-8 lg:pt-8"
       >
+        {isMockData ? (
+          <p
+            className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
+            role="status"
+          >
+            Synteettinen esimerkkidata on käytössä paikallisessa testauksessa.
+          </p>
+        ) : null}
         <section
           aria-labelledby="selected-heading"
           className="hero-panel overflow-hidden rounded-3xl border border-slate-700/70 bg-slate-900/80 p-5 shadow-2xl shadow-slate-950/30 sm:p-6"
@@ -1544,13 +1553,11 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
             <div>
               <p className="font-medium text-slate-300">
-                Sähköhetki näyttää ENTSO-E:n markkinahinnasta muodostetun
-                arvonlisäverollisen spot-hinnan
-                {priceMargin > 0
-                  ? " ja lisää siihen " +
-                    formatPrice(priceMargin) +
-                    " snt/kWh marginaalin."
-                  : "."}
+                {isMockData
+                  ? "Näytöllä on synteettisiä testihintoja, jotka eivät ole ENTSO-E:n markkinahintoja."
+                  : priceMargin > 0
+                    ? `Sähköhetki näyttää ENTSO-E:n markkinahinnasta muodostetun arvonlisäverollisen spot-hinnan ja lisää siihen ${formatPrice(priceMargin)} snt/kWh marginaalin.`
+                    : "Sähköhetki näyttää ENTSO-E:n markkinahinnasta muodostetun arvonlisäverollisen spot-hinnan."}
               </p>
               <p>
                 Palvelu on suuntaa-antava kustannusarvio, ei tarkka sähkölasku.
@@ -1558,24 +1565,30 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               <span>Tiedot haettu: {formatFetchedAt(data.fetchedAt)}</span>
-              <a
-                className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-                href={data.source.pricesUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {data.source.name}
-                <Icon name="arrow-up-right" className="h-4 w-4" />
-              </a>
-              <a
-                className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-                href={data.source.documentationUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                API-dokumentaatio
-                <Icon name="arrow-up-right" className="h-4 w-4" />
-              </a>
+              {isMockData ? (
+                <span>{data.source.name}</span>
+              ) : (
+                <>
+                  <a
+                    className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+                    href={data.source.pricesUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {data.source.name}
+                    <Icon name="arrow-up-right" className="h-4 w-4" />
+                  </a>
+                  <a
+                    className="inline-flex items-center gap-1 text-sky-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+                    href={data.source.documentationUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    API-dokumentaatio
+                    <Icon name="arrow-up-right" className="h-4 w-4" />
+                  </a>
+                </>
+              )}
             </div>
           </div>
         </footer>

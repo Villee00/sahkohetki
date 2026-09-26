@@ -9,6 +9,11 @@ import {
   type MarketPriceInterval,
 } from "./entsoe-prices";
 import { buildHistoryPageData } from "./history-domain";
+import {
+  getMockHistoricalLoad,
+  isMockDataEnabled,
+  MOCK_DATA_SOURCE,
+} from "./mock-data";
 import type {
   HistoryFailureReason,
   HistoryLoadResult,
@@ -391,6 +396,8 @@ export async function getHistoricalPrices(
   now = new Date(),
   fetchImpl?: FetchImplementation,
 ): Promise<HistoryLoadResult> {
+  if (isMockDataEnabled()) return getMockHistoricalLoad(now);
+
   const context = requestContext(now);
   if (!process.env.ENTSOE_TOKEN?.trim()) {
     return {
@@ -506,7 +513,7 @@ export async function getHistoryPageData(
         dateKey >= range.startDateKey && dateKey <= range.endDateKey,
     );
   });
-  return buildHistoryPageData({
+  const pageData = buildHistoryPageData({
     intervals: analyticsIntervals,
     throughDateKey: context.throughDateKey,
     fetchedAt: result.fetchedAt,
@@ -518,4 +525,7 @@ export async function getHistoryPageData(
     requestedRange: result.requestedRange,
     missingRanges: result.missingRanges,
   });
+  return isMockDataEnabled()
+    ? { ...pageData, source: MOCK_DATA_SOURCE }
+    : pageData;
 }

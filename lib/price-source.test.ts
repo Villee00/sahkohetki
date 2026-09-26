@@ -403,6 +403,32 @@ describe("ENTSO-E source adapter", () => {
     );
   });
 
+  it("serves local synthetic prices without credentials or network calls", async () => {
+    vi.stubEnv("SAHKO_MOCK_DATA", "1");
+    vi.stubEnv("ENTSOE_TOKEN", "");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const now = new Date("2026-08-24T10:00:00.000Z");
+
+    const explorer = await getExplorerData(now);
+    const api = await getPriceApiData("tomorrow", now);
+
+    expect(explorer).toMatchObject({
+      status: "ready",
+      source: { name: "Synteettinen esimerkkidata" },
+    });
+    expect(explorer.today.quarterHour).toHaveLength(96);
+    expect(explorer.tomorrow.quarterHour).toHaveLength(96);
+    expect(api).toMatchObject({
+      status: "ready",
+      data: {
+        source: { name: "Synteettinen esimerkkidata" },
+        horizon: { name: "tomorrow" },
+      },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("does not retry an unpublished result until five minutes have elapsed", async () => {
     vi.stubEnv("ENTSOE_TOKEN", "test-token");
     vi.useFakeTimers();

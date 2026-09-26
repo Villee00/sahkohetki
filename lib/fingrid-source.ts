@@ -2,6 +2,7 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 import { buildForecastSeries } from "./forecast-domain";
+import { getMockElectricityForecast, isMockDataEnabled } from "./mock-data";
 import type {
   CurrentElectricityState,
   ElectricityForecastResult,
@@ -501,6 +502,9 @@ function buildSnapshot(
 export async function getElectricityForecast(
   now = new Date(),
 ): Promise<ElectricityForecastResult> {
+  if (isMockDataEnabled()) {
+    return getMockElectricityForecast(now);
+  }
   const nowMilliseconds = now.getTime();
   if (!Number.isFinite(nowMilliseconds)) {
     return unavailableResult("source-unavailable", REQUEST_MESSAGE);

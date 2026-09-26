@@ -134,6 +134,7 @@ function fetchedLabel(fetchedAt: string | null): string {
 }
 
 export function HistoryExplorer({ data }: { data: HistoryPageData }) {
+  const isMockData = data.source.name === "Synteettinen esimerkkidata";
   const [granularity, setGranularity] = useState<HistoryGranularity>("day");
   const [basis, setBasis] = useState<HistoryPriceBasis>("household");
   const [selectedIds, setSelectedIds] = useState<
@@ -221,13 +222,23 @@ export function HistoryExplorer({ data }: { data: HistoryPageData }) {
 
       <div id="main-content" tabIndex={-1} className="page-content mx-auto space-y-6 px-4 pb-16 pt-7 sm:px-6 lg:px-8">
         <section className="history-intro" aria-labelledby="history-heading">
-          <p className="history-eyebrow">Suomen tarjousalue · ENTSO-E</p>
+          <p className="history-eyebrow">
+            {isMockData
+              ? "Synteettinen esimerkkidata"
+              : "Suomen tarjousalue · ENTSO-E"}
+          </p>
           <h1 id="history-heading">Hintahistoria</h1>
           <p className="history-lead">
             Näe, milloin pörssisähkö poikkesi tavallisesta ja miten valittu
             päivä, viikko tai kuukausi vertautuu edelliseen vastaavaan jaksoon.
           </p>
         </section>
+
+        {isMockData ? (
+          <p className="history-notice" role="status">
+            Synteettinen esimerkkidata on käytössä paikallisessa testauksessa.
+          </p>
+        ) : null}
 
         {data.status === "partial" ? (
           <p className="history-notice" role="status">
@@ -529,16 +540,19 @@ export function HistoryExplorer({ data }: { data: HistoryPageData }) {
 
         <footer className="site-footer border-t border-slate-800 pt-6 text-sm leading-7 text-slate-500">
           <p>
-            Raaka markkinahinta on ENTSO-E:n julkaisema EUR/MWh-arvo.
-            Kotitalousarvio muuntaa sen sentiksi kilowattitunnilta ja lisää 25,5
-            % arvonlisäveron; marginaali, siirto ja sähkövero eivät sisälly
-            arvioon.
+            {isMockData
+              ? "Näytöllä on synteettisiä testihintoja, jotka eivät ole ENTSO-E:n markkinahintoja."
+              : "Raaka markkinahinta on ENTSO-E:n julkaisema EUR/MWh-arvo. Kotitalousarvio muuntaa sen sentiksi kilowattitunnilta ja lisää 25,5 % arvonlisäveron; marginaali, siirto ja sähkövero eivät sisälly arvioon."}
           </p>
           <p>
             Päivitetty {fetchedLabel(data.fetchedAt)} ·{" "}
-            <a href={data.source.pricesUrl} target="_blank" rel="noreferrer">
-              {data.source.name}
-            </a>
+            {isMockData ? (
+              <span>{data.source.name}</span>
+            ) : (
+              <a href={data.source.pricesUrl} target="_blank" rel="noreferrer">
+                {data.source.name}
+              </a>
+            )}
           </p>
         </footer>
       </div>
