@@ -38,7 +38,7 @@ The local `.env` file is gitignored, so it is present only in checkouts where yo
 
 ### Running With Live API Keys
 
-To run against real external APIs, create `.env.local` or `.env` (see `.env.example`) and add the server-only API keys you want to use:
+To run against real external APIs, create `.env.local` or `.env` (see `.env.example`), set `SAHKO_MOCK_DATA=0`, and add the server-only API keys you want to use:
 
 ```dotenv
 ENTSOE_TOKEN=
