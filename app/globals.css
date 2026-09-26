@@ -22,6 +22,7 @@
 html {
   min-width: 320px;
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
   background: var(--ink-950);
 }
 
@@ -2024,6 +2025,7 @@ button:disabled {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  will-change: opacity;
 }
 
 .dialog-panel {
@@ -2033,6 +2035,9 @@ button:disabled {
   scrollbar-color: #334155 transparent;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
+  backdrop-filter: none !important;
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 
 .dialog-panel::-webkit-scrollbar {

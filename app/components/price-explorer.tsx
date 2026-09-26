@@ -844,7 +844,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
   const handleDialogExitComplete = useCallback(() => {
     if (openDialogRef.current !== null) return;
-    openerRef.current?.focus();
+    openerRef.current?.focus({ preventScroll: true });
     openerRef.current = null;
   }, []);
 
