@@ -94,7 +94,7 @@ export function RenewableComparison({ points, prices, selectedId, onSelect }: Pr
     return [{
       index,
       isDateBoundary,
-      label: isDateBoundary ? `${dayAndDate.format(pointDate)} 00` : hour.format(pointDate),
+      label: isDateBoundary ? dayAndDate.format(pointDate) : hour.format(pointDate),
     }];
   }), [dayBoundaries, dayBoundaryIndexes, points]);
   useEffect(() => {

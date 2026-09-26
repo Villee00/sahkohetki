@@ -258,8 +258,11 @@ describe("ForecastExplorer", () => {
       wind?.querySelectorAll(".renewable-comparison__time-label--date-boundary") ?? [],
       (label) => label.textContent,
     );
-    expect(dateLabels)
-      .toContain("ke 23.9. 00");
+    expect(dateLabels).toEqual(["ke 23.9."]);
+    expect(Array.from(
+      wind?.querySelectorAll(".renewable-comparison__time-label:not(.renewable-comparison__time-label--date-boundary)") ?? [],
+      (label) => label.textContent,
+    )).toEqual(["21", "03"]);
   });
 
   it("offers nearby hours inside the mobile comparison", async () => {
