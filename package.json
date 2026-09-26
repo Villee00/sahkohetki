@@ -4,8 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:mock": "node scripts/dev-mock.mjs",
     "build": "next build",
+    "build:mock": "node scripts/build-mock.mjs",
     "start": "next start",
+    "start:mock": "node scripts/start-mock.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"

@@ -16,6 +16,11 @@ import {
 import { buildExplorerData } from "./price-domain";
 import { getTransferCostApiData } from "./transfer-source";
 import {
+  getMockQuarterPrices,
+  isMockDataEnabled,
+  MOCK_DATA_SOURCE,
+} from "./mock-data";
+import {
   getHelsinkiDateBounds,
   getHelsinkiDateKey,
   getNextHelsinkiDateKey,
@@ -273,6 +278,16 @@ function unavailableExplorerData(
 }
 
 export async function getExplorerData(now = new Date()): Promise<ExplorerData> {
+  if (isMockDataEnabled()) {
+    const data = buildExplorerData({
+      quarterPrices: getMockQuarterPrices(now),
+      now,
+      fetchedAt: now.toISOString(),
+      transferData: getTransferCostApiData(),
+    });
+    return { ...data, source: MOCK_DATA_SOURCE };
+  }
+
   const snapshot = await getCachedSourceSnapshot();
   const transferData = getTransferCostApiData();
   if (snapshot.status === "unavailable") {
@@ -291,6 +306,21 @@ export async function getPriceApiData(
   horizon: PriceApiHorizon,
   now = new Date(),
 ): Promise<PriceApiResult> {
+  if (isMockDataEnabled()) {
+    return {
+      status: "ready",
+      data: {
+        ...buildPriceApiResponse({
+          quarterPrices: getMockQuarterPrices(now),
+          now,
+          fetchedAt: now.toISOString(),
+          horizon,
+        }),
+        source: MOCK_DATA_SOURCE,
+      },
+    };
+  }
+
   const snapshot = await getCachedSourceSnapshot();
   if (snapshot.status === "unavailable") return snapshot;
   if (snapshot.fetchedAt === null) {
