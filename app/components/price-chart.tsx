@@ -157,6 +157,10 @@ function getAveragePrice(points: PricePoint[]): number | null {
   return prices.reduce((total, price) => total + price, 0) / prices.length;
 }
 
+function getPointCenterPosition(index: number, count: number): number {
+  return ((index + 0.5) / count) * 100;
+}
+
 function getLineSegments(points: PricePoint[], scale: ChartScale): string[] {
   const segments: string[] = [];
   let coordinates: string[] = [];
@@ -164,17 +168,19 @@ function getLineSegments(points: PricePoint[], scale: ChartScale): string[] {
   points.forEach((point, index) => {
     const price = getAvailablePointPrice(point);
     if (price === null) {
-      if (coordinates.length > 1) segments.push(coordinates.join(" "));
+      if (coordinates.length > 0) segments.push(coordinates.join(" "));
       coordinates = [];
       return;
     }
 
+    const y = Number((100 - getScalePosition(price, scale)).toFixed(6));
     coordinates.push(
-      `${((index + 0.5) / points.length) * 100},${100 - getScalePosition(price, scale)}`,
+      `${(index / points.length) * 100},${y}`,
+      `${((index + 1) / points.length) * 100},${y}`,
     );
   });
 
-  if (coordinates.length > 1) segments.push(coordinates.join(" "));
+  if (coordinates.length > 0) segments.push(coordinates.join(" "));
   return segments;
 }
 
@@ -251,6 +257,9 @@ export function PriceChart({
   const currentTimePosition = getCurrentTimePosition(points, currentTime);
   const hasCarriedForwardPoint =
     showCarriedForwardMarker && points.some((point) => point.carriedForward);
+  const hasUnavailablePoint = points.some(
+    (point) => getAvailablePointPrice(point) === null,
+  );
   const chartGridStyle = {
     gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))`,
   };
@@ -376,7 +385,18 @@ export function PriceChart({
                       </svg>
                       {points.map((point, index) => {
                         const price = getAvailablePointPrice(point);
-                        if (price === null) return null;
+                        if (price === null) {
+                          return (
+                            <span
+                              key={point.id}
+                              className="price-chart__line-point price-chart__line-point--unavailable"
+                              style={{
+                                left: `${getPointCenterPosition(index, points.length)}%`,
+                                bottom: `${zeroPosition}%`,
+                              }}
+                            />
+                          );
+                        }
                         return (
                           <span
                             key={point.id}
@@ -394,7 +414,7 @@ export function PriceChart({
                                 : ""
                             }`}
                             style={{
-                              left: `${((index + 0.5) / points.length) * 100}%`,
+                              left: `${getPointCenterPosition(index, points.length)}%`,
                               bottom: `${getScalePosition(price, chartScale)}%`,
                             }}
                           />
@@ -566,6 +586,17 @@ export function PriceChart({
                 </span>
                 <span className="price-chart__legend-detail">= Korkea</span>
               </span>
+              {showLineChart && hasUnavailablePoint ? (
+                <span className="price-chart__legend-item">
+                  <span
+                    className="price-chart__legend-swatch price-chart__legend-swatch--unavailable"
+                    aria-hidden="true"
+                  />
+                  <span className="price-chart__legend-detail">
+                    Ei saatavilla
+                  </span>
+                </span>
+              ) : null}
               {hasCarriedForwardPoint ? (
                 <span className="price-chart__legend-item">
                   <span

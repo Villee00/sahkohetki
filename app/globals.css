@@ -1531,6 +1531,14 @@ button:disabled {
   background: #e95b4f;
 }
 
+.price-chart__line-point--unavailable {
+  width: 0.42rem;
+  height: 0.42rem;
+  border: 1px dashed #94a3b8;
+  border-radius: 0.1rem;
+  background: rgba(51, 65, 85, 0.9);
+}
+
 .price-chart__line-point--selected,
 .price-chart__line-point--hovered {
   z-index: 1;
@@ -1915,6 +1923,13 @@ button:disabled {
 .price-chart__legend-swatch--high {
   color: #ef4444;
   background: #ef4444;
+}
+
+.price-chart__legend-swatch--unavailable {
+  border: 1px dashed #94a3b8;
+  border-radius: 0.15rem;
+  background: #334155;
+  box-shadow: none;
 }
 
 .price-chart__legend-name {

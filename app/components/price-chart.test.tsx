@@ -100,6 +100,25 @@ it("switches between bar and line charts while keeping interval selection", asyn
   expect(document.querySelectorAll(".price-chart__bar")).toHaveLength(2);
 });
 
+it("holds each price flat for its full interval and changes at the boundary", async () => {
+  const user = userEvent.setup();
+  render(
+    <PriceChart
+      points={[point, higherPoint]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "Viivakaavio" }));
+  expect(
+    screen
+      .getByTestId("price-chart-line")
+      .querySelector("polyline")
+      ?.getAttribute("points"),
+  ).toBe("0,62 50,62 50,44 100,44");
+});
+
 it("breaks the line at unavailable intervals", async () => {
   const user = userEvent.setup();
   render(
@@ -117,9 +136,49 @@ it("breaks the line at unavailable intervals", async () => {
   );
 
   await user.click(screen.getByRole("button", { name: "Viivakaavio" }));
-  expect(screen.getByTestId("price-chart-line").querySelectorAll("polyline")).toHaveLength(2);
-  expect(document.querySelectorAll(".price-chart__line-point")).toHaveLength(4);
-  expect(screen.getByRole("button", { name: /hinta ei ole saatavilla/ }).hasAttribute("disabled")).toBe(true);
+  expect(
+    screen.getByTestId("price-chart-line").querySelectorAll("polyline"),
+  ).toHaveLength(2);
+  expect(document.querySelectorAll(".price-chart__line-point")).toHaveLength(5);
+  expect(
+    document.querySelectorAll(".price-chart__line-point--unavailable"),
+  ).toHaveLength(1);
+  expect(
+    screen
+      .getByRole("button", { name: /hinta ei ole saatavilla/ })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+});
+
+it("marks unavailable intervals after the line ends", async () => {
+  const user = userEvent.setup();
+  render(
+    <PriceChart
+      points={[
+        point,
+        higherPoint,
+        {
+          ...point,
+          id: "unpublished",
+          available: false,
+          priceCentsPerKwh: null,
+        },
+      ]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "Viivakaavio" }));
+  const missingMarker = document.querySelector<HTMLElement>(
+    ".price-chart__line-point--unavailable",
+  );
+  expect(missingMarker).not.toBeNull();
+  expect(Number.parseFloat(missingMarker?.style.left ?? "0")).toBeCloseTo(
+    83.33,
+    2,
+  );
+  expect(screen.getByText("Ei saatavilla")).toBeTruthy();
 });
 
 it("shows a fast styled tooltip and highlights the hovered interval", async () => {
