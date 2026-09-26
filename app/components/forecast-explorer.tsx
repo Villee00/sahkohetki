@@ -19,10 +19,12 @@ import type {
   PowerMeasurement,
 } from "../../lib/forecast-types";
 import { ForecastChart } from "./forecast-chart";
+import { RenewableComparison } from "./renewable-comparison";
 import { SiteHeader } from "./site-header";
 
 type ForecastExplorerProps = {
   result: ElectricityForecastResult;
+  prices?: { startAt: string; priceCentsPerKwh: number | null }[];
 };
 
 const powerFormatter = new Intl.NumberFormat("fi-FI", {
@@ -173,135 +175,6 @@ function LedgerItem({ label, value, tone }: LedgerItemProps) {
   );
 }
 
-type MiniSeries = {
-  path: string;
-  firstX: number;
-  lastX: number;
-};
-
-function miniSegments(
-  points: ForecastInterval[],
-  valueFor: (point: ForecastInterval) => number | null,
-  maximum: number,
-): MiniSeries[] {
-  const width = 1_000;
-  const height = 126;
-  const top = 12;
-  const bottom = 24;
-  const plotHeight = height - top - bottom;
-  const x = (index: number) =>
-    points.length <= 1 ? width / 2 : (index / (points.length - 1)) * width;
-  const y = (value: number) => top + plotHeight - (value / maximum) * plotHeight;
-  const segments: MiniSeries[] = [];
-  let commands: string[] = [];
-  let firstX = 0;
-  let lastX = 0;
-
-  const flush = () => {
-    if (commands.length > 0) {
-      segments.push({ path: commands.join(" "), firstX, lastX });
-    }
-    commands = [];
-  };
-
-  points.forEach((point, index) => {
-    const value = valueFor(point);
-    if (value === null || !Number.isFinite(value)) {
-      flush();
-      return;
-    }
-    const nextX = x(index);
-    if (commands.length === 0) firstX = nextX;
-    lastX = nextX;
-    commands.push(
-      `${commands.length === 0 ? "M" : "L"} ${nextX.toFixed(2)} ${y(value).toFixed(2)}`,
-    );
-  });
-  flush();
-  return segments;
-}
-
-type RenewableChartProps = {
-  title: string;
-  points: ForecastInterval[];
-  forecastKey: "windMw" | "solarMw";
-  capacityKey: "windCapacityMw" | "solarCapacityMw";
-  tone: "wind" | "solar";
-};
-
-function RenewableChart({
-  title,
-  points,
-  forecastKey,
-  capacityKey,
-  tone,
-}: RenewableChartProps) {
-  const forecasts = points.flatMap((point) =>
-    point[forecastKey] === null ? [] : [point[forecastKey]],
-  );
-  const capacities = points.flatMap((point) =>
-    point[capacityKey] === null ? [] : [point[capacityKey]],
-  );
-  const maximum = Math.max(1, ...forecasts, ...capacities) * 1.1;
-  const forecastSegments = miniSegments(
-    points,
-    (point) => point[forecastKey],
-    maximum,
-  );
-  const capacitySegments = miniSegments(
-    points,
-    (point) => point[capacityKey],
-    maximum,
-  );
-  const baseline = 102;
-
-  return (
-    <div className={`renewable-chart renewable-chart--${tone}`}>
-      <div className="renewable-chart__header">
-        <h3>{title}</h3>
-        <div className="renewable-chart__legend">
-          <span className="renewable-chart__forecast-label">Ennuste</span>
-          {capacities.length > 0 ? (
-            <span className="renewable-chart__capacity-label">
-              Arvioitu kapasiteetti
-            </span>
-          ) : (
-            <span className="renewable-chart__capacity-missing">
-              Kapasiteettiarviota ei saatavilla
-            </span>
-          )}
-        </div>
-      </div>
-      <svg
-        viewBox="0 0 1000 126"
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={`${title} ja Fingridin ennustemallin kapasiteettiarvio`}
-        className="renewable-chart__svg"
-      >
-        <line x1="0" x2="1000" y1={baseline} y2={baseline} className="renewable-chart__axis" />
-        <line x1="0" x2="1000" y1="57" y2="57" className="renewable-chart__grid" />
-        {forecastSegments.map((segment, index) => (
-          <g key={`forecast-${index}`}>
-            <path
-              d={`${segment.path} L ${segment.lastX} ${baseline} L ${segment.firstX} ${baseline} Z`}
-              className="renewable-chart__area"
-            />
-            <path d={segment.path} className="renewable-chart__line" />
-          </g>
-        ))}
-        {capacitySegments.map((segment, index) => (
-          <path
-            key={`capacity-${index}`}
-            d={segment.path}
-            className="renewable-chart__capacity"
-          />
-        ))}
-      </svg>
-    </div>
-  );
-}
-
 type CurrentCardProps = {
   icon: LucideIcon;
   label: string;
@@ -426,15 +299,24 @@ function UnavailableForecast({ reason }: { reason: string }) {
   );
 }
 
-export function ForecastExplorer({ result }: ForecastExplorerProps) {
+export function ForecastExplorer({
+  result,
+  prices = [],
+}: ForecastExplorerProps) {
   if (result.status === "unavailable") {
     return <UnavailableForecast reason={result.reason} />;
   }
 
-  return <ReadyForecast snapshot={result} />;
+  return <ReadyForecast snapshot={result} prices={prices} />;
 }
 
-function ReadyForecast({ snapshot }: { snapshot: ForecastSnapshot }) {
+function ReadyForecast({
+  snapshot,
+  prices,
+}: {
+  snapshot: ForecastSnapshot;
+  prices: { startAt: string; priceCentsPerKwh: number | null }[];
+}) {
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     firstSelectedId(snapshot),
   );
@@ -590,28 +472,18 @@ function ReadyForecast({ snapshot }: { snapshot: ForecastSnapshot }) {
           <div className="forecast-panel__heading renewable-section__heading">
             <div>
               <p className="forecast-panel__kicker">Sääriippuvainen tuotanto</p>
-              <h2 id="renewable-heading">Tuuli ja aurinko</h2>
+              <h2 id="renewable-heading">Tuuli ja aurinko suhteessa hintaan</h2>
             </div>
             <p className="renewable-section__caveat">
-              Kapasiteetti on Fingridin ennustemallin arvio, ei virallinen käytettävissä oleva kapasiteetti.
+              Valitse tunti ja vertaa ennusteita saman tunnin spot-hintaan.
             </p>
           </div>
-          <div className="renewable-section__charts">
-            <RenewableChart
-              title="Tuuli (MW)"
-              points={snapshot.hourly}
-              forecastKey="windMw"
-              capacityKey="windCapacityMw"
-              tone="wind"
-            />
-            <RenewableChart
-              title="Aurinko (MW)"
-              points={snapshot.hourly}
-              forecastKey="solarMw"
-              capacityKey="solarCapacityMw"
-              tone="solar"
-            />
-          </div>
+          <RenewableComparison
+            points={snapshot.hourly}
+            prices={prices}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
         </section>
 
         <CurrentState current={snapshot.current} />
