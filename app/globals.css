@@ -129,7 +129,10 @@ button:disabled {
   display: none;
 }
 
-.site-header__inner,
+.site-header__inner {
+  max-width: 100% !important;
+}
+
 .page-content {
   max-width: 72rem !important;
 }

@@ -65,6 +65,23 @@ describe("SiteHeader", () => {
       utilityNavigation.querySelector("button")?.textContent,
     ).toBe("Tietolähde");
   });
+
+  it("keeps the header in its compact layout until desktop has room for one row", () => {
+    const { container } = render(<SiteHeader activeRoute="price" />);
+
+    expect(
+      container.querySelector(".site-header__inner")?.className,
+    ).toContain("xl:flex-nowrap");
+    expect(container.querySelector(".site-route-nav")?.className).toContain(
+      "xl:order-none",
+    );
+    expect(container.querySelector(".site-route-nav")?.className).toContain(
+      "xl:w-auto",
+    );
+    expect(container.querySelector(".site-header__tools")?.className).toContain(
+      "xl:flex-nowrap",
+    );
+  });
 });
 
 it.each(["now", "history"] as const)(

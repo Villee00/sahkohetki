@@ -42,7 +42,7 @@ export function SiteHeader({
       </a>
       <div
         ref={innerRef}
-        className="site-header__inner mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 sm:gap-x-5 sm:px-6 lg:flex-nowrap lg:px-8"
+        className="site-header__inner mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 sm:gap-x-5 sm:px-6 lg:px-8 xl:flex-nowrap"
       >
         <div className="site-header__brand-group contents">
           <Link
@@ -71,7 +71,7 @@ export function SiteHeader({
 
           <nav
             aria-label="Päänavigaatio"
-            className="site-route-nav order-3 flex w-full items-center gap-1 lg:order-none lg:w-auto"
+            className="site-route-nav order-3 flex w-full items-center gap-1 xl:order-none xl:w-auto"
           >
             {routes.map((route) => {
               const active = route.id === activeRoute;
@@ -89,7 +89,7 @@ export function SiteHeader({
           </nav>
         </div>
 
-        <div className="site-header__tools ml-auto flex min-w-0 flex-wrap items-center gap-1 sm:gap-2">
+        <div className="site-header__tools ml-auto flex min-w-0 flex-wrap items-center gap-1 sm:gap-2 xl:flex-nowrap">
           {children}
           {context ? (
             <div className="site-header__context min-w-0">{context}</div>
