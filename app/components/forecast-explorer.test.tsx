@@ -209,6 +209,23 @@ describe("ForecastExplorer", () => {
     expect(within(table).getByText("Ei saatavilla")).toBeTruthy();
   });
 
+  it("compares matching wind, solar and spot hours through chart selection", async () => {
+    const user = userEvent.setup();
+    render(<ForecastExplorer result={readySnapshot} prices={[
+      { startAt: firstHour.startAt, priceCentsPerKwh: 4.25 },
+      { startAt: secondHour.startAt, priceCentsPerKwh: 12.5 },
+    ]} />);
+
+    await user.click(screen.getByRole("button", { name: /Valitse aurinko.*200 MW/i }));
+    const comparison = screen.getByRole("region", { name: /tuuli ja aurinko/i });
+    expect(within(comparison).getByText("12,5 snt/kWh")).toBeTruthy();
+    expect(within(comparison).getByText("4 100 MW")).toBeTruthy();
+    expect(within(comparison).getByText("200 MW")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /Valitse spot-hinta.*ei saatavilla/i }));
+    expect(within(comparison).getAllByText("Ei saatavilla").length).toBeGreaterThan(0);
+  });
+
   it("labels missing capacity as unavailable instead of deriving utilization", () => {
     renderExplorer({
       ...readySnapshot,
