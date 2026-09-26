@@ -1346,6 +1346,14 @@ button:disabled {
   min-width: 0;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.price-chart__view-toggle {
+  min-height: 2rem !important;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 0 0.7rem !important;
 }
 
 .price-chart__controls {
@@ -1480,6 +1488,62 @@ button:disabled {
   transform: translateX(-50%);
 }
 
+.price-chart__line-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.price-chart__line {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.price-chart__line polyline {
+  fill: none;
+  stroke: #7dd3fc;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.price-chart__line-selected,
+.price-chart__line-hover,
+.price-chart__line-carried {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.price-chart__line-selected {
+  stroke: #38bdf8;
+  stroke-width: 4;
+}
+
+.price-chart__line-hover {
+  stroke: #f8fafc;
+  stroke-width: 5;
+  filter: drop-shadow(0 0 5px rgba(125, 211, 252, 0.8));
+}
+
+.price-chart__line-carried {
+  stroke: #cbd5e1;
+  stroke-dasharray: 5 4;
+  stroke-width: 3;
+}
+
+.price-chart__unavailable-marker {
+  position: absolute;
+  width: 0.42rem;
+  height: 0.42rem;
+  border: 1px dashed #94a3b8;
+  border-radius: 0.1rem;
+  background: rgba(51, 65, 85, 0.9);
+  transform: translate(-50%, 50%);
+}
+
 .price-chart__bars,
 .price-chart__axis {
   display: grid;
@@ -1488,7 +1552,7 @@ button:disabled {
 
 .price-chart__bars {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   height: 12.8rem;
   align-items: stretch;
 }
@@ -1846,6 +1910,20 @@ button:disabled {
   background: #ef4444;
 }
 
+.price-chart__legend-swatch--line {
+  height: 0.15rem;
+  border-radius: 0.1rem;
+  background: #7dd3fc;
+  box-shadow: none;
+}
+
+.price-chart__legend-swatch--unavailable {
+  border: 1px dashed #94a3b8;
+  border-radius: 0.15rem;
+  background: #334155;
+  box-shadow: none;
+}
+
 .price-chart__legend-name {
   font-weight: 700;
 }
@@ -1875,6 +1953,17 @@ button:disabled {
     transparent 6px
   );
   box-shadow: 0 0 8px rgba(148, 163, 184, 0.42);
+}
+
+.price-chart__legend-swatch--carried-line {
+  height: 0.15rem;
+  border-radius: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    #cbd5e1 0 4px,
+    transparent 4px 7px
+  );
+  box-shadow: none;
 }
 
 .price-chart__legend-name--carried {
@@ -3366,6 +3455,7 @@ body:has(.dialog-backdrop) {
   .price-chart__header-tools {
     width: 100%;
     align-items: stretch;
+    justify-content: flex-start;
   }
 
   .price-chart__controls {
