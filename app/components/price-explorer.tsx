@@ -270,12 +270,22 @@ function HeroValueTransition({
   itemKey,
   className,
   direction = 0,
+  isImmediate = false,
 }: {
   value: string;
   itemKey: string;
   className: string;
   direction?: HeroMotionDirection;
+  isImmediate?: boolean;
 }) {
+  if (isImmediate) {
+    return (
+      <span className={`price-hero__animated-slot ${className}`}>
+        <span style={{ gridArea: "1 / 1" }}>{value}</span>
+      </span>
+    );
+  }
+
   return (
     <span className={`price-hero__animated-slot ${className}`}>
       <AnimatePresence initial={false} mode="popLayout" custom={direction}>
@@ -289,10 +299,12 @@ function HeroPriceTransition({
   value,
   itemKey,
   className,
+  isImmediate = false,
 }: {
   value: number | null;
   itemKey: string;
   className: string;
+  isImmediate?: boolean;
 }) {
   const [transition, setTransition] = useState<{
     itemKey: string;
@@ -321,6 +333,7 @@ function HeroPriceTransition({
       className={className}
       value={value === null ? "—" : formatPrice(value)}
       direction={transition.direction}
+      isImmediate={isImmediate}
     />
   );
 }
@@ -489,6 +502,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
     getInitialSelection(data),
   );
   const [isMobilePriceFloating, setIsMobilePriceFloating] = useState(false);
+  const [isChartScrubbing, setIsChartScrubbing] = useState(false);
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [openDialog, setOpenDialog] = useState<DialogName>(null);
   const [priceMargin, setPriceMargin] = useState(0);
@@ -581,6 +595,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
 
   useEffect(() => {
     const updateFloatingPrice = () => {
+      if (isChartScrubbing) return;
       const priceContentTop =
         selectedPriceContentRef.current?.getBoundingClientRect().top;
       const headerBottom =
@@ -1202,6 +1217,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                       itemKey={selectedPoint?.id ?? "unavailable"}
                       className="mobile-price-float__time"
                       value={selectedPoint?.label ?? "Ei saatavilla"}
+                      isImmediate={isChartScrubbing}
                     />
                   </span>
                   <span className="mobile-price-float__value">
@@ -1209,6 +1225,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                       itemKey={selectedPoint?.id ?? "unavailable"}
                       className="mobile-price-float__number"
                       value={selectedPrice}
+                      isImmediate={isChartScrubbing}
                     />
                     <span className="mobile-price-float__unit"> snt/kWh</span>
                   </span>
@@ -1348,6 +1365,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                   itemKey={selectedPoint?.id ?? "unavailable"}
                   className="price-hero__interval-value font-mono"
                   value={selectedPoint?.label ?? "Ei saatavilla"}
+                  isImmediate={isChartScrubbing}
                 />
               </div>
               <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -1355,6 +1373,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                   itemKey={selectedPoint?.id ?? "unavailable"}
                   className="hero-price font-mono text-5xl font-semibold tracking-tight text-white sm:text-6xl"
                   value={selectedPrice}
+                  isImmediate={isChartScrubbing}
                 />
                 <span className="font-mono text-base text-slate-400">
                   snt / kWh
@@ -1474,6 +1493,7 @@ export function PriceExplorer({ data }: { data: ExplorerData }) {
                 ? (unavailableMessage ?? undefined)
                 : undefined
             }
+            onScrubbingChange={setIsChartScrubbing}
           />
         ) : null}
 

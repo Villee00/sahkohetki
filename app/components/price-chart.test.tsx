@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { PriceChart } from "./price-chart";
@@ -629,4 +629,185 @@ it("keeps daylight-saving offset markers in visible time labels", () => {
   );
 
   expect(screen.getByText("+3")).toBeTruthy();
+});
+
+
+it("supports touch-hold scrubbing to select and highlight intervals smoothly", () => {
+  vi.useFakeTimers();
+  const onSelect = vi.fn();
+  const onScrubbingChange = vi.fn();
+
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+    left: 0,
+    top: 0,
+    width: 200,
+    height: 200,
+    right: 200,
+    bottom: 200,
+    x: 0,
+    y: 0,
+    toJSON: () => {},
+  });
+
+  const { container } = render(
+    <PriceChart
+      points={[point, higherPoint]}
+      selectedId={point.id}
+      onSelect={onSelect}
+      onScrubbingChange={onScrubbingChange}
+    />,
+  );
+
+  const plotArea = container.querySelector(".price-chart__plot-area");
+  expect(plotArea).not.toBeNull();
+
+  // Touch on the second half (x = 150 of 200 -> higherPoint)
+  const touchStart = new Event("touchstart", { bubbles: true, cancelable: true });
+  Object.assign(touchStart, {
+    touches: [{ clientX: 150, clientY: 50 }],
+  });
+  plotArea!.dispatchEvent(touchStart);
+
+  // Before 110ms hold timer, scrub is not yet active
+  expect(onScrubbingChange).not.toHaveBeenCalled();
+
+  // Advance time past the 110ms hold threshold
+  act(() => { vi.advanceTimersByTime(120); });
+
+  expect(onScrubbingChange).toHaveBeenCalledWith(true);
+  expect(onSelect).toHaveBeenCalledWith(higherPoint.id);
+  expect(screen.getByRole("tooltip").textContent).toContain("9,00 snt/kWh");
+
+  // Touch end ends scrubbing
+  const touchEnd = new Event("touchend", { bubbles: true, cancelable: true });
+  act(() => { plotArea!.dispatchEvent(touchEnd); });
+
+  expect(onScrubbingChange).toHaveBeenCalledWith(false);
+  expect(screen.queryByRole("tooltip")).toBeNull();
+
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
+
+it("supports horizontal touch drag to scrub across intervals and cancels vertical scroll", () => {
+  const onSelect = vi.fn();
+  const onScrubbingChange = vi.fn();
+
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+    left: 0,
+    top: 0,
+    width: 200,
+    height: 200,
+    right: 200,
+    bottom: 200,
+    x: 0,
+    y: 0,
+    toJSON: () => {},
+  });
+
+  const { container } = render(
+    <PriceChart
+      points={[point, higherPoint]}
+      selectedId={point.id}
+      onSelect={onSelect}
+      onScrubbingChange={onScrubbingChange}
+    />,
+  );
+
+  const plotArea = container.querySelector(".price-chart__plot-area")!;
+
+  // Touch start at x=20, y=50 (first point)
+  const touchStart = new Event("touchstart", { bubbles: true, cancelable: true });
+  Object.assign(touchStart, {
+    touches: [{ clientX: 20, clientY: 50 }],
+  });
+  plotArea.dispatchEvent(touchStart);
+
+  // Horizontal move to x=150, y=52 (dx = 130, dy = 2 -> clear horizontal scrub)
+  const touchMove = new Event("touchmove", { bubbles: true, cancelable: true });
+  Object.assign(touchMove, {
+    touches: [{ clientX: 150, clientY: 52 }],
+  });
+  const preventDefaultSpy = vi.spyOn(touchMove, "preventDefault");
+  plotArea.dispatchEvent(touchMove);
+
+  expect(onScrubbingChange).toHaveBeenCalledWith(true);
+  expect(preventDefaultSpy).toHaveBeenCalled();
+
+  // End touch
+  const touchEnd = new Event("touchend", { bubbles: true, cancelable: true });
+  plotArea.dispatchEvent(touchEnd);
+
+  expect(onScrubbingChange).toHaveBeenCalledWith(false);
+  vi.restoreAllMocks();
+});
+
+it("preserves standard page scrolling on vertical touch gestures", () => {
+  vi.useFakeTimers();
+  const onSelect = vi.fn();
+  const onScrubbingChange = vi.fn();
+
+  const { container } = render(
+    <PriceChart
+      points={[point, higherPoint]}
+      selectedId={point.id}
+      onSelect={onSelect}
+      onScrubbingChange={onScrubbingChange}
+    />,
+  );
+
+  const plotArea = container.querySelector(".price-chart__plot-area")!;
+
+  // Touch start at x=50, y=50
+  const touchStart = new Event("touchstart", { bubbles: true, cancelable: true });
+  Object.assign(touchStart, {
+    touches: [{ clientX: 50, clientY: 50 }],
+  });
+  plotArea.dispatchEvent(touchStart);
+
+  // Vertical move (dy = 25, dx = 2 -> page scroll)
+  const touchMove = new Event("touchmove", { bubbles: true, cancelable: true });
+  Object.assign(touchMove, {
+    touches: [{ clientX: 52, clientY: 75 }],
+  });
+  const preventDefaultSpy = vi.spyOn(touchMove, "preventDefault");
+  plotArea.dispatchEvent(touchMove);
+
+  // Timers advance, but hold timer should have been canceled
+  vi.advanceTimersByTime(200);
+
+  expect(preventDefaultSpy).not.toHaveBeenCalled();
+  expect(onScrubbingChange).not.toHaveBeenCalled();
+  expect(onSelect).not.toHaveBeenCalled();
+
+  vi.useRealTimers();
+});
+
+it("positions tooltips with data-align attribute to prevent clipping near edges", async () => {
+  const user = userEvent.setup();
+  // 5 points: index 0 (<0.22) is start, index 2 (0.4) is center, index 4 (0.8) is end
+  const points = [0, 1, 2, 3, 4].map((i) => ({
+    ...point,
+    id: `p-${i}`,
+    label: `10:0${i}–10:0${i + 1}`,
+  }));
+
+  render(<PriceChart points={points} selectedId="p-0" onSelect={vi.fn()} />);
+
+  const buttons = screen.getAllByRole("button", { name: /10:0/ });
+
+  // Hover first point (edge left)
+  await user.hover(buttons[0]);
+  expect(screen.getByRole("tooltip").getAttribute("data-align")).toBe("start");
+  await user.unhover(buttons[0]);
+
+  // Hover middle point
+  await user.hover(buttons[2]);
+  expect(screen.getByRole("tooltip").getAttribute("data-align")).toBe("center");
+  await user.unhover(buttons[2]);
+
+  // Hover last point (edge right)
+  await user.hover(buttons[4]);
+  expect(screen.getByRole("tooltip").getAttribute("data-align")).toBe("end");
+  await user.unhover(buttons[4]);
 });

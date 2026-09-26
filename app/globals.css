@@ -1420,6 +1420,10 @@ button:disabled {
 .price-chart__plot-area {
   position: relative;
   min-width: 0;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .price-chart__grid-lines {
@@ -1555,6 +1559,26 @@ button:disabled {
   z-index: 3;
   height: 12.8rem;
   align-items: stretch;
+  touch-action: pan-y;
+}
+
+.price-chart__bar-button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.price-chart--scrubbing {
+  cursor: ew-resize;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.price-chart--scrubbing .price-chart__bar,
+.price-chart--scrubbing .price-chart__item {
+  transition: none !important;
+}
+
+.price-chart--scrubbing .price-chart__tooltip {
+  animation: none !important;
 }
 
 .price-chart__item {
@@ -1779,24 +1803,33 @@ button:disabled {
   white-space: normal;
 }
 
-.price-chart__item:first-child .price-chart__tooltip {
+.price-chart__item:first-child .price-chart__tooltip,
+.price-chart__tooltip[data-align="start"] {
   left: 0.35rem;
   transform: translateY(0);
 }
 
-.price-chart__item:first-child .price-chart__tooltip::after {
-  left: 1.1rem;
+.price-chart__item:first-child .price-chart__tooltip::after,
+.price-chart__tooltip[data-align="start"]::after {
+  left: clamp(0.75rem, 50%, 2rem);
 }
 
-.price-chart__item:last-child .price-chart__tooltip {
+.price-chart__item:last-child .price-chart__tooltip,
+.price-chart__tooltip[data-align="end"] {
   right: 0.35rem;
   left: auto;
   transform: translateY(0);
 }
 
-.price-chart__item:last-child .price-chart__tooltip::after {
-  right: 1.1rem;
+.price-chart__item:last-child .price-chart__tooltip::after,
+.price-chart__tooltip[data-align="end"]::after {
+  right: clamp(0.75rem, 50%, 2rem);
   left: auto;
+}
+
+.price-chart__tooltip[data-align="center"] {
+  left: 50%;
+  transform: translate(-50%, 0);
 }
 
 @keyframes price-chart-tooltip-in {
