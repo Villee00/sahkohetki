@@ -1,6 +1,8 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useRef } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import type { ForecastInterval } from "../../lib/forecast-types";
 
 type PriceHour = { startAt: string; priceCentsPerKwh: number | null };
@@ -53,6 +55,7 @@ function label(value: number | null, unit: "MW" | "snt/kWh") {
 }
 
 export function RenewableComparison({ points, prices, selectedId, onSelect }: Props) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const priceByStart = new Map(prices.map((point) => [point.startAt, point.priceCentsPerKwh]));
   const selectedIndex = points.findIndex((point) => point.id === selectedId);
   const selected = points[selectedIndex] ?? null;
@@ -63,6 +66,20 @@ export function RenewableComparison({ points, prices, selectedId, onSelect }: Pr
     { kind: "solar", title: "Aurinko", values: points.map((point) => point.solarMw), capacity: points.map((point) => point.solarCapacityMw), unit: "MW" },
     { kind: "price", title: "Spot-hinta", values: priceValues, unit: "snt/kWh" },
   ];
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || selectedIndex < 0 || scroller.scrollWidth <= scroller.clientWidth) return;
+    const hit = scroller.querySelectorAll<HTMLElement>(".renewable-comparison__track--wind .renewable-comparison__hit")[selectedIndex];
+    if (!hit) return;
+    const scrollerBounds = scroller.getBoundingClientRect();
+    const hitBounds = hit.getBoundingClientRect();
+    scroller.scrollLeft += hitBounds.left - scrollerBounds.left - scroller.clientWidth / 2 + hitBounds.width / 2;
+  }, [selectedIndex, points.length]);
+
+  const selectRelative = (offset: number) => {
+    const next = points[selectedIndex + offset];
+    if (next) onSelect(next.id);
+  };
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     let next = index;
     if (event.key === "ArrowRight" || event.key === "ArrowDown") next = Math.min(points.length - 1, index + 1);
@@ -79,15 +96,22 @@ export function RenewableComparison({ points, prices, selectedId, onSelect }: Pr
 
   return (
     <div className="renewable-comparison">
-      <p className="renewable-comparison__intro">Valitse tunti kaaviosta. Sama pystyviiva näyttää tuulen, auringon ja spot-hinnan samalta ajalta.</p>
+      <p className="renewable-comparison__intro">Napauta kaaviota tai vaihda tuntia nuolilla. Tuuli, aurinko ja hinta pysyvät samassa ajassa.</p>
       <div className="renewable-comparison__reading" aria-live="polite" aria-atomic="true">
         <strong>{selected ? `${dateTime.format(new Date(selected.startAt))}${selected.label ? ` · ${selected.label}` : ""}` : "Valitse tunti"}</strong>
-        <span><i className="renewable-comparison__swatch renewable-comparison__swatch--wind" />Tuuli <b>{label(selected?.windMw ?? null, "MW")}</b></span>
-        <span><i className="renewable-comparison__swatch renewable-comparison__swatch--solar" />Aurinko <b>{label(selected?.solarMw ?? null, "MW")}</b></span>
-        <span><i className="renewable-comparison__swatch renewable-comparison__swatch--price" />Spot <b>{label(selectedPrice, "snt/kWh")}</b></span>
+        <div className="renewable-comparison__metrics">
+          <span><i className="renewable-comparison__swatch renewable-comparison__swatch--wind" />Tuuli <b>{label(selected?.windMw ?? null, "MW")}</b></span>
+          <span><i className="renewable-comparison__swatch renewable-comparison__swatch--solar" />Aurinko <b>{label(selected?.solarMw ?? null, "MW")}</b></span>
+          <span><i className="renewable-comparison__swatch renewable-comparison__swatch--price" />Spot <b>{label(selectedPrice, "snt/kWh")}</b></span>
+        </div>
       </div>
-      <div className="renewable-comparison__scroller" tabIndex={0} aria-label="Vieritettävä tuuli-, aurinko- ja hintavertailu">
-        <div className="renewable-comparison__canvas">
+      <div className="renewable-comparison__mobile-controls">
+        <button type="button" aria-label="Edellinen vertailutunti" disabled={selectedIndex <= 0} onClick={() => selectRelative(-1)}><ChevronLeft aria-hidden="true" />Edellinen</button>
+        <span>Pyyhkäise kaaviota nähdäksesi lisää tunteja</span>
+        <button type="button" aria-label="Seuraava vertailutunti" disabled={selectedIndex < 0 || selectedIndex >= points.length - 1} onClick={() => selectRelative(1)}>Seuraava<ChevronRight aria-hidden="true" /></button>
+      </div>
+      <div ref={scrollerRef} className="renewable-comparison__scroller" tabIndex={0} aria-label="Vieritettävä tuuli-, aurinko- ja hintavertailu">
+        <div className="renewable-comparison__canvas" style={{ "--comparison-hour-count": points.length } as CSSProperties}>
           {tracks.map((track) => {
             const valid = track.values.filter((value): value is number => value !== null && Number.isFinite(value));
             const minimum = track.kind === "price" ? Math.min(0, ...valid) : 0;
@@ -106,12 +130,20 @@ export function RenewableComparison({ points, prices, selectedId, onSelect }: Pr
                     {[0, 0.5, 1].map((fraction) => {
                       const value = minimum + (maximum - minimum) * fraction;
                       const position = y(value, minimum, maximum);
-                      return <g key={fraction}><line x1={LEFT} x2={WIDTH - RIGHT} y1={position} y2={position} className="renewable-comparison__grid" /><text x={LEFT - 8} y={position + 4} textAnchor="end" className="renewable-comparison__axis-label">{track.unit === "MW" ? number.format(Math.round(value)) : priceNumber.format(value)}</text></g>;
+                      return <line key={fraction} x1={LEFT} x2={WIDTH - RIGHT} y1={position} y2={position} className="renewable-comparison__grid" />;
                     })}
-                    {track.values.map((_, index) => index % 6 === 0 ? <text key={index} x={x(index, points.length)} y={HEIGHT - 7} textAnchor="middle" className="renewable-comparison__time-label">{day.format(new Date(points[index].startAt))} {hour.format(new Date(points[index].startAt))}</text> : null)}
                     {segments(track.values, minimum, maximum).map((path, index) => <path key={`value-${index}`} d={path} className="renewable-comparison__line" />)}
                     {selectedIndex >= 0 && <g><line x1={x(selectedIndex, points.length)} x2={x(selectedIndex, points.length)} y1={TOP} y2={TOP + plotHeight} className="renewable-comparison__selection" />{track.values[selectedIndex] !== null && <circle cx={x(selectedIndex, points.length)} cy={y(track.values[selectedIndex]!, minimum, maximum)} r="5" className="renewable-comparison__dot" />}</g>}
                   </svg>
+                  <div className="renewable-comparison__axis" aria-hidden="true">
+                    {[0, 0.5, 1].map((fraction) => {
+                      const value = minimum + (maximum - minimum) * fraction;
+                      return <span key={fraction} style={{ top: `${y(value, minimum, maximum) / HEIGHT * 100}%` }}>{track.unit === "MW" ? number.format(Math.round(value)) : priceNumber.format(value)}</span>;
+                    })}
+                  </div>
+                  <div className="renewable-comparison__times" aria-hidden="true">
+                    {track.values.map((_, index) => index % 6 === 0 ? <span key={index} style={{ left: `${x(index, points.length) / WIDTH * 100}%` }}>{day.format(new Date(points[index].startAt))} {hour.format(new Date(points[index].startAt))}</span> : null)}
+                  </div>
                   <div className="renewable-comparison__hits" style={{ gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))` }}>
                     {points.map((point, index) => <button key={point.id} type="button" className={index === selectedIndex ? "renewable-comparison__hit renewable-comparison__hit--selected" : "renewable-comparison__hit"} aria-label={`Valitse ${track.title.toLowerCase()} ${dateTime.format(new Date(point.startAt))}${point.label ? ` ${point.label}` : ""}, ${label(track.values[index], track.unit)}`} aria-pressed={index === selectedIndex} tabIndex={index === selectedIndex ? 0 : -1} onClick={() => onSelect(point.id)} onKeyDown={(event) => handleKeyDown(event, index)} />)}
                   </div>

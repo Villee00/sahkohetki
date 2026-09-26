@@ -226,6 +226,19 @@ describe("ForecastExplorer", () => {
     expect(within(comparison).getAllByText("Ei saatavilla").length).toBeGreaterThan(0);
   });
 
+  it("offers nearby hours inside the mobile comparison", async () => {
+    const user = userEvent.setup();
+    renderExplorer();
+    const comparison = screen.getByRole("region", { name: /tuuli ja aurinko/i });
+
+    await user.click(within(comparison).getByRole("button", { name: "Seuraava vertailutunti" }));
+    expect(within(comparison).getByText("4 100 MW")).toBeTruthy();
+    expect(within(comparison).getByText("200 MW")).toBeTruthy();
+
+    await user.click(within(comparison).getByRole("button", { name: "Edellinen vertailutunti" }));
+    expect(within(comparison).getByText("3 850 MW")).toBeTruthy();
+  });
+
   it("labels missing capacity as unavailable instead of deriving utilization", () => {
     renderExplorer({
       ...readySnapshot,
