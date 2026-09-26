@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent } from "react";
 import type { ForecastInterval } from "../../lib/forecast-types";
 
@@ -21,7 +21,6 @@ const LEFT = 60;
 const RIGHT = 16;
 const TOP = 12;
 const BOTTOM = 32;
-const plotWidth = WIDTH - LEFT - RIGHT;
 const plotHeight = HEIGHT - TOP - BOTTOM;
 const number = new Intl.NumberFormat("fi-FI", { maximumFractionDigits: 0 });
 const priceNumber = new Intl.NumberFormat("fi-FI", { maximumFractionDigits: 2 });
@@ -29,21 +28,22 @@ const hour = new Intl.DateTimeFormat("fi-FI", { timeZone: "Europe/Helsinki", hou
 const day = new Intl.DateTimeFormat("fi-FI", { timeZone: "Europe/Helsinki", weekday: "short" });
 const dateTime = new Intl.DateTimeFormat("fi-FI", { timeZone: "Europe/Helsinki", weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
 
-function x(index: number, length: number) {
-  return LEFT + (length < 2 ? plotWidth / 2 : index * plotWidth / (length - 1));
+function x(index: number, length: number, left = LEFT) {
+  const width = WIDTH - left - RIGHT;
+  return left + (length < 2 ? width / 2 : index * width / (length - 1));
 }
 
 function y(value: number, minimum: number, maximum: number) {
   return TOP + (maximum - value) / (maximum - minimum) * plotHeight;
 }
 
-function segments(values: (number | null)[], minimum: number, maximum: number) {
+function segments(values: (number | null)[], minimum: number, maximum: number, left = LEFT) {
   const paths: string[] = [];
   let commands: string[] = [];
   const flush = () => { if (commands.length) paths.push(commands.join(" ")); commands = []; };
   values.forEach((value, index) => {
     if (value === null || !Number.isFinite(value)) { flush(); return; }
-    commands.push(`${commands.length ? "L" : "M"} ${x(index, values.length).toFixed(2)} ${y(value, minimum, maximum).toFixed(2)}`);
+    commands.push(`${commands.length ? "L" : "M"} ${x(index, values.length, left).toFixed(2)} ${y(value, minimum, maximum).toFixed(2)}`);
   });
   flush();
   return paths;
@@ -56,6 +56,7 @@ function label(value: number | null, unit: "MW" | "snt/kWh") {
 
 export function RenewableComparison({ points, prices, selectedId, onSelect }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const [compactLayout, setCompactLayout] = useState(false);
   const priceByStart = new Map(prices.map((point) => [point.startAt, point.priceCentsPerKwh]));
   const selectedIndex = points.findIndex((point) => point.id === selectedId);
   const selected = points[selectedIndex] ?? null;
@@ -67,6 +68,14 @@ export function RenewableComparison({ points, prices, selectedId, onSelect }: Pr
     { kind: "price", title: "Spot-hinta", values: priceValues, unit: "snt/kWh" },
   ];
   useEffect(() => {
+    const media = window.matchMedia("(max-width: 47.999rem)");
+    const updateLayout = () => setCompactLayout(media.matches);
+    updateLayout();
+    media.addEventListener("change", updateLayout);
+    return () => media.removeEventListener("change", updateLayout);
+  }, []);
+  const chartLeft = compactLayout ? 18 : LEFT;
+  useEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller || selectedIndex < 0 || scroller.scrollWidth <= scroller.clientWidth) return;
     const hit = scroller.querySelectorAll<HTMLElement>(".renewable-comparison__track--wind .renewable-comparison__hit")[selectedIndex];
@@ -74,7 +83,7 @@ export function RenewableComparison({ points, prices, selectedId, onSelect }: Pr
     const scrollerBounds = scroller.getBoundingClientRect();
     const hitBounds = hit.getBoundingClientRect();
     scroller.scrollLeft += hitBounds.left - scrollerBounds.left - scroller.clientWidth / 2 + hitBounds.width / 2;
-  }, [selectedIndex, points.length]);
+  }, [selectedIndex, points.length, compactLayout]);
 
   const selectRelative = (offset: number) => {
     const next = points[selectedIndex + offset];
@@ -130,11 +139,12 @@ export function RenewableComparison({ points, prices, selectedId, onSelect }: Pr
                     {[0, 0.5, 1].map((fraction) => {
                       const value = minimum + (maximum - minimum) * fraction;
                       const position = y(value, minimum, maximum);
-                      return <line key={fraction} x1={LEFT} x2={WIDTH - RIGHT} y1={position} y2={position} className="renewable-comparison__grid" />;
+                      return <line key={fraction} x1={chartLeft} x2={WIDTH - RIGHT} y1={position} y2={position} className="renewable-comparison__grid" />;
                     })}
-                    {segments(track.values, minimum, maximum).map((path, index) => <path key={`value-${index}`} d={path} className="renewable-comparison__line" />)}
-                    {selectedIndex >= 0 && <g><line x1={x(selectedIndex, points.length)} x2={x(selectedIndex, points.length)} y1={TOP} y2={TOP + plotHeight} className="renewable-comparison__selection" />{track.values[selectedIndex] !== null && <circle cx={x(selectedIndex, points.length)} cy={y(track.values[selectedIndex]!, minimum, maximum)} r="5" className="renewable-comparison__dot" />}</g>}
+                    {segments(track.values, minimum, maximum, chartLeft).map((path, index) => <path key={`value-${index}`} d={path} className="renewable-comparison__line" />)}
+                    {selectedIndex >= 0 && <line x1={x(selectedIndex, points.length, chartLeft)} x2={x(selectedIndex, points.length, chartLeft)} y1={TOP} y2={TOP + plotHeight} className="renewable-comparison__selection" />}
                   </svg>
+                  {selectedIndex >= 0 && track.values[selectedIndex] !== null && <span className={`renewable-comparison__marker renewable-comparison__marker--${track.kind}`} aria-hidden="true" style={{ left: `${x(selectedIndex, points.length, chartLeft) / WIDTH * 100}%`, top: `${y(track.values[selectedIndex]!, minimum, maximum) / HEIGHT * 100}%` }} />}
                   <div className="renewable-comparison__axis" aria-hidden="true">
                     {[0, 0.5, 1].map((fraction) => {
                       const value = minimum + (maximum - minimum) * fraction;
@@ -142,9 +152,9 @@ export function RenewableComparison({ points, prices, selectedId, onSelect }: Pr
                     })}
                   </div>
                   <div className="renewable-comparison__times" aria-hidden="true">
-                    {track.values.map((_, index) => index % 6 === 0 ? <span key={index} style={{ left: `${x(index, points.length) / WIDTH * 100}%` }}>{day.format(new Date(points[index].startAt))} {hour.format(new Date(points[index].startAt))}</span> : null)}
+                    {track.values.map((_, index) => index % 6 === 0 ? <span key={index} style={{ left: `${x(index, points.length, chartLeft) / WIDTH * 100}%` }}>{day.format(new Date(points[index].startAt))} {hour.format(new Date(points[index].startAt))}</span> : null)}
                   </div>
-                  <div className="renewable-comparison__hits" style={{ gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))` }}>
+                  <div className="renewable-comparison__hits" style={{ left: `${chartLeft / WIDTH * 100}%`, gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))` }}>
                     {points.map((point, index) => <button key={point.id} type="button" className={index === selectedIndex ? "renewable-comparison__hit renewable-comparison__hit--selected" : "renewable-comparison__hit"} aria-label={`Valitse ${track.title.toLowerCase()} ${dateTime.format(new Date(point.startAt))}${point.label ? ` ${point.label}` : ""}, ${label(track.values[index], track.unit)}`} aria-pressed={index === selectedIndex} tabIndex={index === selectedIndex ? 0 : -1} onClick={() => onSelect(point.id)} onKeyDown={(event) => handleKeyDown(event, index)} />)}
                   </div>
                 </div>
