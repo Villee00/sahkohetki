@@ -1510,53 +1510,38 @@ button:disabled {
   vector-effect: non-scaling-stroke;
 }
 
-.price-chart__line-point {
+.price-chart__line-selected,
+.price-chart__line-hover,
+.price-chart__line-carried {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.price-chart__line-selected {
+  stroke: #38bdf8;
+  stroke-width: 4;
+}
+
+.price-chart__line-hover {
+  stroke: #f8fafc;
+  stroke-width: 5;
+  filter: drop-shadow(0 0 5px rgba(125, 211, 252, 0.8));
+}
+
+.price-chart__line-carried {
+  stroke: #cbd5e1;
+  stroke-dasharray: 5 4;
+  stroke-width: 3;
+}
+
+.price-chart__unavailable-marker {
   position: absolute;
-  width: 0.35rem;
-  height: 0.35rem;
-  border: 1px solid #0f172a;
-  border-radius: 50%;
-  transform: translate(-50%, 50%);
-}
-
-.price-chart__line-point--cheap {
-  background: #4fc39a;
-}
-
-.price-chart__line-point--normal {
-  background: #f3aa26;
-}
-
-.price-chart__line-point--high {
-  background: #e95b4f;
-}
-
-.price-chart__line-point--unavailable {
   width: 0.42rem;
   height: 0.42rem;
   border: 1px dashed #94a3b8;
   border-radius: 0.1rem;
   background: rgba(51, 65, 85, 0.9);
-}
-
-.price-chart__line-point--selected,
-.price-chart__line-point--hovered {
-  z-index: 1;
-  width: 0.65rem;
-  height: 0.65rem;
-  border: 2px solid #f8fafc;
-  box-shadow:
-    0 0 0 2px rgba(56, 189, 248, 0.32),
-    0 0 12px rgba(56, 189, 248, 0.5);
-}
-
-.price-chart__line-point--hovered {
-  width: 0.75rem;
-  height: 0.75rem;
-}
-
-.price-chart__line-point--carried {
-  border-style: dashed;
+  transform: translate(-50%, 50%);
 }
 
 .price-chart__bars,
@@ -1925,6 +1910,13 @@ button:disabled {
   background: #ef4444;
 }
 
+.price-chart__legend-swatch--line {
+  height: 0.15rem;
+  border-radius: 0.1rem;
+  background: #7dd3fc;
+  box-shadow: none;
+}
+
 .price-chart__legend-swatch--unavailable {
   border: 1px dashed #94a3b8;
   border-radius: 0.15rem;
@@ -1961,6 +1953,17 @@ button:disabled {
     transparent 6px
   );
   box-shadow: 0 0 8px rgba(148, 163, 184, 0.42);
+}
+
+.price-chart__legend-swatch--carried-line {
+  height: 0.15rem;
+  border-radius: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    #cbd5e1 0 4px,
+    transparent 4px 7px
+  );
+  box-shadow: none;
 }
 
 .price-chart__legend-name--carried {

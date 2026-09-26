@@ -88,8 +88,8 @@ it("switches between bar and line charts while keeping interval selection", asyn
   expect(toggle.getAttribute("aria-pressed")).toBe("true");
   expect(document.querySelector(".price-chart__bar")).toBeNull();
   expect(screen.getByTestId("price-chart-line").querySelectorAll("polyline")).toHaveLength(1);
-  expect(document.querySelectorAll(".price-chart__line-point")).toHaveLength(2);
-  expect(document.querySelector(".price-chart__line-point--selected")).toBeTruthy();
+  expect(document.querySelector(".price-chart__line-point")).toBeNull();
+  expect(document.querySelector(".price-chart__line-selected")).toBeTruthy();
 
   await user.click(screen.getByRole("button", { name: /10:30–10:45/ }));
   expect(onSelect).toHaveBeenCalledWith(higherPoint.id);
@@ -119,6 +119,74 @@ it("holds each price flat for its full interval and changes at the boundary", as
   ).toBe("0,62 50,62 50,44 100,44");
 });
 
+it("shows the hovered interval tooltip without dots in line mode", async () => {
+  const user = userEvent.setup();
+  render(
+    <PriceChart
+      points={[point, higherPoint]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "Viivakaavio" }));
+  expect(screen.getByText(/Valitse aika napsauttamalla viivaa/)).toBeTruthy();
+  const nextInterval = screen.getByRole("button", { name: /10:30–10:45/ });
+  await user.hover(nextInterval);
+
+  expect(screen.getByRole("tooltip").textContent).toContain("9,00 snt/kWh");
+  const highlightedLine = screen
+    .getByTestId("price-chart-line")
+    .querySelector(".price-chart__line-hover");
+  expect(highlightedLine?.getAttribute("x1")).toBe("50");
+  expect(highlightedLine?.getAttribute("x2")).toBe("100");
+  expect(document.querySelector(".price-chart__line-point")).toBeNull();
+
+  await user.unhover(nextInterval);
+  expect(
+    screen
+      .getByTestId("price-chart-line")
+      .querySelector(".price-chart__line-hover"),
+  ).toBeNull();
+});
+
+it("uses a dashed line segment to identify a carried-forward price", async () => {
+  const user = userEvent.setup();
+  render(
+    <PriceChart
+      points={[point, { ...higherPoint, carriedForward: true }]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+      showCarriedForwardMarker
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "Viivakaavio" }));
+  const carriedLine = screen
+    .getByTestId("price-chart-line")
+    .querySelector(".price-chart__line-carried");
+  expect(carriedLine?.getAttribute("x1")).toBe("50");
+  expect(carriedLine?.getAttribute("x2")).toBe("100");
+  expect(document.querySelector(".price-chart__line-point")).toBeNull();
+});
+
+it("shows a line-specific legend without the bar colors", async () => {
+  const user = userEvent.setup();
+  render(
+    <PriceChart
+      points={[point, higherPoint]}
+      selectedId={point.id}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "Viivakaavio" }));
+  expect(screen.getByText("Sininen viiva")).toBeTruthy();
+  expect(screen.queryByText("Vihreä")).toBeNull();
+  expect(screen.queryByText("Keltainen")).toBeNull();
+  expect(screen.queryByText("Punainen")).toBeNull();
+});
+
 it("breaks the line at unavailable intervals", async () => {
   const user = userEvent.setup();
   render(
@@ -139,9 +207,9 @@ it("breaks the line at unavailable intervals", async () => {
   expect(
     screen.getByTestId("price-chart-line").querySelectorAll("polyline"),
   ).toHaveLength(2);
-  expect(document.querySelectorAll(".price-chart__line-point")).toHaveLength(5);
+  expect(document.querySelector(".price-chart__line-point")).toBeNull();
   expect(
-    document.querySelectorAll(".price-chart__line-point--unavailable"),
+    document.querySelectorAll(".price-chart__unavailable-marker"),
   ).toHaveLength(1);
   expect(
     screen
@@ -171,7 +239,7 @@ it("marks unavailable intervals after the line ends", async () => {
 
   await user.click(screen.getByRole("button", { name: "Viivakaavio" }));
   const missingMarker = document.querySelector<HTMLElement>(
-    ".price-chart__line-point--unavailable",
+    ".price-chart__unavailable-marker",
   );
   expect(missingMarker).not.toBeNull();
   expect(Number.parseFloat(missingMarker?.style.left ?? "0")).toBeCloseTo(

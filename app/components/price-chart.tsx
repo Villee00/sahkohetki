@@ -161,6 +161,36 @@ function getPointCenterPosition(index: number, count: number): number {
   return ((index + 0.5) / count) * 100;
 }
 
+function getLineYPosition(price: number, scale: ChartScale): number {
+  return Number((100 - getScalePosition(price, scale)).toFixed(6));
+}
+
+function getLineCoordinates(
+  index: number,
+  count: number,
+  price: number,
+  scale: ChartScale,
+) {
+  return {
+    x1: (index / count) * 100,
+    x2: ((index + 1) / count) * 100,
+    y: getLineYPosition(price, scale),
+  };
+}
+
+function getLineCoordinatesForId(
+  points: PricePoint[],
+  id: string | null,
+  scale: ChartScale,
+) {
+  const index = points.findIndex((point) => point.id === id);
+  if (index < 0) return null;
+  const price = getAvailablePointPrice(points[index]);
+  return price === null
+    ? null
+    : getLineCoordinates(index, points.length, price, scale);
+}
+
 function getLineSegments(points: PricePoint[], scale: ChartScale): string[] {
   const segments: string[] = [];
   let coordinates: string[] = [];
@@ -173,11 +203,13 @@ function getLineSegments(points: PricePoint[], scale: ChartScale): string[] {
       return;
     }
 
-    const y = Number((100 - getScalePosition(price, scale)).toFixed(6));
-    coordinates.push(
-      `${(index / points.length) * 100},${y}`,
-      `${((index + 1) / points.length) * 100},${y}`,
+    const { x1, x2, y } = getLineCoordinates(
+      index,
+      points.length,
+      price,
+      scale,
     );
+    coordinates.push(`${x1},${y}`, `${x2},${y}`);
   });
 
   if (coordinates.length > 0) segments.push(coordinates.join(" "));
@@ -264,6 +296,8 @@ export function PriceChart({
     gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))`,
   };
   const lineSegments = showLineChart ? getLineSegments(points, chartScale) : [];
+  const selectedLine = getLineCoordinatesForId(points, selectedId, chartScale);
+  const hoveredLine = getLineCoordinatesForId(points, activePointId, chartScale);
 
   return (
     <section aria-labelledby="price-chart-heading" className="price-chart">
@@ -278,7 +312,7 @@ export function PriceChart({
             <span>Pörssisähkön hinta</span>
             <span className="price-chart__title-hint">
               (Valitse aika napsauttamalla{" "}
-              {showLineChart ? "pistettä" : "pylvästä"})
+              {showLineChart ? "viivaa" : "pylvästä"})
             </span>
           </h2>
           <div className="price-chart__header-tools">
@@ -382,43 +416,61 @@ export function PriceChart({
                         {lineSegments.map((coordinates, index) => (
                           <polyline key={index} points={coordinates} />
                         ))}
+                        {selectedLine ? (
+                          <line
+                            className="price-chart__line-selected"
+                            x1={selectedLine.x1}
+                            x2={selectedLine.x2}
+                            y1={selectedLine.y}
+                            y2={selectedLine.y}
+                          />
+                        ) : null}
+                        {hoveredLine ? (
+                          <line
+                            className="price-chart__line-hover"
+                            x1={hoveredLine.x1}
+                            x2={hoveredLine.x2}
+                            y1={hoveredLine.y}
+                            y2={hoveredLine.y}
+                          />
+                        ) : null}
+                        {showCarriedForwardMarker
+                          ? points.map((point, index) => {
+                              const price = getAvailablePointPrice(point);
+                              if (price === null || !point.carriedForward) {
+                                return null;
+                              }
+                              const { x1, x2, y } = getLineCoordinates(
+                                index,
+                                points.length,
+                                price,
+                                chartScale,
+                              );
+                              return (
+                                <line
+                                  key={point.id}
+                                  className="price-chart__line-carried"
+                                  x1={x1}
+                                  x2={x2}
+                                  y1={y}
+                                  y2={y}
+                                />
+                              );
+                            })
+                          : null}
                       </svg>
                       {points.map((point, index) => {
                         const price = getAvailablePointPrice(point);
-                        if (price === null) {
-                          return (
-                            <span
-                              key={point.id}
-                              className="price-chart__line-point price-chart__line-point--unavailable"
-                              style={{
-                                left: `${getPointCenterPosition(index, points.length)}%`,
-                                bottom: `${zeroPosition}%`,
-                              }}
-                            />
-                          );
-                        }
-                        return (
+                        return price === null ? (
                           <span
                             key={point.id}
-                            className={`price-chart__line-point price-chart__line-point--${point.level ?? "normal"}${
-                              point.id === selectedId
-                                ? " price-chart__line-point--selected"
-                                : ""
-                            }${
-                              point.id === activePointId
-                                ? " price-chart__line-point--hovered"
-                                : ""
-                            }${
-                              showCarriedForwardMarker && point.carriedForward
-                                ? " price-chart__line-point--carried"
-                                : ""
-                            }`}
+                            className="price-chart__unavailable-marker"
                             style={{
                               left: `${getPointCenterPosition(index, points.length)}%`,
-                              bottom: `${getScalePosition(price, chartScale)}%`,
+                              bottom: `${zeroPosition}%`,
                             }}
                           />
-                        );
+                        ) : null;
                       })}
                     </div>
                   ) : null}
@@ -551,41 +603,64 @@ export function PriceChart({
             <div
               className="price-chart__legend"
               data-testid="price-chart-legend"
-              aria-label="Kaavion värit"
+              aria-label={showLineChart ? "Kaavion merkinnät" : "Kaavion värit"}
             >
-              <span className="price-chart__legend-prefix">Värit:</span>
-              <span className="price-chart__legend-item">
-                <span
-                  className="price-chart__legend-swatch price-chart__legend-swatch--cheap"
-                  aria-hidden="true"
-                />
-                <span className="price-chart__legend-name price-chart__legend-name--cheap">
-                  Vihreä
-                </span>
-                <span className="price-chart__legend-detail">= Edullinen</span>
+              <span className="price-chart__legend-prefix">
+                {showLineChart ? "Merkinnät:" : "Värit:"}
               </span>
-              <span className="price-chart__legend-item">
-                <span
-                  className="price-chart__legend-swatch price-chart__legend-swatch--normal"
-                  aria-hidden="true"
-                />
-                <span className="price-chart__legend-name price-chart__legend-name--normal">
-                  Keltainen
+              {showLineChart ? (
+                <span className="price-chart__legend-item">
+                  <span
+                    className="price-chart__legend-swatch price-chart__legend-swatch--line"
+                    aria-hidden="true"
+                  />
+                  <span className="price-chart__legend-detail">
+                    Sininen viiva
+                  </span>
+                  <span className="price-chart__legend-detail">
+                    = Spot-hinta
+                  </span>
                 </span>
-                <span className="price-chart__legend-detail">
-                  = Normaali
-                </span>
-              </span>
-              <span className="price-chart__legend-item">
-                <span
-                  className="price-chart__legend-swatch price-chart__legend-swatch--high"
-                  aria-hidden="true"
-                />
-                <span className="price-chart__legend-name price-chart__legend-name--high">
-                  Punainen
-                </span>
-                <span className="price-chart__legend-detail">= Korkea</span>
-              </span>
+              ) : (
+                <>
+                  <span className="price-chart__legend-item">
+                    <span
+                      className="price-chart__legend-swatch price-chart__legend-swatch--cheap"
+                      aria-hidden="true"
+                    />
+                    <span className="price-chart__legend-name price-chart__legend-name--cheap">
+                      Vihreä
+                    </span>
+                    <span className="price-chart__legend-detail">
+                      = Edullinen
+                    </span>
+                  </span>
+                  <span className="price-chart__legend-item">
+                    <span
+                      className="price-chart__legend-swatch price-chart__legend-swatch--normal"
+                      aria-hidden="true"
+                    />
+                    <span className="price-chart__legend-name price-chart__legend-name--normal">
+                      Keltainen
+                    </span>
+                    <span className="price-chart__legend-detail">
+                      = Normaali
+                    </span>
+                  </span>
+                  <span className="price-chart__legend-item">
+                    <span
+                      className="price-chart__legend-swatch price-chart__legend-swatch--high"
+                      aria-hidden="true"
+                    />
+                    <span className="price-chart__legend-name price-chart__legend-name--high">
+                      Punainen
+                    </span>
+                    <span className="price-chart__legend-detail">
+                      = Korkea
+                    </span>
+                  </span>
+                </>
+              )}
               {showLineChart && hasUnavailablePoint ? (
                 <span className="price-chart__legend-item">
                   <span
@@ -600,11 +675,11 @@ export function PriceChart({
               {hasCarriedForwardPoint ? (
                 <span className="price-chart__legend-item">
                   <span
-                    className="price-chart__legend-swatch price-chart__legend-swatch--carried"
+                    className={`price-chart__legend-swatch price-chart__legend-swatch--carried${showLineChart ? "-line" : ""}`}
                     aria-hidden="true"
                   />
                   <span className="price-chart__legend-name price-chart__legend-name--carried">
-                    Viivoitettu
+                    {showLineChart ? "Katkoviiva" : "Viivoitettu"}
                   </span>
                   <span className="price-chart__legend-detail">
                     = viimeisin julkaistu hinta puuttuneen tilalla
