@@ -2909,11 +2909,13 @@ body:has(.dialog-backdrop) {
   }
 
   .forecast-summary {
-    padding-right: 4.25rem;
+    padding-right: 0;
   }
 
   .forecast-hour-controls {
-    right: 0;
+    position: static;
+    justify-content: flex-end;
+    margin-top: 0.75rem;
   }
 
   .forecast-balance {
@@ -2973,10 +2975,6 @@ body:has(.dialog-backdrop) {
 @media (max-width: 30rem) {
   .forecast-title {
     font-size: 2.75rem;
-  }
-
-  .forecast-summary {
-    padding-right: 3.3rem;
   }
 
   .forecast-hour-controls {
@@ -3531,7 +3529,7 @@ body:has(.dialog-backdrop) {
   .renewable-comparison__intro { margin: 0.15rem 0 0.65rem; }
   .renewable-comparison__reading {
     position: sticky;
-    top: 5rem;
+    top: var(--renewable-reading-sticky-top, 7rem);
     z-index: 20;
     display: block;
     padding: 0.75rem;

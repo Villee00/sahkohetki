@@ -57,6 +57,7 @@ function label(value: number | null, unit: "MW" | "snt/kWh") {
 export function RenewableComparison({ points, prices, selectedId, onSelect }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [compactLayout, setCompactLayout] = useState(false);
+  const [readingStickyTop, setReadingStickyTop] = useState<number | null>(null);
   const priceByStart = new Map(prices.map((point) => [point.startAt, point.priceCentsPerKwh]));
   const selectedIndex = points.findIndex((point) => point.id === selectedId);
   const selected = points[selectedIndex] ?? null;
@@ -68,13 +69,41 @@ export function RenewableComparison({ points, prices, selectedId, onSelect }: Pr
     { kind: "price", title: "Spot-hinta", values: priceValues, unit: "snt/kWh" },
   ];
   useEffect(() => {
+    if (typeof window.matchMedia !== "function") {
+      const updateLayout = () => setCompactLayout(window.innerWidth <= 768);
+      updateLayout();
+      window.addEventListener("resize", updateLayout);
+      return () => window.removeEventListener("resize", updateLayout);
+    }
+
     const media = window.matchMedia("(max-width: 47.999rem)");
     const updateLayout = () => setCompactLayout(media.matches);
     updateLayout();
     media.addEventListener("change", updateLayout);
     return () => media.removeEventListener("change", updateLayout);
   }, []);
+  useEffect(() => {
+    const header = document.querySelector<HTMLElement>(".site-header");
+    if (!header) return;
+
+    const updateStickyTop = () => {
+      setReadingStickyTop(Math.ceil(header.getBoundingClientRect().height) + 8);
+    };
+    updateStickyTop();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateStickyTop);
+      return () => window.removeEventListener("resize", updateStickyTop);
+    }
+
+    const observer = new ResizeObserver(updateStickyTop);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
   const chartLeft = compactLayout ? 18 : LEFT;
+  const readingStyle = readingStickyTop === null
+    ? undefined
+    : { "--renewable-reading-sticky-top": `${readingStickyTop}px` } as CSSProperties;
   useEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller || selectedIndex < 0 || scroller.scrollWidth <= scroller.clientWidth) return;
@@ -106,7 +135,7 @@ export function RenewableComparison({ points, prices, selectedId, onSelect }: Pr
   return (
     <div className="renewable-comparison">
       <p className="renewable-comparison__intro">Napauta kaaviota tai vaihda tuntia nuolilla. Tuuli, aurinko ja hinta pysyvät samassa ajassa.</p>
-      <div className="renewable-comparison__reading" aria-live="polite" aria-atomic="true">
+      <div className="renewable-comparison__reading" style={readingStyle} aria-live="polite" aria-atomic="true">
         <strong>{selected ? `${dateTime.format(new Date(selected.startAt))}${selected.label ? ` · ${selected.label}` : ""}` : "Valitse tunti"}</strong>
         <div className="renewable-comparison__metrics">
           <span><i className="renewable-comparison__swatch renewable-comparison__swatch--wind" />Tuuli <b>{label(selected?.windMw ?? null, "MW")}</b></span>
