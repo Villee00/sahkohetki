@@ -26,12 +26,12 @@ Fingrid's API instructions document the base address as
 https://data.fingrid.fi/api, require an API key in the x-api-key request
 header, and limit a key to 10,000 requests per 24 hours and one request every
 two seconds. See [Fingrid API instructions](https://data.fingrid.fi/en/instructions).
-The adapter currently calls the operation URL
-https://data.fingrid.fi/api/data once for all ten datasets and keeps the key
-server-side. It serializes each selected ID as a repeated `datasets` query
-parameter, matching Fingrid's first-party download client. The operation path
-and authenticated response envelope remain live-key validation items; they are
-not fully specified by the public instructions page. Dataset 194's import sign
+The adapter calls the operation URL https://data.fingrid.fi/api/data once
+for all ten datasets and keeps the key server-side. A live-key request on
+2026-09-26 confirmed that the `datasets` query must be one comma-separated
+value: repeating the parameter returns HTTP 422, while the comma-separated
+request returns HTTP 200 with a `{ data, pagination }` response and rows for
+all ten requested dataset IDs. Dataset 194's import sign
 is supported by a first-party data sample and related Fingrid border-flow
 descriptions, as detailed below.
 
@@ -83,10 +83,10 @@ the daily quota is exhausted. Fingrid recommends waiting before retrying and
 reducing request volume with larger time ranges and caching.
 
 The adapter makes one aggregated request for all ten selected datasets and
-uses a three-minute server cache. Fingrid's download UI also states that up to
-ten datasets can be selected together ([official download page](https://data.fingrid.fi/en/data?datasets=245&datasets=246&datasets=268&datasets=75)).
-The exact equivalent of that multi-dataset behavior for the authenticated
-/api/data operation must still be confirmed with a live key.
+uses a three-minute server cache. The live request confirmed that all ten IDs
+can be returned together when `datasets` is comma-separated. Fingrid's download
+UI also states that up to ten datasets can be selected together
+([official download page](https://data.fingrid.fi/en/data?datasets=245&datasets=246&datasets=268&datasets=75)).
 
 ### Time zones and timestamps
 
@@ -413,31 +413,23 @@ values ([API instructions](https://data.fingrid.fi/en/instructions),
 
 ## What still needs a live-key validation
 
-After FINGRID_API_KEY is configured, run one controlled request and record the
-result before calling the integration verified. Specifically check:
+The authenticated `/api/data` request and its response envelope were
+confirmed on 2026-09-26. These remaining data semantics and failure paths
+still need controlled review:
 
-1. **Operation path and parameters:** confirm that /api/data accepts the ten
-   repeated `datasets` parameters, ISO UTC startTime/endTime, format=json,
-   oneRowPerTimePeriod=false, pageSize, locale, and sort parameters.
-2. **Response envelope:** confirm whether the authenticated response is
-   { data: [...] }, a bare array, or another documented shape, and whether
-   each row contains datasetId, startTime, endTime, and value with the
-   expected types.
-3. **Multi-dataset behavior:** verify that all ten IDs can be fetched in one
-   call and that rows remain distinguishable by datasetId.
-4. **Horizon coverage:** verify that 166, 241, 245, and 248 return the expected
+1. **Horizon coverage:** verify that 166, 241, 245, and 248 return the expected
    future rows through the requested 72-hour window and that their interval
    boundaries are 15 minutes.
-5. **MWh/h semantics:** verify that the wind and solar values are average
+2. **MWh/h semantics:** verify that the wind and solar values are average
    power for the interval, so the display conversion to average MW is correct.
-6. **Capacity alignment:** inspect the startTime/endTime semantics of 267
+3. **Capacity alignment:** inspect the startTime/endTime semantics of 267
    and 268 before relying on repeating an hourly model value across quarters.
-7. **Dataset 194 sign:** validate a known import/export interval and confirm
+4. **Dataset 194 sign:** validate a known import/export interval and confirm
    the inversion described above.
-8. **Current freshness:** confirm that 192–194 and 336 return recent rows and
+5. **Current freshness:** confirm that 192–194 and 336 return recent rows and
    that the selected latest-row logic does not mistake a future-dated or
    revised interval for the current reading.
-9. **Error behavior:** record the status/body for missing key, invalid key,
+6. **Error behavior:** record the status/body for missing key, invalid key,
    throttling, and a deliberately narrow or empty range without exposing the
    key in logs.
 

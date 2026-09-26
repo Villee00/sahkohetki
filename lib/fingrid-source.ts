@@ -312,9 +312,10 @@ function buildRequestUrl(now: Date): string | null {
   const horizonStart =
     Math.floor(nowMilliseconds / HOUR_MILLISECONDS) * HOUR_MILLISECONDS;
   const url = new URL(API_URL);
-  for (const datasetId of Object.values(FINGRID_DATASET_IDS)) {
-    url.searchParams.append("datasets", String(datasetId));
-  }
+  url.searchParams.set(
+    "datasets",
+    Object.values(FINGRID_DATASET_IDS).join(","),
+  );
   url.searchParams.set(
     "startTime",
     canonicalTimestamp(horizonStart - HOUR_MILLISECONDS),
