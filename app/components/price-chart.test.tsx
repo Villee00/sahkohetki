@@ -783,9 +783,8 @@ it("preserves standard page scrolling on vertical touch gestures", () => {
   vi.useRealTimers();
 });
 
-it("positions tooltips with data-align attribute to prevent clipping near edges", async () => {
+it("renders centered tooltips consistently across start, middle, and end intervals", async () => {
   const user = userEvent.setup();
-  // 5 points: index 0 (<0.22) is start, index 2 (0.4) is center, index 4 (0.8) is end
   const points = [0, 1, 2, 3, 4].map((i) => ({
     ...point,
     id: `p-${i}`,
@@ -796,18 +795,27 @@ it("positions tooltips with data-align attribute to prevent clipping near edges"
 
   const buttons = screen.getAllByRole("button", { name: /10:0/ });
 
-  // Hover first point (edge left)
+  // Hover first point (start of chart)
   await user.hover(buttons[0]);
-  expect(screen.getByRole("tooltip").getAttribute("data-align")).toBe("start");
+  const firstTooltip = screen.getByRole("tooltip");
+  expect(firstTooltip).toBeTruthy();
+  expect(firstTooltip.textContent).toContain("10:00–10:01");
+  expect(firstTooltip.getAttribute("data-align")).toBeNull();
   await user.unhover(buttons[0]);
 
-  // Hover middle point
+  // Hover middle point (middle of chart)
   await user.hover(buttons[2]);
-  expect(screen.getByRole("tooltip").getAttribute("data-align")).toBe("center");
+  const midTooltip = screen.getByRole("tooltip");
+  expect(midTooltip).toBeTruthy();
+  expect(midTooltip.textContent).toContain("10:02–10:03");
+  expect(midTooltip.getAttribute("data-align")).toBeNull();
   await user.unhover(buttons[2]);
 
-  // Hover last point (edge right)
+  // Hover last point (end of chart)
   await user.hover(buttons[4]);
-  expect(screen.getByRole("tooltip").getAttribute("data-align")).toBe("end");
+  const lastTooltip = screen.getByRole("tooltip");
+  expect(lastTooltip).toBeTruthy();
+  expect(lastTooltip.textContent).toContain("10:04–10:05");
+  expect(lastTooltip.getAttribute("data-align")).toBeNull();
   await user.unhover(buttons[4]);
 });

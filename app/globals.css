@@ -29,6 +29,7 @@ html {
   scroll-behavior: smooth;
   scrollbar-gutter: stable;
   background: var(--ink-950);
+  overflow-x: clip;
 }
 
 body {
@@ -1365,7 +1366,7 @@ button:disabled {
 
 .price-chart__frame {
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .price-chart__plot-layout {
@@ -1377,6 +1378,7 @@ button:disabled {
   display: grid;
   grid-template-columns: 1rem minmax(0, 1fr);
   gap: 0.65rem;
+  padding-right: clamp(0.35rem, 1.5vw, 0.75rem);
   min-width: 0;
 }
 
@@ -1803,34 +1805,6 @@ button:disabled {
   white-space: normal;
 }
 
-.price-chart__item:first-child .price-chart__tooltip,
-.price-chart__tooltip[data-align="start"] {
-  left: 0.35rem;
-  transform: translateY(0);
-}
-
-.price-chart__item:first-child .price-chart__tooltip::after,
-.price-chart__tooltip[data-align="start"]::after {
-  left: clamp(0.75rem, 50%, 2rem);
-}
-
-.price-chart__item:last-child .price-chart__tooltip,
-.price-chart__tooltip[data-align="end"] {
-  right: 0.35rem;
-  left: auto;
-  transform: translateY(0);
-}
-
-.price-chart__item:last-child .price-chart__tooltip::after,
-.price-chart__tooltip[data-align="end"]::after {
-  right: clamp(0.75rem, 50%, 2rem);
-  left: auto;
-}
-
-.price-chart__tooltip[data-align="center"] {
-  left: 50%;
-  transform: translate(-50%, 0);
-}
 
 @keyframes price-chart-tooltip-in {
   from {

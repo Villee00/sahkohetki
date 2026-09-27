@@ -743,7 +743,7 @@ export function PriceChart({
                     className="price-chart__bars grid"
                     style={chartGridStyle}
                   >
-                    {points.map((point, index) => {
+                    {points.map((point) => {
                       const isSelected = point.id === selectedId;
                       const isHovered = point.id === activePointId;
                       const showSelectedBar = isSelected && !isHovered;
@@ -754,12 +754,6 @@ export function PriceChart({
                       const barClass = point.available
                         ? `price-chart__bar--${point.level ?? "normal"}`
                         : "price-chart__bar--unavailable";
-                      const align =
-                        index < points.length * 0.22
-                          ? "start"
-                          : index > points.length * 0.78
-                            ? "end"
-                            : "center";
 
                       return (
                         <div
@@ -815,7 +809,6 @@ export function PriceChart({
                             <span
                               className="price-chart__tooltip"
                               data-level={levelClass}
-                              data-align={align}
                               role="tooltip"
                             >
                               <span className="price-chart__tooltip-time">
